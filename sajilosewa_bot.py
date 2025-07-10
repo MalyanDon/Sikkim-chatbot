@@ -1,5 +1,5 @@
 """
-SmartGov Ex-Gratia Chatbot - Intelligent Telegram bot with LLM-powered intent detection
+SajiloSewa Ex-Gratia Chatbot - Intelligent Telegram bot for disaster relief services
 """
 import csv
 import logging
@@ -7,37 +7,18 @@ import os
 import re
 import pandas as pd
 import requests
-import asyncio
-import aiohttp
-import json
-import time
-import nest_asyncio
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, ContextTypes, filters
 from config import Config
 
-# Fix for Windows event loop issues
-nest_asyncio.apply()
-
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-class SmartGovBot:
+class SajiloSewaBot:
     def __init__(self):
         self.exgratia_norms = self._load_file_content(Config.EXGRATIA_NORMS_FILE)
         self.application_procedure = self._load_file_content(Config.APPLICATION_PROCEDURE_FILE)
         self._initialize_csv_files()
-        
-        # LLM Configuration
-        self.MODEL_NAME = "qwen2.5:3b"
-        self.LLM_ENDPOINT = "http://localhost:11434/api/generate"
-        
-        # Performance tracking
-        self.request_count = 0
-        self.response_times = []
-        
-        # Session will be created when needed
-        self.session = None
         
     def _load_file_content(self, file_path: str) -> str:
         try:
@@ -54,96 +35,40 @@ class SmartGovBot:
             with open(Config.SUBMISSION_CSV_FILE, 'w', newline='', encoding='utf-8') as file:
                 writer = csv.writer(file)
                 writer.writerow(['submission_id', 'name', 'phone', 'submission_date', 'status', 'details'])
-
-    async def get_session(self):
-        """Get or create HTTP session"""
-        if self.session is None:
-            connector = aiohttp.TCPConnector(
-                limit=100,
-                limit_per_host=50,
-                ttl_dns_cache=300,
-                use_dns_cache=True,
-                keepalive_timeout=60,
-                enable_cleanup_closed=True
-            )
-            
-            timeout = aiohttp.ClientTimeout(total=30, connect=10)
-            
-            self.session = aiohttp.ClientSession(
-                connector=connector,
-                timeout=timeout
-            )
-        return self.session
-
-    async def detect_intent_with_llm(self, message):
-        """Detect intent using Qwen2.5:3B LLM"""
-        session = await self.get_session()
-        
-        prompt = f"""You are an AI assistant for SmartGov disaster relief ex-gratia program.
-
-Classify this user message into exactly ONE of these intents:
-- greeting: for hello, hi, namaste, hey, good morning (simple greetings only)
-- exgratia_norms: for asking about assistance amounts, eligibility, rules
-- application_procedure: for asking how to apply, application process, steps
-- status_check: for checking existing application status, tracking
-- help: for explicit help requests like "I need help", "madad chahiye"
-- other: for anything else
-
-User message: "{message}"
-
-Respond with ONLY the intent name (one word):"""
-        
-        payload = {
-            "model": self.MODEL_NAME,
-            "prompt": prompt,
-            "stream": False,
-            "options": {
-                "temperature": 0.1,
-                "top_p": 0.9,
-                "num_predict": 50
-            }
-        }
-        
-        start_time = time.time()
-        
-        try:
-            async with session.post(self.LLM_ENDPOINT, json=payload) as response:
-                if response.status == 200:
-                    result = await response.json()
-                    response_time = time.time() - start_time
-                    
-                    # Track performance
-                    self.request_count += 1
-                    self.response_times.append(response_time)
-                    
-                    # Extract intent from response
-                    llm_response = result.get('response', '').strip().lower()
-                    valid_intents = ['greeting', 'exgratia_norms', 'application_procedure', 'status_check', 'help', 'other']
-                    
-                    for intent in valid_intents:
-                        if intent in llm_response:
-                            logger.info(f"LLM classified '{message}' as '{intent}' in {response_time:.2f}s")
-                            return intent
-                    
-                    # If no valid intent found, fallback
-                    logger.warning(f"LLM returned invalid intent: {llm_response}")
-                    return self.fallback_intent_detection(message)
-                else:
-                    logger.error(f"LLM API returned status {response.status}")
-                    return self.fallback_intent_detection(message)
-                    
-        except Exception as e:
-            logger.error(f"Error calling LLM API: {e}")
-            return self.fallback_intent_detection(message)
     
     async def get_intent_from_llm(self, message: str) -> str:
-        """Get intent using LLM with fallback to rule-based"""
+        # For now, we'll use the rule-based system directly
+        # You can enable LLM later by setting up Hugging Face authentication
+        logger.info("Using rule-based intent detection (LLM disabled)")
+        return self.fallback_intent_detection(message)
+        
+        # Uncomment below to enable LLM (requires Hugging Face setup):
+        """
         try:
-            # Try LLM first
-            return await self.detect_intent_with_llm(message)
+            prompt = f'''
+Analyze this message for a government disaster relief chatbot and classify the intent:
+"{message}"
+
+Classify as ONE of: exgratia_norms, application_procedure, status_check, apply_start, greeting, help, other
+
+Respond with ONLY the intent name.
+'''
+            
+            response = requests.post(Config.MISTRAL_API_URL, json={
+                "prompt": prompt, "max_tokens": 20, "temperature": 0.3
+            }, timeout=10)
+            
+            if response.status_code == 200:
+                intent = response.json().get('generated_text', '').strip().lower()
+                valid_intents = ['exgratia_norms', 'application_procedure', 'status_check', 'apply_start', 'greeting', 'help', 'other']
+                if intent in valid_intents:
+                    return intent
+            
         except Exception as e:
-            logger.error(f"LLM failed, using fallback: {e}")
-            return self.fallback_intent_detection(message)
+            logger.error(f"LLM API error: {e}")
+        
+        return self.fallback_intent_detection(message)
+        """
     
     def fallback_intent_detection(self, message: str) -> str:
         """Enhanced rule-based intent detection"""
@@ -208,15 +133,14 @@ Respond with ONLY the intent name (one word):"""
     
     async def help_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         help_text = f"""
-🆘 **SmartGov Ex-Gratia Assistance Help**
+🆘 **SajiloSewa Ex-Gratia Assistance Help**
 
 **Available Commands:**
 • `/start` - Start the bot and see main menu
 • `/help` - Show this help message
-• `/status` - Check LLM performance stats
 
 **How to Use:**
-1️⃣ **Natural Language**: Just type what you need (powered by Qwen 2.5:3B)
+1️⃣ **Natural Language**: Just type what you need
 2️⃣ **Menu Options**: Use the numbered buttons
 
 **Examples:**
@@ -226,29 +150,9 @@ Respond with ONLY the intent name (one word):"""
 
 **Support Contact:**
 📞 Helpline: 1077
-📞 Phone: +91-3592-202401
+📞 Phone: {Config.SUPPORT_PHONE}
 """
         await update.message.reply_text(help_text, parse_mode='Markdown')
-
-    async def status_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /status command - show LLM performance"""
-        if self.response_times:
-            avg_time = sum(self.response_times) / len(self.response_times)
-            min_time = min(self.response_times)
-            max_time = max(self.response_times)
-            
-            status_message = f"""🤖 **SmartGov LLM Performance Status:**
-
-📊 Requests Processed: {self.request_count}
-⏱️ Average Response Time: {avg_time:.2f}s
-⚡ Fastest Response: {min_time:.2f}s
-🐌 Slowest Response: {max_time:.2f}s
-🎯 Model: {self.MODEL_NAME} (Qwen 2.5:3B)
-🏛️ Service: SmartGov Ex-Gratia Assistance"""
-        else:
-            status_message = "🤖 **SmartGov Assistant** is ready with LLM-powered intent detection!"
-        
-        await update.message.reply_text(status_message, parse_mode='Markdown')
     
     async def button_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         query = update.callback_query
@@ -328,7 +232,7 @@ Here's what I can assist you with:
 🏛️ **Government of Sikkim**
 {self.exgratia_norms}
 
-📞 **For more information:** +91-3592-202401
+📞 **For more information:** {Config.SUPPORT_PHONE}
 """
         
         keyboard = [
@@ -347,7 +251,7 @@ Here's what I can assist you with:
         response = f"""
 {self.application_procedure}
 
-💡 **Need more help?** Visit your local Gram Panchayat or call +91-3592-202401
+💡 **Need more help?** Visit your local Gram Panchayat or call {Config.SUPPORT_PHONE}
 """
         
         keyboard = [
@@ -391,22 +295,25 @@ Type your Application ID:
     async def check_application_status(self, update: Update, context: ContextTypes.DEFAULT_TYPE, app_id: str):
         try:
             df = pd.read_csv(Config.STATUS_CSV_FILE)
-            result = df[df['ApplicationID'].str.upper() == app_id.upper()]
+            result = df[df['application_id'].str.upper() == app_id.upper()]
             
             if not result.empty:
                 row = result.iloc[0]
-                status_emoji = {'Approved': '✅', 'Under Review': '🔄', 'Pending': '⏳', 'Rejected': '❌'}.get(row['Status'], '📋')
+                status_emoji = {'Approved': '✅', 'Under Review': '🔄', 'Pending': '⏳', 'Rejected': '❌'}.get(row['status'], '📋')
                 
                 response = f"""
 {status_emoji} **Application Found!**
 
-🆔 **Application ID:** {row['ApplicationID']}
-👤 **Applicant:** {row['ApplicantName']}
-🏘️ **Village:** {row['Village']}
-📊 **Status:** {row['Status']}
-💰 **Amount:** ₹{row['Amount']:,}
+🆔 **Application ID:** {row['application_id']}
+👤 **Applicant:** {row['applicant_name']}
+📱 **Phone:** {row['phone']}
+📋 **Type:** {row['type']}
+📊 **Status:** {row['status']}
+💰 **Amount:** ₹{row['amount']:,}
+📅 **Applied:** {row['date_applied']}
+📝 **Remarks:** {row['remarks']}
 
-📞 **For queries:** +91-3592-202401
+📞 **For queries:** {Config.SUPPORT_PHONE}
 """
             else:
                 response = f"""
@@ -422,7 +329,7 @@ Type your Application ID:
 **What to do:**
 1. Double-check your Application ID
 2. Contact your Gram Panchayat/Ward Office
-3. Call helpline: +91-3592-202401
+3. Call helpline: {Config.SUPPORT_PHONE}
 """
             
             keyboard = [
@@ -436,30 +343,30 @@ Type your Application ID:
         except Exception as e:
             logger.error(f"Error checking application status: {e}")
             await update.message.reply_text(
-                "❌ Sorry, there was an error checking the application status. "
-                "Please try again later or contact support: +91-3592-202401"
+                f"❌ Sorry, there was an error checking the application status. "
+                f"Please try again later or contact support: {Config.SUPPORT_PHONE}"
             )
         
         context.user_data.pop('waiting_for_app_id', None)
 
 def main():
-    # Skip config validation since we're using hardcoded token
-    print("🚀 Starting SmartGov Bot with hardcoded configuration...")
+    try:
+        Config.validate_config()
+    except ValueError as e:
+        print(f"❌ Configuration error: {e}")
+        print("Please create a .env file with your TELEGRAM_BOT_TOKEN")
+        return
     
-    bot = SmartGovBot()
-    # Use the working bot token
-    BOT_TOKEN = "7641958089:AAH2UW5H0EX9pGfE6wZZaURCpkyMHtJK8zw"
-    application = Application.builder().token(BOT_TOKEN).build()
+    bot = SajiloSewaBot()
+    application = Application.builder().token(Config.TELEGRAM_BOT_TOKEN).build()
     
     application.add_handler(CommandHandler("start", bot.start_command))
     application.add_handler(CommandHandler("help", bot.help_command))
-    application.add_handler(CommandHandler("status", bot.status_command))
     application.add_handler(CallbackQueryHandler(bot.button_handler))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, bot.message_handler))
     
-    print("🤖 SmartGov Ex-Gratia Chatbot is starting...")
-    print("📱 Bot username: @smartgov_assistant_bot")
-    print("🧠 LLM: Qwen 2.5:3B enabled for intent detection")
+    print("🤖 SajiloSewa Ex-Gratia Chatbot is starting...")
+    print("📱 Bot username: @sajilosewa_assistant_bot")
     print("✅ Bot is running. Press Ctrl+C to stop.")
     
     application.run_polling(allowed_updates=Update.ALL_TYPES)

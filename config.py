@@ -1,5 +1,7 @@
 """
 Configuration management for SmartGov Ex-Gratia Chatbot
+
+This module handles all configuration settings for the bot.
 """
 import os
 from dotenv import load_dotenv
@@ -10,11 +12,14 @@ load_dotenv()
 class Config:
     """Configuration class for the SmartGov chatbot"""
     
-    # Telegram Bot Configuration
-    TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
+    # Bot token
+    BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
+    TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_TOKEN')  # Alternative name used in some places
     
-    # Mistral LLM Configuration
-    MISTRAL_API_URL = os.getenv('MISTRAL_API_URL', 'http://localhost:8000/generate')
+    # Ollama LLM Configuration
+    OLLAMA_API_URL = os.getenv('OLLAMA_API_URL', 'http://localhost:11434/api/generate')
+    USE_LLM = os.getenv('USE_LLM', 'false').lower() == 'true'
+    LLM_MODEL = os.getenv('LLM_MODEL', 'qwen2.5:3b')
     
     # Support Information
     SUPPORT_PHONE = os.getenv('SUPPORT_PHONE', '+91-1234567890')
@@ -31,7 +36,7 @@ class Config:
     
     # Bot Messages
     WELCOME_MESSAGE = """
-🙏 **Welcome to SmartGov Ex-Gratia Assistance!**
+🏛️ **Welcome to SmartGov Ex-Gratia Assistance!**
 
 I'm here to help you with disaster relief services. You can:
 
@@ -47,11 +52,13 @@ How can I assist you today?
     @classmethod
     def validate_config(cls):
         """Validate that all required configuration is present"""
-        if not cls.TELEGRAM_TOKEN:
-            raise ValueError("TELEGRAM_TOKEN is required in .env file")
+        if not cls.TELEGRAM_BOT_TOKEN:
+            raise ValueError("TELEGRAM_BOT_TOKEN is required in .env file")
         
         if not os.path.exists(cls.DATA_DIR):
             os.makedirs(cls.DATA_DIR)
             print(f"Created data directory: {cls.DATA_DIR}")
         
-        print("✅ Configuration validated successfully") 
+        print("✅ Configuration validated successfully")
+        if cls.USE_LLM:
+            print(f"🤖 Running in LLM mode with {cls.LLM_MODEL}") 
