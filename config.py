@@ -12,9 +12,9 @@ load_dotenv()
 class Config:
     """Configuration class for the SmartGov chatbot"""
     
-    # Bot token
-    BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
-    TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_TOKEN')  # Alternative name used in some places
+    # Telegram Bot Token
+    BOT_TOKEN = "7641958089:AAH2UW5H0EX9pGfE6wZZaURCpkyMHtJK8zw"
+    TELEGRAM_BOT_TOKEN = BOT_TOKEN  # Use the token directly instead of env var
     
     # Ollama LLM Configuration
     OLLAMA_API_URL = os.getenv('OLLAMA_API_URL', 'http://localhost:11434/api/generate')

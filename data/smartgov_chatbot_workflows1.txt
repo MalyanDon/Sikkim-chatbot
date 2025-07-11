@@ -1,0 +1,85 @@
+SMARTGOV CHATBOT – USE CASE WORKFLOWS FOR DEVELOPER
+USE CASE 1: HOMESTAY BOOKING
+
+1. User clicks on 'Book Homestay'.
+2. Menu tray pops up with a list of tourist destinations (e.g., Gyalshing, Pelling, Yuksom, etc.).
+3. User selects a place by number or types the place name.
+4. System filters homestays from 'homestays_by_place.csv' based on the selected place.
+5. System returns a list of homestays including:
+   - Homestay Name
+   - Rating
+   - Price per night
+   - Contact number (in click-to-call format)
+6. User can directly call the number to book the homestay.
+7. User is given an option to:
+   - Search for another place
+   - Return to main menu
+
+File used: homestays_by_place.csv
+
+USE CASE 2: EMERGENCY SERVICES
+
+1. User clicks on 'Emergency Services'.
+2. Menu tray pops up with the following options:
+   - Ambulance
+   - Police Helpline
+   - Suicide Prevention
+   - Health Helpline
+   - Women Helpline
+   - Fire Emergency
+   - Report Disaster
+3. User selects a service by typing the number or name.
+4. System fetches the corresponding emergency response text from 'emergency_services_text_responses.json'.
+5. System returns a detailed message including:
+   - Service name
+   - Nodal contact person
+   - Contact number(s)
+   - Location (if applicable)
+   - Short guidance or instruction
+6. User is given an option to:
+   - Select another service
+   - Return to main menu
+
+File used: emergency_services_text_responses.json
+
+USE CASE 3: REPORT A COMPLAINT
+
+1. User selects 'Report a Grievance / Complaint'.
+2. System asks for the user's full name.
+3. User enters name.
+4. System asks for mobile number.
+5. User enters mobile number.
+6. System asks for complaint text.
+7. User types their complaint.
+8. System generates a unique Complaint ID (e.g., CMP20250711001).
+9. System responds with a confirmation message including the Complaint ID.
+10. Complaint is stored in a connected Google Sheet with the following fields:
+    - Complaint ID
+    - Name
+    - Mobile Number
+    - Complaint Text
+    - Date/Time
+    - Status (default: "Pending")
+
+Output location: Linked Google Sheet (online monitoring dashboard)
+
+USE CASE 4: APPLY FOR CERTIFICATE
+
+1. User selects 'Apply for Certificate' from the main menu.
+2. System sends the following informational message:
+   "To apply for services through the Sikkim SSO portal, you first need to register and create an account on the Sikkim SSO portal. After registration, you can log in using your Sikkim SSO credentials and then navigate to the desired service to fill out the application form and upload necessary documents. You can then track your application status online."
+3. System follows up with: "Do you want to apply through a CSC operator or Single Window operator? Reply: Yes / No"
+4. If user replies Yes:
+   a. System asks for user's full name.
+   b. System asks for user's GPU.
+   c. System fetches the CSC contact details for the entered GPU from 'csc_contacts.csv'.
+   d. System responds with:
+      - Operator Name
+      - Contact Number
+      - GPU
+      - Available timings
+5. If user replies No:
+   - System responds with: "You can proceed to apply directly on the Sikkim SSO Portal: https://sso.sikkim.gov.in"
+
+File used: csc_contacts.csv
+

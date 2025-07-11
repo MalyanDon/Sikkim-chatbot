@@ -1,275 +1,268 @@
-# 🏛️ SmartGov Ex-Gratia Chatbot
+# Enhanced SmartGov Assistant Bot 🏛️
 
-An intelligent Telegram chatbot for disaster relief services that combines **rule-based workflows** with **Mistral 7B LLM** for natural language understanding.
+A comprehensive multilingual Telegram chatbot for Sikkim government services with LLM-powered intent detection and rule-based workflows.
 
-## 🎯 Key Features
+## 🌟 Features
 
-### **Smart vs Traditional Bots:**
+### 🎯 Core Services
 
-| **Traditional Menu Bot** | **SmartGov (LLM-Powered)** |
-|--------------------------|---------------------------|
-| User: Types "3" | User: "I want to check my relief application" |
-| Bot: What's your App ID? | Bot: ✅ *Understands intent* → "Please share your Application ID" |
-| Rigid navigation only | Natural language + Menu options |
+#### 🚨 Disaster Management
+- **Ex-gratia Assistance Application**: Complete workflow for disaster relief applications
+- **Application Status Check**: Track application progress with ID lookup
+- **Ex-gratia Norms**: Detailed information about assistance amounts and eligibility
+- **Application Process Guide**: Step-by-step instructions for applying
+- **Disaster Reporting**: File disaster-related complaints
 
-### **Core Capabilities:**
-- 🧠 **Smart Intent Recognition** - Understands natural language
-- 📋 **Ex-Gratia Information** - Norms, eligibility, amounts
-- 📝 **Application Assistance** - Procedure + data collection  
-- 🔍 **Status Tracking** - Real-time application lookup
-- 🤖 **Hybrid Approach** - Menu + conversational interface
-- 🔄 **Graceful Fallbacks** - Works even if LLM fails
+#### 🚑 Emergency Services
+- **Ambulance (102)**: Medical emergency contacts and guidance
+- **Police (100)**: Police emergency services
+- **Fire (101)**: Fire emergency services
+- **Women Helpline**: Support for women in distress
+- **Suicide Prevention**: Mental health crisis support
+- **Health Helpline**: General health emergency services
+- **Disaster Emergency**: Natural disaster emergency contacts
 
----
+#### 🏔️ Tourism & Homestays
+- **Location-based Search**: Find homestays by tourist destination
+- **Ratings & Prices**: View homestay ratings and pricing
+- **Direct Booking**: Contact homestay owners directly
+- **Multiple Destinations**: Gangtok, Pelling, Yuksom, and more
+
+#### 🏢 Common Service Centers (CSC)
+- **CSC Finder**: Locate nearest CSC by GPU number
+- **Operator Contacts**: Direct contact with CSC operators
+- **Service Information**: Complete list of available services
+- **Certificate Applications**: Guide for applying through CSC
+
+### 🌐 Multilingual Support
+- **English**: Complete interface and responses
+- **Hindi (हिंदी)**: Full translation for Hindi speakers
+- **Nepali (नेपाली)**: Complete Nepali language support
+- **Persistent Language**: User language preference is remembered
+
+### 🤖 Smart Features
+- **LLM Intent Detection**: Natural language understanding using Ollama/Qwen2
+- **Card-based UI**: Visual service cards for better user experience
+- **Rule-based Workflows**: Structured forms and data collection
+- **Data Validation**: Input validation with helpful error messages
+- **State Management**: Multi-step form handling with session persistence
 
 ## 🚀 Quick Start
 
-### **1. Prerequisites**
-```bash
-# Python 3.8+
-python --version
+### Prerequisites
+- Python 3.8+
+- Telegram Bot Token
+- Ollama with Qwen2 model (optional, for LLM features)
 
-# GPU recommended for Mistral 7B (8GB+ VRAM)
-nvidia-smi
+### Installation
+
+1. **Clone the repository**
+```bash
+git clone https://github.com/your-repo/sikkim-chatbot.git
+cd sikkim-chatbot
 ```
 
-### **2. Get Telegram Bot Token**
-✅ **Already configured!** Your bot token has been set up:
-- Bot username: `@smartgov_assistant_bot`
-- Bot link: https://t.me/smartgov_assistant_bot
-
-### **3. Install & Setup**
+2. **Install dependencies**
 ```bash
-# Install dependencies
 pip install -r requirements.txt
-
-# Create environment file
-# Note: .env is in .gitignore for security
-echo "TELEGRAM_TOKEN=7641958089:AAH2UW5H0EX9pGfE6wZZaURCpkyMHtJK8zw" > .env
-echo "MISTRAL_API_URL=http://localhost:8000/generate" >> .env
-echo "SUPPORT_PHONE=+91-3592-202401" >> .env
 ```
 
-### **4. Run the Bot**
+3. **Configure the bot**
+Edit `config.py` with your bot token:
+```python
+BOT_TOKEN = "your_telegram_bot_token_here"
+```
+
+4. **Run the bot**
 ```bash
-# Terminal 1: Start Mistral 7B Server
-python mistral_server.py
-
-# Terminal 2: Start Telegram Bot  
-python smartgov_bot.py
+python comprehensive_smartgov_bot.py
 ```
 
----
-
-## 📱 User Experience Demo
-
-### **Conversation Flow Examples:**
-
-#### **🎯 Smart Intent Recognition**
-```
-User: Hi, I need help with disaster relief
-Bot: 🙏 Welcome to SmartGov Ex-Gratia Assistance!
-     I can help you with:
-     1️⃣ Ex-Gratia Norms  2️⃣ Apply for Ex-Gratia  3️⃣ Check Status
-     
-User: I want to know how much money I can get for my damaged house
-Bot: 📋 Ex-Gratia Assistance Norms
-     ₹4,000 to ₹25,000 may be sanctioned depending on type of loss...
-     
-User: How do I apply?
-Bot: 📝 How to Apply for Ex-Gratia Assistance
-     1. Visit your local Gram Panchayat...
+5. **Test the bot**
+```bash
+python test_enhanced_bot.py
 ```
 
-#### **🔍 Flexible Status Checking**
-```
-User: Check my application 23LDM786  
-Bot: ✅ Application Found!
-     🆔 Application ID: 23LDM786
-     👤 Applicant: Rajesh Tamang
-     📊 Status: Approved
-     💰 Amount: ₹18,000
-
-User: What about application 99XYZ123?
-Bot: ❌ Application Not Found
-     Please double-check your Application ID...
-```
-
----
-
-## 🏗️ Technical Architecture
-
-### **System Components:**
+## 📁 Project Structure
 
 ```
-User Input → Intent Classification → Rule Router → Response Generation
-    ↓              ↓                     ↓              ↓
-Telegram API → Mistral 7B LLM → Business Logic → Structured Output
+Sikkim-chatbot/
+├── comprehensive_smartgov_bot.py    # Main bot implementation
+├── config.py                        # Configuration settings
+├── requirements.txt                 # Python dependencies
+├── test_enhanced_bot.py             # Comprehensive test suite
+├── data/                           # Data files
+│   ├── emergency_services_text_responses.json
+│   ├── homestays_by_place.csv
+│   ├── csc_contacts.csv
+│   ├── status.csv
+│   ├── exgratia_applications.csv
+│   ├── info_opt1.txt              # Ex-gratia norms
+│   └── info_opt2.txt              # Application process
+└── tests/                         # Test files
+    └── comprehensive_test.py
 ```
-
-### **File Structure:**
-```
-smartgov_bot/
-├── smartgov_bot.py        # Main bot logic
-├── mistral_server.py      # Local LLM API server
-├── config.py              # Configuration management
-├── requirements.txt       # Dependencies
-├── .env                   # Environment variables (create manually)
-├── data/
-│   ├── info_opt1.txt     # Ex-Gratia norms
-│   ├── info_opt2.txt     # Application procedure  
-│   ├── status.csv        # Application statuses
-│   └── submission.csv    # New applications (auto-created)
-└── README.md
-```
-
-### **Data Flow:**
-1. **User Input** → Telegram receives message
-2. **Intent Classification** → Mistral 7B analyzes intent  
-3. **Context Management** → Bot tracks conversation state
-4. **Business Logic** → Route to appropriate handler
-5. **Data Operations** → Read/write CSV files
-6. **Response Generation** → Send structured reply
-
----
-
-## 📊 Features Comparison
-
-| Feature | Basic Menu Bot | SmartGov LLM Bot |
-|---------|---------------|------------------|
-| **Input Methods** | Numbers only (1,2,3) | Numbers + Natural Language |
-| **User Experience** | Rigid navigation | Conversational & flexible |
-| **Intent Understanding** | Keyword matching | Deep language understanding |
-| **Error Handling** | Generic responses | Context-aware guidance |
-| **Data Extraction** | Manual step-by-step | Smart extraction from text |
-| **Personalization** | None | Uses names, context |
-| **Fallback Strategy** | Show menu again | Multiple fallback levels |
-
----
 
 ## 🔧 Configuration
 
-### **Environment Variables (.env file):**
-```env
-TELEGRAM_TOKEN=7641958089:AAH2UW5H0EX9pGfE6wZZaURCpkyMHtJK8zw
-MISTRAL_API_URL=http://localhost:8000/generate
-SUPPORT_PHONE=+91-3592-202401
-DEBUG=false
+### Bot Token
+Set your Telegram bot token in `config.py`:
+```python
+BOT_TOKEN = "your_bot_token"
 ```
 
-### **Data Files:**
-- `data/info_opt1.txt` - Ex-Gratia norms and eligibility
-- `data/info_opt2.txt` - Application procedure steps
-- `data/status.csv` - Sample application statuses for testing
-- `data/submission.csv` - New applications (auto-created)
+### LLM Configuration
+Configure Ollama endpoint in the bot file:
+```python
+LLM_ENDPOINT = "http://localhost:11434/api/generate"
+MODEL_NAME = "qwen2"
+```
 
----
+### Data Files
+Ensure all CSV and JSON files are in the `data/` directory:
+- `emergency_services_text_responses.json`: Emergency service responses
+- `homestays_by_place.csv`: Homestay listings by location
+- `csc_contacts.csv`: CSC operator contact information
+- `status.csv`: Application status database
+- `exgratia_applications.csv`: Ex-gratia application records
 
-## 🚨 Troubleshooting
+## 🎯 Usage Examples
 
-### **Common Issues:**
+### Basic Commands
+- `/start` - Initialize bot and select language
+- Send any message to trigger intent detection
 
-**1. Mistral Server Won't Start**
+### Service Access
+- **Disaster Management**: "I need ex-gratia assistance" or "Disaster relief help"
+- **Emergency Services**: "Emergency ambulance" or "Police help needed"
+- **Tourism**: "Show homestays in Gangtok" or "Tourism information"
+- **CSC Services**: "Find CSC operator" or "Certificate application"
+
+### Form Workflows
+1. **Ex-gratia Application**:
+   - Name → Father's Name → Village → Contact → Damage Type → Description
+   - Automatic ID generation and data storage
+
+2. **Status Check**:
+   - Enter application ID to check current status
+
+3. **CSC Finder**:
+   - Enter GPU number to find nearest CSC operator
+
+## 🧪 Testing
+
+Run the comprehensive test suite:
 ```bash
-# Check GPU memory
-nvidia-smi
-
-# Try CPU-only mode
-# In mistral_server.py, the code automatically detects CPU vs GPU
+python test_enhanced_bot.py
 ```
 
-**2. Bot Not Responding**
+Tests include:
+- ✅ Bot initialization
+- ✅ Language functions
+- ✅ LLM integration
+- ✅ Data file loading
+- ✅ Response templates
+- ✅ Emergency numbers
+- ✅ Service card creation
+
+## 📊 Data Management
+
+### Ex-gratia Applications
+Applications are stored in `data/exgratia_applications.csv` with fields:
+- Application ID (auto-generated)
+- Personal details (name, father's name, village, contact)
+- Damage information (type, description)
+- Submission metadata (date, language, status)
+
+### Status Tracking
+Application status can be checked using the stored application ID.
+
+### CSC Integration
+CSC operators are listed with:
+- Operator name and contact
+- GPU coverage area
+- Available timings
+
+## 🌟 Advanced Features
+
+### LLM Integration
+- Uses Ollama with Qwen2 model for natural language understanding
+- Fallback to keyword-based detection if LLM unavailable
+- Intent classification for routing to appropriate services
+
+### Multilingual Support
+- Dynamic language switching
+- Persistent user language preferences
+- Complete translation of forms and responses
+
+### UI Enhancements
+- Service cards with visual elements
+- Inline keyboards for easy navigation
+- Progress indicators for multi-step forms
+
+## 🔒 Security & Privacy
+
+- User data is stored locally in CSV files
+- No external data transmission (except Telegram API)
+- Application IDs are generated securely
+- Input validation prevents injection attacks
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests for new functionality
+5. Submit a pull request
+
+## 📞 Support
+
+For technical support or questions:
+- **Helpline**: 1077
+- **Email**: smartgov@sikkim.gov.in
+- **GitHub Issues**: Create an issue for bug reports
+
+## 📝 License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## 🙏 Acknowledgments
+
+- Sikkim Government for data and requirements
+- Telegram Bot API for messaging platform
+- Ollama community for LLM integration
+- Python ecosystem for development tools
+
+## 🚀 Deployment
+
+### Local Deployment
 ```bash
-# Check if both servers are running
-ps aux | grep python
-
-# Test Mistral API
-curl -X POST "http://localhost:8000/generate" \
-  -H "Content-Type: application/json" \
-  -d '{"prompt": "Hello", "max_tokens": 50}'
+python comprehensive_smartgov_bot.py
 ```
 
-**3. Intent Classification Issues**
-- Check Mistral API response format
-- Verify fallback_intent_detection() patterns
-- Add more training examples in prompt
+### Production Deployment
+1. Set up environment variables
+2. Configure reverse proxy (nginx)
+3. Use process manager (systemd, supervisor)
+4. Set up monitoring and logging
 
-**4. .env File Issues**
-```bash
-# Make sure .env file exists in project root
-ls -la .env
-
-# Check contents
-cat .env
+### Docker Deployment
+```dockerfile
+FROM python:3.9-slim
+COPY . /app
+WORKDIR /app
+RUN pip install -r requirements.txt
+CMD ["python", "comprehensive_smartgov_bot.py"]
 ```
 
----
+## 📈 Monitoring & Analytics
 
-## 🎯 Testing the Bot
-
-### **Test Commands:**
-```
-/start - Initialize the bot
-/help - Get help information
-
-# Natural Language Tests:
-"Hello" - Should trigger greeting
-"How much money for house damage?" - Should show norms
-"How to apply?" - Should show procedure
-"Check status 23LDM786" - Should show application status
-"What documents needed?" - Should show application info
-```
-
-### **Sample Application IDs for Testing:**
-- `23LDM786` - Approved house damage (₹18,000)
-- `23LDM787` - Under review crop loss
-- `23LDM788` - Approved livestock loss (₹30,000)
-- `23LDM789` - Rejected business damage
-- `23LDM790` - Approved injury case (₹25,000)
+The bot logs all interactions and can be extended with:
+- User analytics dashboard
+- Service usage statistics
+- Performance monitoring
+- Error tracking and alerting
 
 ---
 
-## 🎯 Production Deployment
-
-### **For Live Government Use:**
-
-1. **Security Hardening:**
-   - Use HTTPS for all API calls
-   - Implement rate limiting
-   - Add user authentication
-   - Encrypt sensitive data
-
-2. **Scalability:**
-   - Deploy Mistral on dedicated GPU server
-   - Use Redis for conversation state
-   - Load balance multiple bot instances
-   - Monitor with Prometheus/Grafana
-
-3. **Integration:**
-   - Connect to government databases
-   - Add webhook notifications
-   - Implement audit logging
-   - Multi-language support
-
-4. **Compliance:**
-   - GDPR/data protection compliance
-   - Government security protocols
-   - Accessibility standards
-
----
-
-## 📞 Support & Contributing
-
-**Issues:** Report bugs or feature requests
-**Documentation:** Refer to inline code comments  
-**Updates:** Check for model improvements
-
----
-
-## 📜 License
-
-MIT License - Feel free to adapt for your government projects!
-
----
-
-*Built for citizens, powered by AI* 🤖🏛️ 
+**Made with ❤️ for the people of Sikkim** 
