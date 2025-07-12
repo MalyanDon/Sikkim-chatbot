@@ -81,7 +81,25 @@ class SmartGovAssistantBot:
                 'unknown': "I'm not sure what you're asking for. Here are the available services:",
                 'processing': "Processing your request...",
                 'success': "Your request has been processed successfully.",
-                'cancelled': "Operation cancelled. How else can I help you?"
+                'cancelled': "Operation cancelled. How else can I help you?",
+                'emergency_ambulance': "🚑 *Ambulance Emergency*\nDial: 102 or 108\nControl Room: 03592-202033",
+                'emergency_police': "👮 *Police Emergency*\nDial: 100\nControl Room: 03592-202022",
+                'emergency_fire': "🚒 *Fire Emergency*\nDial: 101\nControl Room: 03592-202099",
+                'emergency_suicide': "💭 *Suicide Prevention Helpline*\nDial: 9152987821",
+                'emergency_women': "👩 *Women Helpline*\nDial: 1091\nState Commission: 03592-205607",
+                'ex_gratia_intro': "You may be eligible if you've suffered losses due to:\n• Heavy rainfall, floods, or landslides\n• Earthquakes or other natural calamities\n• Crop damage from hailstorms\n• House damage from natural disasters\n• Loss of livestock\n\nWould you like to proceed with the application?",
+                'ex_gratia_form': "Please enter your full name:",
+                'ex_gratia_father': "What is your father's name?",
+                'ex_gratia_village': "Which village are you from?",
+                'ex_gratia_contact': "What is your contact number? (10 digits)",
+                'ex_gratia_ward': "What is your Ward number or name?",
+                'ex_gratia_gpu': "Which Gram Panchayat Unit (GPU) are you under?",
+                'ex_gratia_khatiyan': "What is your Khatiyan Number? (Land record number)",
+                'ex_gratia_plot': "What is your Plot Number?",
+                'ex_gratia_damage': "Please provide a detailed description of the damage:",
+                'certificate_info': "To apply for services through the Sikkim SSO portal:\n1. Register and create an account on the Sikkim SSO portal\n2. Log in using your Sikkim SSO credentials\n3. Navigate to the desired service\n4. Fill out the application form\n5. Upload necessary documents\n6. Track your application status online\n\nWould you like to apply through a CSC operator or Single Window operator?",
+                'other_emergency': "🚨 Other Emergency Services",
+                'back_main_menu': "🔙 Back to Main Menu"
             },
             'hindi': {
                 'welcome': "स्मार्टगव सहायक में आपका स्वागत है! मैं आपकी कैसे मदद कर सकता हूं?",
@@ -89,7 +107,25 @@ class SmartGovAssistantBot:
                 'unknown': "मुझे समझ नहीं आया। यहाँ उपलब्ध सेवाएं हैं:",
                 'processing': "आपका अनुरोध प्रोसेस किया जा रहा है...",
                 'success': "आपका अनुरोध सफलतापूर्वक प्रोसेस कर दिया गया है।",
-                'cancelled': "प्रक्रिया रद्द कर दी गई। मैं और कैसे मदद कर सकता हूं?"
+                'cancelled': "प्रक्रिया रद्द कर दी गई। मैं और कैसे मदद कर सकता हूं?",
+                'emergency_ambulance': "🚑 *एम्बुलेंस इमरजेंसी*\nडायल करें: 102 या 108\nकंट्रोल रूम: 03592-202033",
+                'emergency_police': "👮 *पुलिस इमरजेंसी*\nडायल करें: 100\nकंट्रोल रूम: 03592-202022",
+                'emergency_fire': "🚒 *अग्निशमन इमरजेंसी*\nडायल करें: 101\nकंट्रोल रूम: 03592-202099",
+                'emergency_suicide': "💭 *आत्महत्या रोकथाम हेल्पलाइन*\nडायल करें: 9152987821",
+                'emergency_women': "👩 *महिला हेल्पलाइन*\nडायल करें: 1091\nराज्य आयोग: 03592-205607",
+                'ex_gratia_intro': "आप पात्र हो सकते हैं यदि आपको निम्नलिखित कारणों से नुकसान हुआ है:\n• भारी बारिश, बाढ़, या भूस्खलन\n• भूकंप या अन्य प्राकृतिक आपदाएं\n• ओलावृष्टि से फसल की क्षति\n• प्राकृतिक आपदाओं से घर की क्षति\n• पशुओं की हानि\n\nक्या आप आवेदन के साथ आगे बढ़ना चाहते हैं?",
+                'ex_gratia_form': "कृपया अपना पूरा नाम दर्ज करें:",
+                'ex_gratia_father': "आपके पिता का नाम क्या है?",
+                'ex_gratia_village': "आप किस गाँव से हैं?",
+                'ex_gratia_contact': "आपका संपर्क नंबर क्या है? (10 अंक)",
+                'ex_gratia_ward': "आपका वार्ड नंबर या नाम क्या है?",
+                'ex_gratia_gpu': "आप किस ग्राम पंचायत इकाई (GPU) के अंतर्गत हैं?",
+                'ex_gratia_khatiyan': "आपका खतियान नंबर क्या है? (जमीन का रिकॉर्ड नंबर)",
+                'ex_gratia_plot': "आपका प्लॉट नंबर क्या है?",
+                'ex_gratia_damage': "कृपया क्षति का विस्तृत विवरण प्रदान करें:",
+                'certificate_info': "सिक्किम SSO पोर्टल के माध्यम से सेवाओं के लिए आवेदन करने के लिए:\n1. सिक्किम SSO पोर्टल पर पंजीकरण करें और खाता बनाएं\n2. अपने सिक्किम SSO क्रेडेंशियल्स का उपयोग करके लॉगिन करें\n3. वांछित सेवा पर नेविगेट करें\n4. आवेदन फॉर्म भरें\n5. आवश्यक दस्तावेज अपलोड करें\n6. अपने आवेदन की स्थिति ऑनलाइन ट्रैक करें\n\nक्या आप CSC ऑपरेटर या सिंगल विंडो ऑपरेटर के माध्यम से आवेदन करना चाहते हैं?",
+                'other_emergency': "🚨 अन्य आपातकालीन सेवाएं",
+                'back_main_menu': "🔙 मुख्य मेनू पर वापस"
             },
             'nepali': {
                 'welcome': "स्मार्टगभ सहायकमा स्वागत छ! म तपाईंलाई कसरी मद्दत गर्न सक्छु?",
@@ -97,7 +133,25 @@ class SmartGovAssistantBot:
                 'unknown': "मलाई बुझ्न सकिएन। यहाँ उपलब्ध सेवाहरू छन्:",
                 'processing': "तपाईंको अनुरोध प्रशोधन गरिँदैछ...",
                 'success': "तपाईंको अनुरोध सफलतापूर्वक प्रशोधन गरियो।",
-                'cancelled': "प्रक्रिया रद्द गरियो। म अरु कसरी मद्दत गर्न सक्छु?"
+                'cancelled': "प्रक्रिया रद्द गरियो। म अरु कसरी मद्दत गर्न सक्छु?",
+                'emergency_ambulance': "🚑 *एम्बुलेन्स आकस्मिक*\nडायल गर्नुहोस्: 102 वा 108\nकन्ट्रोल रूम: 03592-202033",
+                'emergency_police': "👮 *प्रहरी आकस्मिक*\nडायल गर्नुहोस्: 100\nकन्ट्रोल रूम: 03592-202022",
+                'emergency_fire': "🚒 *अग्निशमन आकस्मिक*\nडायल गर्नुहोस्: 101\nकन्ट्रोल रूम: 03592-202099",
+                'emergency_suicide': "💭 *आत्महत्या रोकथाम हेल्पलाइन*\nडायल गर्नुहोस्: 9152987821",
+                'emergency_women': "👩 *महिला हेल्पलाइन*\nडायल गर्नुहोस्: 1091\nराज्य आयोग: 03592-205607",
+                'ex_gratia_intro': "तपाईं पात्र हुन सक्नुहुन्छ यदि तपाईंलाई निम्न कारणहरूले क्षति भएको छ:\n• भारी वर्षा, बाढी, वा भूस्खलन\n• भूकम्प वा अन्य प्राकृतिक आपदाहरू\n• असिनाले फसलको क्षति\n• प्राकृतिक आपदाहरूले घरको क्षति\n• पशुहरूको हानि\n\nके तपाईं आवेदनसँग अगाडि बढ्न चाहनुहुन्छ?",
+                'ex_gratia_form': "कृपया आफ्नो पूरा नाम प्रविष्ट गर्नुहोस्:",
+                'ex_gratia_father': "तपाईंको बुबाको नाम के हो?",
+                'ex_gratia_village': "तपाईं कुन गाउँबाट हुनुहुन्छ?",
+                'ex_gratia_contact': "तपाईंको सम्पर्क नम्बर के हो? (10 अंक)",
+                'ex_gratia_ward': "तपाईंको वार्ड नम्बर वा नाम के हो?",
+                'ex_gratia_gpu': "तपाईं कुन ग्राम पंचायत इकाई (GPU) अन्तर्गत हुनुहुन्छ?",
+                'ex_gratia_khatiyan': "तपाईंको खतियान नम्बर के हो? (जमिनको रेकर्ड नम्बर)",
+                'ex_gratia_plot': "तपाईंको प्लट नम्बर के हो?",
+                'ex_gratia_damage': "कृपया क्षतिको विस्तृत विवरण प्रदान गर्नुहोस्:",
+                'certificate_info': "सिक्किम SSO पोर्टल मार्फत सेवाहरूको लागि आवेदन गर्न:\n1. सिक्किम SSO पोर्टलमा दर्ता गर्नुहोस् र खाता सिर्जना गर्नुहोस्\n2. आफ्ना सिक्किम SSO क्रेडेन्सियलहरू प्रयोग गरेर लगइन गर्नुहोस्\n3. इच्छित सेवामा नेविगेट गर्नुहोस्\n4. आवेदन फारम भर्नुहोस्\n5. आवश्यक कागजातहरू अपलोड गर्नुहोस्\n6. आफ्नो आवेदनको स्थिति अनलाइन ट्र्याक गर्नुहोस्\n\nके तपाईं CSC सञ्चालक वा सिङ्गल विन्डो सञ्चालक मार्फत आवेदन गर्न चाहनुहुन्छ?",
+                'other_emergency': "🚨 अन्य आकस्मिक सेवाहरू",
+                'back_main_menu': "🔙 मुख्य मेनुमा फिर्ता"
             }
         }
 
@@ -147,23 +201,39 @@ class SmartGovAssistantBot:
             
             # Craft a prompt that leverages Qwen's multilingual capabilities
             prompt = f"""Analyze this text and determine if it's English, Hindi, or Nepali.
-            Consider:
-            1. Vocabulary and word usage
-            2. Grammar structure and patterns
-            3. Cultural context and references
-            4. Common phrases and expressions
-            5. Script used (Devanagari or Latin)
             
             Text to analyze: "{text}"
             
-            Important rules:
-            - For mixed language text, identify the dominant language
-            - Consider both Devanagari and Roman script variations
-            - Look for language-specific markers and patterns
-            - Account for informal and colloquial usage
-            - Handle transliterated text appropriately
+            CRITICAL DETECTION RULES:
             
-            Respond with EXACTLY one word - either 'english', 'hindi', or 'nepali'."""
+            HINDI INDICATORS (Romanized):
+            - Key words: mereko, mujhe, main, aap, tum, karna, chahiye, hai, hain
+            - Grammar: verb + hain/hai (karna hain, chahiye hai)
+            - Pronouns: mereko, mujhe, main, aap, tum
+            - Question words: kya, kaise, kahan, kab, kyun, kaun
+            
+            NEPALI INDICATORS (Romanized):
+            - Key words: malai, ma, tapai, timi, garna, chahincha, chha, hun
+            - Grammar: verb + chha/chhan (garna chha, chahincha)
+            - Pronouns: malai, ma, tapai, timi
+            - Question words: ke, kasari, kahaan, kahile, kina, ko
+            
+            ENGLISH INDICATORS:
+            - Pure English vocabulary and grammar
+            - No Hindi/Nepali words mixed in
+            
+            DECISION RULES:
+            1. If text contains "mereko", "mujhe", "karna hain", "chahiye" → HINDI
+            2. If text contains "malai", "garna chha", "chahincha" → NEPALI
+            3. If text is pure English → ENGLISH
+            4. For mixed text, identify the dominant language based on grammar patterns
+            
+            Examples:
+            - "Mereko ex gratia apply karna hain" → HINDI (mereko + karna hain)
+            - "Malai certificate apply garna chha" → NEPALI (malai + garna chha)
+            - "I want to apply for ex gratia" → ENGLISH (pure English)
+            
+            Respond with EXACTLY one word: english, hindi, or nepali"""
             
             logger.info(f"🔍 [LLM] Language Detection Prompt: {prompt}")
             
@@ -208,11 +278,10 @@ class SmartGovAssistantBot:
             # Get current user state
             user_state = self._get_user_state(user_id)
             
-            # Detect language if not already set
-            if not self._get_user_language(user_id):
-                detected_lang = await self.detect_language(message_text)
-                self._set_user_language(user_id, detected_lang)
-                logger.info(f"[LANG] User {user_id} language detected: {detected_lang}")
+            # Detect language for each message to handle language switching
+            detected_lang = await self.detect_language(message_text)
+            self._set_user_language(user_id, detected_lang)
+            logger.info(f"[LANG] User {user_id} language detected: {detected_lang}")
             
             # Get user language
             user_lang = self._get_user_language(user_id)
@@ -590,16 +659,10 @@ If the problem persists, contact support."""
 
     async def handle_ex_gratia(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle ex-gratia application"""
-        text = """*Ex-Gratia Assistance* 📝
-
-You may be eligible if you've suffered losses due to:
-• Heavy rainfall, floods, or landslides
-• Earthquakes or other natural calamities
-• Crop damage from hailstorms
-• House damage from natural disasters
-• Loss of livestock
-
-Would you like to proceed with the application?"""
+        user_id = update.effective_user.id
+        user_lang = self._get_user_language(user_id)
+        
+        text = f"*Ex-Gratia Assistance* 📝\n\n{self.responses[user_lang]['ex_gratia_intro']}"
 
         keyboard = [
             [InlineKeyboardButton("✅ Yes, Continue", callback_data="ex_gratia_start")],
@@ -617,11 +680,10 @@ Would you like to proceed with the application?"""
     async def start_ex_gratia_workflow(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Start the ex-gratia application workflow"""
         user_id = update.effective_user.id
+        user_lang = self._get_user_language(user_id)
         self._set_user_state(user_id, {"workflow": "ex_gratia", "step": "name"})
         
-        text = """*Ex-Gratia Application Form* 📝
-
-Please enter your full name:"""
+        text = f"*Ex-Gratia Application Form* 📝\n\n{self.responses[user_lang]['ex_gratia_form']}"
         
         keyboard = [[InlineKeyboardButton("🔙 Cancel", callback_data="disaster")]]
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -635,6 +697,7 @@ Please enter your full name:"""
     async def handle_ex_gratia_workflow(self, update: Update, context: ContextTypes.DEFAULT_TYPE, text: str):
         """Handle the ex-gratia application workflow"""
         user_id = update.effective_user.id
+        user_lang = self._get_user_language(user_id)
         state = self._get_user_state(user_id)
         step = state.get("step")
         data = state.get("data", {})
@@ -644,21 +707,21 @@ Please enter your full name:"""
             state["step"] = "father_name"
             state["data"] = data
             self._set_user_state(user_id, state)
-            await update.message.reply_text("What is your father's name?", parse_mode='Markdown')
+            await update.message.reply_text(self.responses[user_lang]['ex_gratia_father'], parse_mode='Markdown')
 
         elif step == "father_name":
             data["father_name"] = text
             state["step"] = "village"
             state["data"] = data
             self._set_user_state(user_id, state)
-            await update.message.reply_text("Which village are you from?", parse_mode='Markdown')
+            await update.message.reply_text(self.responses[user_lang]['ex_gratia_village'], parse_mode='Markdown')
 
         elif step == "village":
             data["village"] = text
             state["step"] = "contact"
             state["data"] = data
             self._set_user_state(user_id, state)
-            await update.message.reply_text("What is your contact number? (10 digits)", parse_mode='Markdown')
+            await update.message.reply_text(self.responses[user_lang]['ex_gratia_contact'], parse_mode='Markdown')
 
         elif step == "contact":
             if not text.isdigit() or len(text) != 10:
@@ -669,28 +732,28 @@ Please enter your full name:"""
             state["step"] = "ward"
             state["data"] = data
             self._set_user_state(user_id, state)
-            await update.message.reply_text("What is your Ward number or name?", parse_mode='Markdown')
+            await update.message.reply_text(self.responses[user_lang]['ex_gratia_ward'], parse_mode='Markdown')
 
         elif step == "ward":
             data["ward"] = text
             state["step"] = "gpu"
             state["data"] = data
             self._set_user_state(user_id, state)
-            await update.message.reply_text("Which Gram Panchayat Unit (GPU) are you under?", parse_mode='Markdown')
+            await update.message.reply_text(self.responses[user_lang]['ex_gratia_gpu'], parse_mode='Markdown')
 
         elif step == "gpu":
             data["gpu"] = text
             state["step"] = "khatiyan"
             state["data"] = data
             self._set_user_state(user_id, state)
-            await update.message.reply_text("What is your Khatiyan Number? (Land record number)", parse_mode='Markdown')
+            await update.message.reply_text(self.responses[user_lang]['ex_gratia_khatiyan'], parse_mode='Markdown')
 
         elif step == "khatiyan":
             data["khatiyan_no"] = text
             state["step"] = "plot"
             state["data"] = data
             self._set_user_state(user_id, state)
-            await update.message.reply_text("What is your Plot Number?", parse_mode='Markdown')
+            await update.message.reply_text(self.responses[user_lang]['ex_gratia_plot'], parse_mode='Markdown')
 
         elif step == "plot":
             data["plot_no"] = text
@@ -704,7 +767,7 @@ Please enter your full name:"""
             state["step"] = "damage_description"
             state["data"] = data
             self._set_user_state(user_id, state)
-            await update.message.reply_text("Please provide a detailed description of the damage:", parse_mode='Markdown')
+            await update.message.reply_text(self.responses[user_lang]['ex_gratia_damage'], parse_mode='Markdown')
 
         elif step == "damage_description":
             data["damage_description"] = text
@@ -713,7 +776,7 @@ Please enter your full name:"""
             await self.show_ex_gratia_confirmation(update, context, data)
 
         else:
-            await update.message.reply_text("An error occurred. Please start over.", parse_mode='Markdown')
+            await update.message.reply_text(self.responses[user_lang]['error'], parse_mode='Markdown')
             self._clear_user_state(user_id)
 
     async def show_damage_type_options(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -917,39 +980,42 @@ Select the type of emergency service you need:"""
     async def handle_emergency_direct(self, update: Update, context: ContextTypes.DEFAULT_TYPE, message_text: str):
         """Handle emergency requests directly without showing menu"""
         try:
+            user_id = update.effective_user.id
+            user_lang = self._get_user_language(user_id)
             message_lower = message_text.lower()
             
             # Determine which emergency service is needed
             if any(word in message_lower for word in ['ambulance', 'ambulance', 'medical', 'doctor', 'hospital']):
                 service_type = 'ambulance'
-                response_text = "🚑 *Ambulance Emergency*\nDial: 102 or 108\nControl Room: 03592-202033"
+                response_text = self.responses[user_lang]['emergency_ambulance']
             elif any(word in message_lower for word in ['police', 'police', 'thief', 'robbery', 'crime']):
                 service_type = 'police'
-                response_text = "👮 *Police Emergency*\nDial: 100\nControl Room: 03592-202022"
+                response_text = self.responses[user_lang]['emergency_police']
             elif any(word in message_lower for word in ['fire', 'fire', 'burning', 'blaze']):
                 service_type = 'fire'
-                response_text = "🚒 *Fire Emergency*\nDial: 101\nControl Room: 03592-202099"
+                response_text = self.responses[user_lang]['emergency_fire']
             elif any(word in message_lower for word in ['suicide', 'suicide', 'helpline']):
                 service_type = 'suicide'
-                response_text = "💭 *Suicide Prevention Helpline*\nDial: 9152987821"
+                response_text = self.responses[user_lang]['emergency_suicide']
             elif any(word in message_lower for word in ['women', 'women', 'harassment']):
                 service_type = 'women'
-                response_text = "👩 *Women Helpline*\nDial: 1091\nState Commission: 03592-205607"
+                response_text = self.responses[user_lang]['emergency_women']
             else:
                 # Default to ambulance for general emergency
                 service_type = 'ambulance'
-                response_text = "🚑 *Ambulance Emergency*\nDial: 102 or 108\nControl Room: 03592-202033"
+                response_text = self.responses[user_lang]['emergency_ambulance']
             
             keyboard = [
-                [InlineKeyboardButton("🚨 Other Emergency Services", callback_data="emergency")],
-                [InlineKeyboardButton("🔙 Back to Main Menu", callback_data="main_menu")]
+                [InlineKeyboardButton(self.responses[user_lang]['other_emergency'], callback_data="emergency")],
+                [InlineKeyboardButton(self.responses[user_lang]['back_main_menu'], callback_data="main_menu")]
             ]
             reply_markup = InlineKeyboardMarkup(keyboard)
             
             await update.message.reply_text(response_text, reply_markup=reply_markup, parse_mode='Markdown')
         except Exception as e:
             logger.error(f"Error handling emergency direct: {str(e)}")
-            await update.message.reply_text("Sorry, there was an error processing your request.")
+            user_lang = self._get_user_language(update.effective_user.id) if update.effective_user else 'english'
+            await update.message.reply_text(self.responses[user_lang]['error'])
 
     async def handle_emergency_service(self, update: Update, context: ContextTypes.DEFAULT_TYPE, service_type: str):
         """Handle specific emergency service selection"""
@@ -1037,17 +1103,10 @@ Please select an option:
 
     async def handle_certificate_info(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle certificate services information"""
-        text = """*Apply for Certificate through Sikkim SSO* 💻
-
-To apply for services through the Sikkim SSO portal:
-1. Register and create an account on the Sikkim SSO portal
-2. Log in using your Sikkim SSO credentials
-3. Navigate to the desired service
-4. Fill out the application form
-5. Upload necessary documents
-6. Track your application status online
-
-Would you like to apply through a CSC operator or Single Window operator?"""
+        user_id = update.effective_user.id
+        user_lang = self._get_user_language(user_id)
+        
+        text = f"*Apply for Certificate through Sikkim SSO* 💻\n\n{self.responses[user_lang]['certificate_info']}"
 
         keyboard = [
             [InlineKeyboardButton("✅ Yes, Connect with CSC", callback_data="certificate_csc")],
