@@ -14,12 +14,12 @@ class Config:
     
     # Telegram Bot Token
     BOT_TOKEN = "7641958089:AAH2UW5H0EX9pGfE6wZZaURCpkyMHtJK8zw"
-    TELEGRAM_BOT_TOKEN = BOT_TOKEN  # Use the token directly instead of env var
+    TELEGRAM_BOT_TOKEN = BOT_TOKEN
     
-    # Ollama LLM Configuration
-    OLLAMA_API_URL = os.getenv('OLLAMA_API_URL', 'http://localhost:11434/api/generate')
-    USE_LLM = os.getenv('USE_LLM', 'false').lower() == 'true'
-    LLM_MODEL = os.getenv('LLM_MODEL', 'qwen2.5:3b')
+    # Qwen LLM Configuration
+    OLLAMA_API_URL = 'http://localhost:11434/api/generate'
+    LLM_MODEL = 'qwen2.5:3b'
+    USE_LLM = True  # Always use Qwen for language detection
     
     # Support Information
     SUPPORT_PHONE = os.getenv('SUPPORT_PHONE', '+91-1234567890')
@@ -60,5 +60,4 @@ How can I assist you today?
             print(f"Created data directory: {cls.DATA_DIR}")
         
         print("✅ Configuration validated successfully")
-        if cls.USE_LLM:
-            print(f"🤖 Running in LLM mode with {cls.LLM_MODEL}") 
+        print(f"🤖 Using Qwen ({cls.LLM_MODEL}) for language detection") 

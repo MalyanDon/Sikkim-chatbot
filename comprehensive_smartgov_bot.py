@@ -3,19 +3,20 @@
 Comprehensive Sikkim SmartGov Assistant Bot
 """
 import asyncio
-import aiohttp
 import json
 import logging
 import pandas as pd
 import threading
 import sys
 import os
+import aiohttp
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, ContextTypes, filters
 from config import Config
 from datetime import datetime
 import time
-import random # Added for complaint ID generation
+import random
+from typing import Dict, Tuple
 
 # Force UTF-8 encoding for Windows
 if sys.platform == 'win32':
@@ -34,65 +35,240 @@ logger = logging.getLogger(__name__)
 
 class SmartGovAssistantBot:
     def __init__(self):
-        """Initialize the bot with configuration"""
-        self.config = Config()
-        self.application = Application.builder().token(self.config.TELEGRAM_BOT_TOKEN).build()
+        """Initialize bot with configuration"""
+        # Load configuration
+        self.BOT_TOKEN = Config.BOT_TOKEN
         
-        # Initialize user state storage
-        self._user_states = {}
+        # Initialize states with thread-safe locks
+        self.user_states = {}
+        self.user_languages = {}
+        self._state_lock = threading.RLock()
+        
+        # Load workflow data
+        self._load_workflow_data()
+        
+        # Initialize multilingual responses
+        self._initialize_responses()
+        
+        # Initialize aiohttp session for LLM calls
+        self._session = None
+        
         logger.info("🔒 MULTI-USER SUPPORT: Thread-safe state management initialized")
-        
-        # Load data files
-        self._load_data()
-        
-        # Register handlers
-        self.register_handlers()
 
-    def _load_data(self):
+    def _load_workflow_data(self):
         """Load all required data files"""
         try:
             # Load emergency services data
             with open('data/emergency_services_text_responses.json', 'r', encoding='utf-8') as f:
                 self.emergency_data = json.load(f)
             
-            # Load homestay data
+            # Load other CSV data
             self.homestay_df = pd.read_csv('data/homestays_by_place.csv')
-            
-            # Load CSC data
             self.csc_df = pd.read_csv('data/csc_contacts.csv')
+            self.status_df = pd.read_csv('data/status.csv')
             
-            # Load ex-gratia info
-            with open('data/info_opt1.txt', 'r', encoding='utf-8') as f:
-                self.info_opt1 = f.read()
-            with open('data/info_opt2.txt', 'r', encoding='utf-8') as f:
-                self.info_opt2 = f.read()
-            
-            logger.info("✅ All data files loaded successfully")
+            logger.info("📚 Data files loaded successfully")
         except Exception as e:
-            logger.error(f"Error loading data files: {e}")
+            logger.error(f"❌ Error loading data files: {str(e)}")
             raise
 
     def _initialize_responses(self):
-        pass  # Removed responses dictionary
+        """Initialize multilingual response templates"""
+        self.responses = {
+            'english': {
+                'welcome': "Welcome to SmartGov Assistant! How can I help you today?",
+                'error': "Sorry, I encountered an error. Please try again.",
+                'unknown': "I'm not sure what you're asking for. Here are the available services:",
+                'processing': "Processing your request...",
+                'success': "Your request has been processed successfully.",
+                'cancelled': "Operation cancelled. How else can I help you?"
+            },
+            'hindi': {
+                'welcome': "स्मार्टगव सहायक में आपका स्वागत है! मैं आपकी कैसे मदद कर सकता हूं?",
+                'error': "क्षमा करें, कोई त्रुटि हुई। कृपया पुनः प्रयास करें।",
+                'unknown': "मुझे समझ नहीं आया। यहाँ उपलब्ध सेवाएं हैं:",
+                'processing': "आपका अनुरोध प्रोसेस किया जा रहा है...",
+                'success': "आपका अनुरोध सफलतापूर्वक प्रोसेस कर दिया गया है।",
+                'cancelled': "प्रक्रिया रद्द कर दी गई। मैं और कैसे मदद कर सकता हूं?"
+            },
+            'nepali': {
+                'welcome': "स्मार्टगभ सहायकमा स्वागत छ! म तपाईंलाई कसरी मद्दत गर्न सक्छु?",
+                'error': "माफ गर्नुहोस्, त्रुटि भयो। कृपया पुन: प्रयास गर्नुहोस्।",
+                'unknown': "मलाई बुझ्न सकिएन। यहाँ उपलब्ध सेवाहरू छन्:",
+                'processing': "तपाईंको अनुरोध प्रशोधन गरिँदैछ...",
+                'success': "तपाईंको अनुरोध सफलतापूर्वक प्रशोधन गरियो।",
+                'cancelled': "प्रक्रिया रद्द गरियो। म अरु कसरी मद्दत गर्न सक्छु?"
+            }
+        }
 
     def _get_user_state(self, user_id: int) -> dict:
-        """Get user state from storage"""
-        if not hasattr(self, '_user_states'):
-            self._user_states = {}
-        return self._user_states.get(user_id, {})
+        """Safely get user state with locking"""
+        with self._state_lock:
+            return self.user_states.get(user_id, {})
 
     def _set_user_state(self, user_id: int, state: dict):
-        """Set user state in storage"""
-        if not hasattr(self, '_user_states'):
-            self._user_states = {}
-        self._user_states[user_id] = state
+        """Safely set user state with locking"""
+        with self._state_lock:
+            self.user_states[user_id] = state
+            logger.info(f"🔒 STATE UPDATE: User {user_id} → {state}")
 
     def _clear_user_state(self, user_id: int):
-        """Clear user state from storage"""
-        if not hasattr(self, '_user_states'):
-            self._user_states = {}
-        if user_id in self._user_states:
-            del self._user_states[user_id]
+        """Safely clear user state with locking"""
+        with self._state_lock:
+            if user_id in self.user_states:
+                del self.user_states[user_id]
+                logger.info(f"🧹 STATE CLEARED: User {user_id}")
+
+    def _get_user_language(self, user_id: int) -> str:
+        """Get user's preferred language"""
+        with self._state_lock:
+            return self.user_languages.get(user_id, 'english')
+
+    def _set_user_language(self, user_id: int, language: str):
+        """Set user's preferred language"""
+        with self._state_lock:
+            self.user_languages[user_id] = language
+            logger.info(f"🌐 LANGUAGE SET: User {user_id} → {language}")
+
+    async def _ensure_session(self):
+        """Ensure aiohttp session exists"""
+        if self._session is None:
+            self._session = aiohttp.ClientSession()
+
+    async def detect_language(self, text: str) -> str:
+        """
+        Detect language using Qwen LLM exclusively.
+        """
+        if not text or not text.strip():
+            return 'english'
+            
+        try:
+            await self._ensure_session()
+            
+            # Craft a prompt that leverages Qwen's multilingual capabilities
+            prompt = f"""Analyze this text and determine if it's English, Hindi, or Nepali.
+            Consider:
+            1. Vocabulary and word usage
+            2. Grammar structure and patterns
+            3. Cultural context and references
+            4. Common phrases and expressions
+            5. Script used (Devanagari or Latin)
+            
+            Text to analyze: "{text}"
+            
+            Important rules:
+            - For mixed language text, identify the dominant language
+            - Consider both Devanagari and Roman script variations
+            - Look for language-specific markers and patterns
+            - Account for informal and colloquial usage
+            - Handle transliterated text appropriately
+            
+            Respond with EXACTLY one word - either 'english', 'hindi', or 'nepali'."""
+            
+            logger.info(f"🔍 [LLM] Language Detection Prompt: {prompt}")
+            
+            # Call Qwen through Ollama
+            async with self._session.post(
+                Config.OLLAMA_API_URL,
+                json={
+                    "model": Config.LLM_MODEL,
+                    "prompt": prompt,
+                    "stream": False,
+                    "options": {
+                        "temperature": 0.1,
+                        "top_p": 0.9
+                    }
+                }
+            ) as response:
+                result = await response.json()
+                detected_lang = result['response'].strip().lower()
+                
+                logger.info(f"🤖 [LLM] Language Detection Response: {detected_lang}")
+                
+                # Validate response
+                if detected_lang in ['english', 'hindi', 'nepali']:
+                    logger.info(f"✅ Language detected by Qwen: {detected_lang}")
+                    return detected_lang
+                else:
+                    logger.warning(f"⚠️ Invalid language detection result: {detected_lang}, falling back to English")
+                    return 'english'
+                    
+        except Exception as e:
+            logger.error(f"❌ Language detection failed: {str(e)}")
+            return 'english'  # Fallback to English on error
+
+    async def message_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle incoming messages"""
+        try:
+            user_id = update.effective_user.id
+            message_text = update.message.text
+            
+            logger.info(f"[MSG] User {user_id}: {message_text}")
+            
+            # Get current user state
+            user_state = self._get_user_state(user_id)
+            
+            # Detect language if not already set
+            if not self._get_user_language(user_id):
+                detected_lang = await self.detect_language(message_text)
+                self._set_user_language(user_id, detected_lang)
+                logger.info(f"[LANG] User {user_id} language detected: {detected_lang}")
+            
+            # Get user language
+            user_lang = self._get_user_language(user_id)
+            
+            # If user is in a workflow, handle accordingly
+            if user_state.get("workflow"):
+                workflow = user_state.get("workflow")
+                
+                if workflow == "ex_gratia":
+                    await self.handle_ex_gratia_workflow(update, context, message_text)
+                elif workflow == "complaint":
+                    await self.handle_complaint_workflow(update, context)
+                elif workflow == "certificate":
+                    await self.handle_certificate_workflow(update, context, message_text)
+                elif workflow == "status_check":
+                    await self.process_status_check(update, context)
+                else:
+                    # Unknown workflow, clear state and show main menu
+                    self._clear_user_state(user_id)
+                    await self.show_main_menu(update, context)
+            else:
+                # New conversation - detect intent and route
+                logger.info(f"[INTENT] Processing new message: {message_text}")
+                
+                # Get intent using LLM
+                intent = await self.get_intent_from_llm(message_text, user_lang)
+                logger.info(f"[INTENT] Detected intent: {intent}")
+                
+                # Route based on intent
+                if intent == "ex_gratia":
+                    await self.handle_ex_gratia(update, context)
+                elif intent == "check_status":
+                    await self.handle_check_status(update, context)
+                elif intent == "relief_norms":
+                    await self.handle_relief_norms(update, context)
+                elif intent == "emergency":
+                    # Direct emergency response - don't show menu
+                    await self.handle_emergency_direct(update, context, message_text)
+                elif intent == "tourism":
+                    await self.handle_tourism_menu(update, context)
+                elif intent == "complaint":
+                    await self.start_complaint_workflow(update, context)
+                elif intent == "certificate":
+                    await self.handle_certificate_info(update, context)
+                elif intent == "csc":
+                    await self.handle_csc_menu(update, context)
+                else:
+                    # Unknown intent, show main menu
+                    await self.start(update, context)
+            
+        except Exception as e:
+            logger.error(f"❌ Error in message handler: {str(e)}")
+            user_lang = self._get_user_language(update.effective_user.id) if update.effective_user else 'english'
+            await update.message.reply_text(
+                self.responses[user_lang]['error']
+            )
 
     async def start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /start command"""
@@ -144,48 +320,75 @@ Please select a service to continue:"""
             [InlineKeyboardButton("🆘 Disaster Management", callback_data='disaster')]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
-        await update.message.reply_text(welcome_text, reply_markup=reply_markup, parse_mode='Markdown')
-
-    async def message_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle incoming messages"""
-        user_id = update.effective_user.id
-        text = update.message.text
-        logger.info(f"[MSG] Received from {user_id}: {text}")
         
-        state = self._get_user_state(user_id)
-        logger.info(f"[STATE] Current for user {user_id}: {state}")
-
-        if not state or text.lower() in ['hello', 'hi', 'start', '/start']:
-            # First interaction or greeting, show all services
-            await self.start(update, context)
-            return
-
-        if state.get("workflow"):
-            # Handle ongoing workflows
-            workflow = state.get("workflow")
-            logger.info(f"[WORKFLOW] Continuing {workflow} for user {user_id}")
-            
-            if workflow == "complaint":
-                await self.handle_complaint_workflow(update, context)
-            elif workflow == "certificate":
-                await self.handle_certificate_workflow(update, context, text)
-            elif workflow == "check_status":
-                await self.process_status_check(update, context)
-            elif workflow == "ex_gratia":
-                await self.handle_ex_gratia_workflow(update, context, text)
-            else:
-                await self.show_main_menu(update, context)
+        # Handle both regular messages and callbacks
+        if update.callback_query:
+            await update.callback_query.edit_message_text(welcome_text, reply_markup=reply_markup, parse_mode='Markdown')
         else:
-            # For new requests, show main menu
-            await self.show_main_menu(update, context)
+            await update.message.reply_text(welcome_text, reply_markup=reply_markup, parse_mode='Markdown')
 
-    async def detect_language(self, text: str) -> str:
-        """Detect language using the LLM."""
-        return 'english'
+    async def detect_language_with_scoring(self, text: str) -> str:
+        """Deprecated: Use detect_language instead."""
+        return await self.detect_language(text)
 
     async def get_intent_from_llm(self, text: str, lang: str) -> str:
-        """Get intent from LLM."""
-        return 'unknown'
+        """Get intent using Qwen LLM."""
+        try:
+            await self._ensure_session()
+            
+            prompt = f"""You are an intent classifier for SmartGov Assistant, a government services chatbot in Sikkim. Given the user's message, classify it into one of these intents:
+
+Available intents:
+- ex_gratia: User wants to apply for ex-gratia assistance or asks about compensation for damages
+- check_status: User wants to check status of their application
+- relief_norms: User asks about relief norms, policies, or eligibility criteria
+- emergency: User needs emergency help (ambulance, police, fire)
+- tourism: User wants tourism/homestay services
+- complaint: User wants to file a complaint
+- certificate: User wants to apply for certificates
+- csc: User wants CSC (Common Service Center) services
+- unknown: If none of the above match
+
+Example messages for each intent:
+- ex_gratia: "I want to apply for compensation", "My house was damaged in floods", "Need financial help for crop damage"
+- check_status: "What's the status of my application?", "Track my ex-gratia request", "Any update on my claim?"
+- relief_norms: "How much compensation will I get?", "What are the eligibility criteria?", "What documents are needed?"
+- emergency: "Need ambulance", "Call police", "Fire emergency"
+- tourism: "Book homestay", "Tourist places", "Accommodation"
+- complaint: "File complaint", "Register grievance", "Report issue"
+- certificate: "Apply for certificate", "Birth certificate", "Document"
+- csc: "Find CSC", "CSC operator", "Common Service Center"
+
+User message: {text}
+Language: {lang}
+
+Respond with ONLY one of the intent names listed above, nothing else."""
+
+            logger.info(f"🎯 [LLM] Intent Classification Prompt: {prompt}")
+
+            async with self._session.post(
+                Config.OLLAMA_API_URL,
+                json={
+                    "model": Config.LLM_MODEL,
+                    "prompt": prompt,
+                    "stream": False,
+                    "options": {
+                        "temperature": 0.1,
+                        "top_p": 0.9
+                    }
+                }
+            ) as response:
+                result = await response.json()
+                intent = result['response'].strip().lower()
+                logger.info(f"🎯 [LLM] Intent Classification Response: {intent}")
+                
+                # Validate intent
+                valid_intents = ['ex_gratia', 'check_status', 'relief_norms', 'emergency', 'tourism', 'complaint', 'certificate', 'csc']
+                return intent if intent in valid_intents else 'unknown'
+                
+        except Exception as e:
+            logger.error(f"[LLM] Intent classification error: {str(e)}")
+            return 'unknown'
         
     async def show_main_menu(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Show the main menu"""
@@ -260,6 +463,21 @@ Please select a service to continue:"""
             elif data.startswith("cert_"):
                 cert_type = data.replace("cert_", "")
                 await self.handle_certificate_choice(update, context, cert_type)
+            
+            elif data == "certificate_csc":
+                # Handle certificate CSC choice
+                user_id = update.effective_user.id
+                self._set_user_state(user_id, {"workflow": "certificate", "stage": "gpu"})
+                await query.edit_message_text("Please enter your GPU (Gram Panchayat Unit):", parse_mode='Markdown')
+            
+            elif data == "certificate_sso":
+                # Handle certificate SSO choice
+                await query.edit_message_text(
+                    "You can apply directly on the Sikkim SSO Portal: https://sso.sikkim.gov.in\n\n"
+                    "🔙 Back to Main Menu", 
+                    reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Back to Main Menu", callback_data="main_menu")]]),
+                    parse_mode='Markdown'
+                )
             
             elif data == "complaint":
                 await self.start_complaint_workflow(update, context)
@@ -388,7 +606,12 @@ Would you like to proceed with the application?"""
             [InlineKeyboardButton("❌ No, Go Back", callback_data="disaster")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
-        await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+        
+        # Handle both regular messages and callbacks
+        if update.callback_query:
+            await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+        else:
+            await update.message.reply_text(text, reply_markup=reply_markup, parse_mode='Markdown')
 
     # --- Ex-Gratia Application ---
     async def start_ex_gratia_workflow(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -402,7 +625,12 @@ Please enter your full name:"""
         
         keyboard = [[InlineKeyboardButton("🔙 Cancel", callback_data="disaster")]]
         reply_markup = InlineKeyboardMarkup(keyboard)
-        await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+        
+        # Handle both regular messages and callbacks
+        if update.callback_query:
+            await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+        else:
+            await update.message.reply_text(text, reply_markup=reply_markup, parse_mode='Markdown')
 
     async def handle_ex_gratia_workflow(self, update: Update, context: ContextTypes.DEFAULT_TYPE, text: str):
         """Handle the ex-gratia application workflow"""
@@ -495,7 +723,12 @@ Please enter your full name:"""
             [InlineKeyboardButton("🐄 Livestock Loss (₹2,000 - ₹15,000)", callback_data='damage_type_livestock')]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
-        await update.message.reply_text("Please select the type of damage:", reply_markup=reply_markup)
+        
+        # Handle both regular messages and callbacks
+        if update.callback_query:
+            await update.callback_query.edit_message_text("Please select the type of damage:", reply_markup=reply_markup, parse_mode='Markdown')
+        else:
+            await update.message.reply_text("Please select the type of damage:", reply_markup=reply_markup, parse_mode='Markdown')
 
     async def handle_damage_type_selection(self, update: Update, context: ContextTypes.DEFAULT_TYPE, damage_type: str):
         """Handle damage type selection in ex-gratia workflow"""
@@ -560,7 +793,12 @@ Please verify all details carefully. Would you like to:""".format(
             [InlineKeyboardButton("❌ Cancel", callback_data='ex_gratia_cancel')]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
-        await update.message.reply_text(summary, reply_markup=reply_markup, parse_mode='Markdown')
+        
+        # Handle both regular messages and callbacks
+        if update.callback_query:
+            await update.callback_query.edit_message_text(summary, reply_markup=reply_markup, parse_mode='Markdown')
+        else:
+            await update.message.reply_text(summary, reply_markup=reply_markup, parse_mode='Markdown')
 
     async def submit_ex_gratia_application(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Submit the ex-gratia application"""
@@ -675,6 +913,43 @@ Select the type of emergency service you need:"""
             await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
         else:
             await update.message.reply_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+
+    async def handle_emergency_direct(self, update: Update, context: ContextTypes.DEFAULT_TYPE, message_text: str):
+        """Handle emergency requests directly without showing menu"""
+        try:
+            message_lower = message_text.lower()
+            
+            # Determine which emergency service is needed
+            if any(word in message_lower for word in ['ambulance', 'ambulance', 'medical', 'doctor', 'hospital']):
+                service_type = 'ambulance'
+                response_text = "🚑 *Ambulance Emergency*\nDial: 102 or 108\nControl Room: 03592-202033"
+            elif any(word in message_lower for word in ['police', 'police', 'thief', 'robbery', 'crime']):
+                service_type = 'police'
+                response_text = "👮 *Police Emergency*\nDial: 100\nControl Room: 03592-202022"
+            elif any(word in message_lower for word in ['fire', 'fire', 'burning', 'blaze']):
+                service_type = 'fire'
+                response_text = "🚒 *Fire Emergency*\nDial: 101\nControl Room: 03592-202099"
+            elif any(word in message_lower for word in ['suicide', 'suicide', 'helpline']):
+                service_type = 'suicide'
+                response_text = "💭 *Suicide Prevention Helpline*\nDial: 9152987821"
+            elif any(word in message_lower for word in ['women', 'women', 'harassment']):
+                service_type = 'women'
+                response_text = "👩 *Women Helpline*\nDial: 1091\nState Commission: 03592-205607"
+            else:
+                # Default to ambulance for general emergency
+                service_type = 'ambulance'
+                response_text = "🚑 *Ambulance Emergency*\nDial: 102 or 108\nControl Room: 03592-202033"
+            
+            keyboard = [
+                [InlineKeyboardButton("🚨 Other Emergency Services", callback_data="emergency")],
+                [InlineKeyboardButton("🔙 Back to Main Menu", callback_data="main_menu")]
+            ]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            
+            await update.message.reply_text(response_text, reply_markup=reply_markup, parse_mode='Markdown')
+        except Exception as e:
+            logger.error(f"Error handling emergency direct: {str(e)}")
+            await update.message.reply_text("Sorry, there was an error processing your request.")
 
     async def handle_emergency_service(self, update: Update, context: ContextTypes.DEFAULT_TYPE, service_type: str):
         """Handle specific emergency service selection"""
@@ -914,23 +1189,32 @@ Your complaint has been registered and will be processed soon. Please save your 
         logger.info("✅ All handlers registered successfully")
 
     def run(self):
-        """Start the bot"""
-        logger.info("🚀 Starting Enhanced SmartGov Assistant Bot...")
-        self.application.run_polling()
-        logger.info("🤖 Enhanced SmartGov Assistant is running...")
+        """Run the bot"""
+        try:
+            # Create application
+            self.application = Application.builder().token(self.BOT_TOKEN).build()
+            
+            # Add handlers
+            self.application.add_handler(CommandHandler("start", self.start))
+            self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.message_handler))
+            self.application.add_handler(CallbackQueryHandler(self.callback_handler))
+            
+            # Add error handler
+            self.application.add_error_handler(self.error_handler)
+            
+            # Start the bot
+            logger.info("🚀 Starting Enhanced SmartGov Assistant Bot...")
+            print("🚀 Starting Enhanced SmartGov Assistant Bot...")
+            print("✅ Ready to serve citizens!")
+            
+            # Run the bot until the user presses Ctrl-C
+            self.application.run_polling(allowed_updates=Update.ALL_TYPES)
+            
+        except Exception as e:
+            logger.error(f"❌ Failed to start bot: {str(e)}")
+            raise
 
 if __name__ == "__main__":
-    # Configure logging
-    logging.basicConfig(
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        level=logging.INFO
-    )
-    logger = logging.getLogger(__name__)
-
-    # Create and run bot
+    # Initialize and run bot
     bot = SmartGovAssistantBot()
-    print("🚀 Starting Enhanced SmartGov Assistant Bot...")
-    print("🤖 Enhanced SmartGov Assistant is running...")
-    print("📱 Bot Link: https://t.me/smartgov_assistant_bot")
-    print("✅ Ready to serve citizens!")
     bot.run() 
