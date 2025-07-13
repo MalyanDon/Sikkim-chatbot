@@ -77,6 +77,46 @@ class SmartGovAssistantBot:
         self.responses = {
             'english': {
                 'welcome': "Welcome to SmartGov Assistant! How can I help you today?",
+                'main_menu': """🏛️ *Welcome to SmartGov Assistant* 🏛️
+
+Our services include:
+
+1. *Book Homestay* 🏡
+   • Search by tourist destinations
+   • View ratings and prices
+   • Direct contact with owners
+
+2. *Emergency Services* 🚨
+   • Ambulance (102/108)
+   • Police Helpline
+   • Suicide Prevention
+   • Health Helpline
+   • Women Helpline
+   • Fire Emergency
+   • Report Disaster
+
+3. *Report a Complaint* 📝
+   • Register your grievance
+   • Get complaint tracking ID
+   • 24/7 monitoring
+
+4. *Apply for Certificate* 💻
+   • CSC operator assistance
+   • Sikkim SSO portal link
+   • Track application status
+
+5. *Disaster Management* 🆘
+   • Apply for Ex-gratia
+   • Check application status
+   • View relief norms
+   • Emergency contacts
+
+Please select a service to continue:""",
+                'button_homestay': "🏡 Book Homestay",
+                'button_emergency': "🚨 Emergency Services",
+                'button_complaint': "📝 Report a Complaint",
+                'button_certificate': "💻 Apply for Certificate",
+                'button_disaster': "🆘 Disaster Management",
                 'error': "Sorry, I encountered an error. Please try again.",
                 'unknown': "I'm not sure what you're asking for. Here are the available services:",
                 'processing': "Processing your request...",
@@ -103,6 +143,46 @@ class SmartGovAssistantBot:
             },
             'hindi': {
                 'welcome': "स्मार्टगव सहायक में आपका स्वागत है! मैं आपकी कैसे मदद कर सकता हूं?",
+                'main_menu': """🏛️ *स्मार्टगव सहायक में आपका स्वागत है* 🏛️
+
+हमारी सेवाएं शामिल हैं:
+
+1. *होमस्टे बुक करें* 🏡
+   • पर्यटन स्थलों के अनुसार खोजें
+   • रेटिंग और कीमतें देखें
+   • मालिकों से सीधा संपर्क
+
+2. *आपातकालीन सेवाएं* 🚨
+   • एम्बुलेंस (102/108)
+   • पुलिस हेल्पलाइन
+   • आत्महत्या रोकथाम
+   • स्वास्थ्य हेल्पलाइन
+   • महिला हेल्पलाइन
+   • अग्निशमन आपातकाल
+   • आपदा की रिपोर्ट करें
+
+3. *शिकायत दर्ज करें* 📝
+   • अपनी शिकायत पंजीकृत करें
+   • शिकायत ट्रैकिंग आईडी प्राप्त करें
+   • 24/7 निगरानी
+
+4. *प्रमाणपत्र के लिए आवेदन करें* 💻
+   • CSC ऑपरेटर सहायता
+   • सिक्किम SSO पोर्टल लिंक
+   • आवेदन स्थिति ट्रैक करें
+
+5. *आपदा प्रबंधन* 🆘
+   • एक्स-ग्रेटिया के लिए आवेदन करें
+   • आवेदन स्थिति जांचें
+   • राहत मानदंड देखें
+   • आपातकालीन संपर्क
+
+कृपया जारी रखने के लिए एक सेवा चुनें:""",
+                'button_homestay': "🏡 होमस्टे बुक करें",
+                'button_emergency': "🚨 आपातकालीन सेवाएं",
+                'button_complaint': "📝 शिकायत दर्ज करें",
+                'button_certificate': "💻 प्रमाणपत्र के लिए आवेदन",
+                'button_disaster': "🆘 आपदा प्रबंधन",
                 'error': "क्षमा करें, कोई त्रुटि हुई। कृपया पुनः प्रयास करें।",
                 'unknown': "मुझे समझ नहीं आया। यहाँ उपलब्ध सेवाएं हैं:",
                 'processing': "आपका अनुरोध प्रोसेस किया जा रहा है...",
@@ -129,6 +209,46 @@ class SmartGovAssistantBot:
             },
             'nepali': {
                 'welcome': "स्मार्टगभ सहायकमा स्वागत छ! म तपाईंलाई कसरी मद्दत गर्न सक्छु?",
+                'main_menu': """🏛️ *स्मार्टगभ सहायकमा स्वागत छ* 🏛️
+
+हाम्रो सेवाहरू समावेश छन्:
+
+1. *होमस्टे बुक गर्नुहोस्* 🏡
+   • पर्यटन स्थलहरू अनुसार खोज्नुहोस्
+   • रेटिङ र मूल्यहरू हेर्नुहोस्
+   • मालिकहरूसँग सिधा सम्पर्क
+
+2. *आकस्मिक सेवाहरू* 🚨
+   • एम्बुलेन्स (102/108)
+   • प्रहरी हेल्पलाइन
+   • आत्महत्या रोकथाम
+   • स्वास्थ्य हेल्पलाइन
+   • महिला हेल्पलाइन
+   • अग्निशमन आकस्मिक
+   • आपदा रिपोर्ट गर्नुहोस्
+
+3. *शिकायत दर्ता गर्नुहोस्* 📝
+   • आफ्नो शिकायत दर्ता गर्नुहोस्
+   • शिकायत ट्र्याकिङ आईडी प्राप्त गर्नुहोस्
+   • 24/7 निगरानी
+
+4. *प्रमाणपत्रको लागि आवेदन गर्नुहोस्* 💻
+   • CSC सञ्चालक सहायता
+   • सिक्किम SSO पोर्टल लिङ्क
+   • आवेदन स्थिति ट्र्याक गर्नुहोस्
+
+5. *आपदा व्यवस्थापन* 🆘
+   • एक्स-ग्रेटियाको लागि आवेदन गर्नुहोस्
+   • आवेदन स्थिति जाँच गर्नुहोस्
+   • राहत मापदण्ड हेर्नुहोस्
+   • आकस्मिक सम्पर्कहरू
+
+कृपया जारी राख्न सेवा छान्नुहोस्:""",
+                'button_homestay': "🏡 होमस्टे बुक गर्नुहोस्",
+                'button_emergency': "🚨 आकस्मिक सेवाहरू",
+                'button_complaint': "📝 शिकायत दर्ता गर्नुहोस्",
+                'button_certificate': "💻 प्रमाणपत्रको लागि आवेदन",
+                'button_disaster': "🆘 आपदा व्यवस्थापन",
                 'error': "माफ गर्नुहोस्, त्रुटि भयो। कृपया पुन: प्रयास गर्नुहोस्।",
                 'unknown': "मलाई बुझ्न सकिएन। यहाँ उपलब्ध सेवाहरू छन्:",
                 'processing': "तपाईंको अनुरोध प्रशोधन गरिँदैछ...",
@@ -311,7 +431,9 @@ class SmartGovAssistantBot:
                 logger.info(f"[INTENT] Detected intent: {intent}")
                 
                 # Route based on intent
-                if intent == "ex_gratia":
+                if intent == "greeting":
+                    await self.handle_greeting(update, context)
+                elif intent == "ex_gratia":
                     await self.handle_ex_gratia(update, context)
                 elif intent == "check_status":
                     await self.handle_check_status(update, context)
@@ -342,51 +464,20 @@ class SmartGovAssistantBot:
     async def start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /start command"""
         user = update.effective_user
-        logger.info(f"[USER] New conversation started by user {user.id}")
-        self._clear_user_state(user.id)
+        user_id = user.id
+        user_lang = self._get_user_language(user_id)
+        logger.info(f"[USER] New conversation started by user {user_id}")
+        self._clear_user_state(user_id)
         
-        welcome_text = """🏛️ *Welcome to SmartGov Assistant* 🏛️
-
-Our services include:
-
-1. *Book Homestay* 🏡
-   • Search by tourist destinations
-   • View ratings and prices
-   • Direct contact with owners
-
-2. *Emergency Services* 🚨
-   • Ambulance (102/108)
-   • Police Helpline
-   • Suicide Prevention
-   • Health Helpline
-   • Women Helpline
-   • Fire Emergency
-   • Report Disaster
-
-3. *Report a Complaint* 📝
-   • Register your grievance
-   • Get complaint tracking ID
-   • 24/7 monitoring
-
-4. *Apply for Certificate* 💻
-   • CSC operator assistance
-   • Sikkim SSO portal link
-   • Track application status
-
-5. *Disaster Management* 🆘
-   • Apply for Ex-gratia
-   • Check application status
-   • View relief norms
-   • Emergency contacts
-
-Please select a service to continue:"""
+        # Get the main menu text in user's selected language
+        welcome_text = self.responses[user_lang]['main_menu']
 
         keyboard = [
-            [InlineKeyboardButton("🏡 Book Homestay", callback_data='tourism')],
-            [InlineKeyboardButton("🚨 Emergency Services", callback_data='emergency')],
-            [InlineKeyboardButton("📝 Report a Complaint", callback_data='complaint')],
-            [InlineKeyboardButton("💻 Apply for Certificate", callback_data='certificate')],
-            [InlineKeyboardButton("🆘 Disaster Management", callback_data='disaster')]
+            [InlineKeyboardButton(self.responses[user_lang]['button_homestay'], callback_data='tourism')],
+            [InlineKeyboardButton(self.responses[user_lang]['button_emergency'], callback_data='emergency')],
+            [InlineKeyboardButton(self.responses[user_lang]['button_complaint'], callback_data='complaint')],
+            [InlineKeyboardButton(self.responses[user_lang]['button_certificate'], callback_data='certificate')],
+            [InlineKeyboardButton(self.responses[user_lang]['button_disaster'], callback_data='disaster')]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
@@ -408,9 +499,10 @@ Please select a service to continue:"""
             prompt = f"""You are an intent classifier for SmartGov Assistant, a government services chatbot in Sikkim. Given the user's message, classify it into one of these intents:
 
 Available intents:
-- ex_gratia: User wants to apply for ex-gratia assistance or asks about compensation for damages
+- greeting: User is saying hello, hi, namaste, or starting a conversation (hello, hi, namaste, good morning, etc.)
+- ex_gratia: User wants to APPLY for ex-gratia assistance (action-oriented)
 - check_status: User wants to check status of their application
-- relief_norms: User asks about relief norms, policies, or eligibility criteria
+- relief_norms: User asks about relief norms, policies, eligibility criteria, or general questions about ex-gratia
 - emergency: User needs emergency help (ambulance, police, fire)
 - tourism: User wants tourism/homestay services
 - complaint: User wants to file a complaint
@@ -419,9 +511,10 @@ Available intents:
 - unknown: If none of the above match
 
 Example messages for each intent:
-- ex_gratia: "I want to apply for compensation", "My house was damaged in floods", "Need financial help for crop damage"
+- greeting: "Hello", "Hi", "Namaste", "Good morning", "Namaskar", "Kya haal hai", "K cha", "How are you"
+- ex_gratia: "I want to apply for compensation", "Apply for ex gratia", "I need to file ex-gratia claim", "Start ex-gratia application"
+- relief_norms: "What is ex gratia?", "How much compensation will I get?", "What are the eligibility criteria?", "Kya mujhe ex gratia milega?", "Ex gratia kya hain?"
 - check_status: "What's the status of my application?", "Track my ex-gratia request", "Any update on my claim?"
-- relief_norms: "How much compensation will I get?", "What are the eligibility criteria?", "What documents are needed?"
 - emergency: "Need ambulance", "Call police", "Fire emergency"
 - tourism: "Book homestay", "Tourist places", "Accommodation"
 - complaint: "File complaint", "Register grievance", "Report issue"
@@ -452,7 +545,7 @@ Respond with ONLY one of the intent names listed above, nothing else."""
                 logger.info(f"🎯 [LLM] Intent Classification Response: {intent}")
                 
                 # Validate intent
-                valid_intents = ['ex_gratia', 'check_status', 'relief_norms', 'emergency', 'tourism', 'complaint', 'certificate', 'csc']
+                valid_intents = ['greeting', 'ex_gratia', 'check_status', 'relief_norms', 'emergency', 'tourism', 'complaint', 'certificate', 'csc']
                 return intent if intent in valid_intents else 'unknown'
                 
         except Exception as e:
@@ -462,6 +555,32 @@ Respond with ONLY one of the intent names listed above, nothing else."""
     async def show_main_menu(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Show the main menu"""
         await self.start(update, context)
+
+    async def handle_greeting(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle greeting messages with language selection"""
+        user_id = update.effective_user.id
+        
+        # Clear any existing state
+        self._clear_user_state(user_id)
+        
+        greeting_text = """👋 *Welcome to SmartGov Assistant!*
+
+नमस्ते! / नमस्कार! / Hello!
+
+Please select your preferred language to continue:
+
+कृपया अपनी पसंदीदा भाषा चुनें:
+
+कृपया तपाईंको मनपर्ने भाषा छान्नुहोस्:"""
+
+        keyboard = [
+            [InlineKeyboardButton("🇮🇳 हिंदी (Hindi)", callback_data='lang_hindi')],
+            [InlineKeyboardButton("🇳🇵 नेपाली (Nepali)", callback_data='lang_nepali')],
+            [InlineKeyboardButton("🇬🇧 English", callback_data='lang_english')]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await update.message.reply_text(greeting_text, reply_markup=reply_markup, parse_mode='Markdown')
 
     async def callback_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle callback queries from inline keyboards"""
@@ -551,6 +670,24 @@ Respond with ONLY one of the intent names listed above, nothing else."""
             elif data == "complaint":
                 await self.start_complaint_workflow(update, context)
             
+            elif data.startswith("lang_"):
+                lang_choice = data.replace("lang_", "")
+                self._set_user_language(user_id, lang_choice)
+                
+                # Show language-specific welcome message
+                welcome_messages = {
+                    'english': "✅ Language set to English! Welcome to SmartGov Assistant!",
+                    'hindi': "✅ भाषा हिंदी में सेट की गई! SmartGov Assistant में आपका स्वागत है!",
+                    'nepali': "✅ भाषा नेपालीमा सेट गरियो! SmartGov Assistant मा तपाईंको स्वागत छ!"
+                }
+                
+                welcome_text = welcome_messages.get(lang_choice, f"Language set to {lang_choice.capitalize()}!")
+                await query.edit_message_text(welcome_text, parse_mode='Markdown')
+                
+                # Wait a moment then show main menu
+                await asyncio.sleep(1.5)
+                await self.start(update, context)
+            
             else:
                 logger.warning(f"Unhandled callback data: {data}")
                 await query.message.reply_text("Sorry, I couldn't process that request.")
@@ -584,33 +721,13 @@ Please select an option:
             await update.message.reply_text(text, reply_markup=reply_markup, parse_mode='Markdown')
 
     async def handle_relief_norms(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Show disaster relief norms"""
-        text = """*Disaster Relief Norms* ℹ️
-
-The Government of Sikkim provides relief assistance for:
-
-1. House Damage
-   • Fully Damaged: Up to ₹25,000
-   • Severely Damaged: Up to ₹15,000
-   • Partially Damaged: Up to ₹4,000
-
-2. Crop Loss
-   • Above 2 hectares: Up to ₹15,000
-   • 1-2 hectares: Up to ₹10,000
-   • Below 1 hectare: Up to ₹4,000
-
-3. Livestock Loss
-   • Large animals: Up to ₹15,000
-   • Small animals: Up to ₹2,000
-
-For more details, please visit your nearest District Administration office."""
-
-        keyboard = [
-            [InlineKeyboardButton("📝 Apply Now", callback_data="ex_gratia")],
-            [InlineKeyboardButton("🔙 Back to Disaster Menu", callback_data="disaster")]
-        ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+        user_lang = self._get_user_language(update.effective_user.id)
+        text = self.responses[user_lang]['ex_gratia_intro']
+        # Use reply_text if not a callback query
+        if hasattr(update, 'callback_query') and update.callback_query:
+            await update.callback_query.edit_message_text(text, parse_mode='Markdown')
+        else:
+            await update.message.reply_text(text, parse_mode='Markdown')
 
     async def handle_check_status(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle application status check"""
@@ -701,6 +818,22 @@ If the problem persists, contact support."""
         state = self._get_user_state(user_id)
         step = state.get("step")
         data = state.get("data", {})
+
+        # Check for cancel commands first
+        cancel_commands = ['cancel', 'exit', 'quit', 'stop', 'back', 'menu', 'home', 'रद्द', 'बंद', 'वापस', 'मेनू']
+        if any(cmd in text.lower() for cmd in cancel_commands):
+            self._clear_user_state(user_id)
+            await update.message.reply_text(self.responses[user_lang]['cancelled'], parse_mode='Markdown')
+            await self.show_main_menu(update, context)
+            return
+
+        # Check if user is asking a question instead of providing data
+        question_indicators = ['kya', 'what', 'how', 'when', 'where', 'why', 'क्या', 'कैसे', 'कब', 'कहाँ', 'क्यों']
+        if any(indicator in text.lower() for indicator in question_indicators):
+            # User is asking a question, redirect to relief norms
+            self._clear_user_state(user_id)
+            await self.handle_relief_norms(update, context)
+            return
 
         if step == "name":
             data["name"] = text
