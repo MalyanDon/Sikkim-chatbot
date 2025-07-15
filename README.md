@@ -46,6 +46,7 @@ A comprehensive multilingual Telegram chatbot for Sikkim government services wit
 - **Rule-based Workflows**: Structured forms and data collection
 - **Data Validation**: Input validation with helpful error messages
 - **State Management**: Multi-step form handling with session persistence
+- **Google Sheets Integration**: Automatic logging of complaints, queries, and applications
 
 ## 🚀 Quick Start
 
@@ -53,6 +54,7 @@ A comprehensive multilingual Telegram chatbot for Sikkim government services wit
 - Python 3.8+
 - Telegram Bot Token
 - Ollama with Qwen2 model (optional, for LLM features)
+- Google Cloud Project with Sheets API (optional, for data logging)
 
 ### Installation
 
@@ -73,6 +75,9 @@ Edit `config.py` with your bot token:
 BOT_TOKEN = "your_telegram_bot_token_here"
 ```
 
+4. **Set up Google Sheets (Optional)**
+Follow the setup guide in `GOOGLE_SHEETS_SETUP.md` to enable automatic data logging.
+
 4. **Run the bot**
 ```bash
 python comprehensive_smartgov_bot.py
@@ -83,23 +88,31 @@ python comprehensive_smartgov_bot.py
 python test_enhanced_bot.py
 ```
 
+6. **Test Google Sheets integration (if enabled)**
+```bash
+python test_google_sheets.py
+```
+
 ## 📁 Project Structure
 
 ```
 Sikkim-chatbot/
-├── comprehensive_smartgov_bot.py    # Main bot implementation
-├── config.py                        # Configuration settings
-├── requirements.txt                 # Python dependencies
-├── test_enhanced_bot.py             # Comprehensive test suite
-├── data/                           # Data files
+├── smartgov_bot_fixed.py           # Main bot implementation with Google Sheets
+├── google_sheets_service.py        # Google Sheets integration service
+├── config.py                       # Configuration settings
+├── requirements.txt                # Python dependencies
+├── test_google_sheets.py           # Google Sheets integration tests
+├── GOOGLE_SHEETS_SETUP.md          # Google Sheets setup guide
+├── .gitignore                      # Git ignore file
+├── data/                          # Data files
 │   ├── emergency_services_text_responses.json
 │   ├── homestays_by_place.csv
 │   ├── csc_contacts.csv
 │   ├── status.csv
 │   ├── exgratia_applications.csv
-│   ├── info_opt1.txt              # Ex-gratia norms
-│   └── info_opt2.txt              # Application process
-└── tests/                         # Test files
+│   ├── info_opt1.txt             # Ex-gratia norms
+│   └── info_opt2.txt             # Application process
+└── tests/                        # Test files
     └── comprehensive_test.py
 ```
 
@@ -116,6 +129,14 @@ Configure Ollama endpoint in the bot file:
 ```python
 LLM_ENDPOINT = "http://localhost:11434/api/generate"
 MODEL_NAME = "qwen2"
+```
+
+### Google Sheets Configuration
+Set up Google Sheets integration in your `.env` file:
+```env
+GOOGLE_SHEETS_ENABLED=true
+GOOGLE_SHEETS_SPREADSHEET_ID=your_spreadsheet_id_here
+GOOGLE_SHEETS_CREDENTIALS_FILE=credentials.json
 ```
 
 ### Data Files
@@ -173,6 +194,15 @@ Applications are stored in `data/exgratia_applications.csv` with fields:
 - Personal details (name, father's name, village, contact)
 - Damage information (type, description)
 - Submission metadata (date, language, status)
+
+### Google Sheets Logging
+When enabled, the bot automatically logs:
+- **Complaints**: General queries and complaints from users
+- **Certificate Queries**: Certificate-related questions and responses
+- **Ex-gratia Applications**: Complete application data with user details
+- **Status Checks**: Application status check requests and results
+
+Each sheet includes timestamps, user information, and relevant data for tracking and analysis.
 
 ### Status Tracking
 Application status can be checked using the stored application ID.

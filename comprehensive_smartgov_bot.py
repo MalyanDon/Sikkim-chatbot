@@ -17,6 +17,7 @@ from datetime import datetime
 import time
 import random
 from typing import Dict, Tuple
+from google_sheets_service import GoogleSheetsService
 
 # Force UTF-8 encoding for Windows
 if sys.platform == 'win32':
@@ -53,6 +54,9 @@ class SmartGovAssistantBot:
         # Initialize aiohttp session for LLM calls
         self._session = None
         
+        # Initialize Google Sheets service
+        self._initialize_google_sheets()
+        
         logger.info("🔒 MULTI-USER SUPPORT: Thread-safe state management initialized")
 
     def _load_workflow_data(self):
@@ -71,6 +75,22 @@ class SmartGovAssistantBot:
         except Exception as e:
             logger.error(f"❌ Error loading data files: {str(e)}")
             raise
+
+    def _initialize_google_sheets(self):
+        """Initialize Google Sheets service"""
+        try:
+            if Config.GOOGLE_SHEETS_ENABLED and Config.GOOGLE_SHEETS_CREDENTIALS_FILE:
+                self.sheets_service = GoogleSheetsService(
+                    credentials_file=Config.GOOGLE_SHEETS_CREDENTIALS_FILE,
+                    spreadsheet_id=Config.GOOGLE_SHEETS_SPREADSHEET_ID
+                )
+                logger.info("✅ Google Sheets service initialized successfully")
+            else:
+                self.sheets_service = None
+                logger.warning("⚠️ Google Sheets integration disabled or credentials file not configured")
+        except Exception as e:
+            logger.error(f"❌ Error initializing Google Sheets service: {str(e)}")
+            self.sheets_service = None
 
     def _initialize_responses(self):
         """Initialize multilingual response templates"""
@@ -139,7 +159,22 @@ Please select a service to continue:""",
                 'ex_gratia_damage': "Please provide a detailed description of the damage:",
                 'certificate_info': "To apply for services through the Sikkim SSO portal:\n1. Register and create an account on the Sikkim SSO portal\n2. Log in using your Sikkim SSO credentials\n3. Navigate to the desired service\n4. Fill out the application form\n5. Upload necessary documents\n6. Track your application status online\n\nWould you like to apply through a CSC operator or Single Window operator?",
                 'other_emergency': "🚨 Other Emergency Services",
-                'back_main_menu': "🔙 Back to Main Menu"
+                'back_main_menu': "🔙 Back to Main Menu",
+                'language_menu': "🌐 *Language Selection*\n\nPlease select your preferred language:",
+                'language_changed': "✅ Language changed to English successfully!",
+                'language_button_english': "🇺🇸 English",
+                'language_button_hindi': "🇮🇳 हिंदी",
+                'complaint_title': "*Report a Complaint/Grievance* 📝",
+                'complaint_name_prompt': "Please enter your full name:",
+                'complaint_mobile_prompt': "Please enter your mobile number:",
+                'complaint_mobile_error': "Please enter a valid 10-digit mobile number.",
+                'complaint_description_prompt': "Please describe your complaint in detail:",
+                'complaint_success': "✅ *Complaint Registered Successfully*\n\n🆔 Complaint ID: {complaint_id}\n👤 Name: {name}\n📱 Mobile: {mobile}\n🔗 Telegram: @{telegram_username}\n\nYour complaint has been registered and will be processed soon. Please save your Complaint ID for future reference.",
+                'certificate_gpu_prompt': "Please enter your GPU (Gram Panchayat Unit):",
+                'certificate_sso_message': "You can apply directly on the Sikkim SSO Portal: https://sso.sikkim.gov.in",
+                'certificate_gpu_not_found': "Sorry, no CSC operator found for your GPU. Please check the GPU number and try again.",
+                'certificate_csc_details': "*CSC Operator Details*\n\nName: {name}\nContact: {contact}\nTimings: {timings}",
+                'certificate_error': "Sorry, there was an error processing your request. Please try again."
             },
             'hindi': {
                 'welcome': "स्मार्टगव सहायक में आपका स्वागत है! मैं आपकी कैसे मदद कर सकता हूं?",
@@ -205,7 +240,22 @@ Please select a service to continue:""",
                 'ex_gratia_damage': "कृपया क्षति का विस्तृत विवरण प्रदान करें:",
                 'certificate_info': "सिक्किम SSO पोर्टल के माध्यम से सेवाओं के लिए आवेदन करने के लिए:\n1. सिक्किम SSO पोर्टल पर पंजीकरण करें और खाता बनाएं\n2. अपने सिक्किम SSO क्रेडेंशियल्स का उपयोग करके लॉगिन करें\n3. वांछित सेवा पर नेविगेट करें\n4. आवेदन फॉर्म भरें\n5. आवश्यक दस्तावेज अपलोड करें\n6. अपने आवेदन की स्थिति ऑनलाइन ट्रैक करें\n\nक्या आप CSC ऑपरेटर या सिंगल विंडो ऑपरेटर के माध्यम से आवेदन करना चाहते हैं?",
                 'other_emergency': "🚨 अन्य आपातकालीन सेवाएं",
-                'back_main_menu': "🔙 मुख्य मेनू पर वापस"
+                'back_main_menu': "🔙 मुख्य मेनू पर वापस",
+                'language_menu': "🌐 *भाषा चयन*\n\nकृपया अपनी पसंदीदा भाषा चुनें:",
+                'language_changed': "✅ भाषा सफलतापूर्वक हिंदी में बदल दी गई!",
+                'language_button_english': "🇺🇸 English",
+                'language_button_hindi': "🇮🇳 हिंदी",
+                'complaint_title': "*शिकायत/ग्रिवेंस दर्ज करें* 📝",
+                'complaint_name_prompt': "कृपया अपना पूरा नाम दर्ज करें:",
+                'complaint_mobile_prompt': "कृपया अपना मोबाइल नंबर दर्ज करें:",
+                'complaint_mobile_error': "कृपया एक वैध 10-अंकीय मोबाइल नंबर दर्ज करें।",
+                'complaint_description_prompt': "कृपया अपनी शिकायत का विस्तृत विवरण दें:",
+                'complaint_success': "✅ *शिकायत सफलतापूर्वक दर्ज की गई*\n\n🆔 शिकायत आईडी: {complaint_id}\n👤 नाम: {name}\n📱 मोबाइल: {mobile}\n🔗 टेलीग्राम: @{telegram_username}\n\nआपकी शिकायत दर्ज कर दी गई है और जल्द ही प्रोसेस की जाएगी। कृपया भविष्य के संदर्भ के लिए अपनी शिकायत आईडी सहेजें।",
+                'certificate_gpu_prompt': "कृपया अपना GPU (ग्राम पंचायत इकाई) दर्ज करें:",
+                'certificate_sso_message': "आप सीधे सिक्किम SSO पोर्टल पर आवेदन कर सकते हैं: https://sso.sikkim.gov.in",
+                'certificate_gpu_not_found': "क्षमा करें, आपके GPU के लिए कोई CSC ऑपरेटर नहीं मिला। कृपया GPU नंबर जांचें और पुनः प्रयास करें।",
+                'certificate_csc_details': "*CSC ऑपरेटर विवरण*\n\nनाम: {name}\nसंपर्क: {contact}\nसमय: {timings}",
+                'certificate_error': "क्षमा करें, आपके अनुरोध को प्रोसेस करने में त्रुटि हुई। कृपया पुनः प्रयास करें।"
             },
             'nepali': {
                 'welcome': "स्मार्टगभ सहायकमा स्वागत छ! म तपाईंलाई कसरी मद्दत गर्न सक्छु?",
@@ -271,7 +321,22 @@ Please select a service to continue:""",
                 'ex_gratia_damage': "कृपया क्षतिको विस्तृत विवरण प्रदान गर्नुहोस्:",
                 'certificate_info': "सिक्किम SSO पोर्टल मार्फत सेवाहरूको लागि आवेदन गर्न:\n1. सिक्किम SSO पोर्टलमा दर्ता गर्नुहोस् र खाता सिर्जना गर्नुहोस्\n2. आफ्ना सिक्किम SSO क्रेडेन्सियलहरू प्रयोग गरेर लगइन गर्नुहोस्\n3. इच्छित सेवामा नेविगेट गर्नुहोस्\n4. आवेदन फारम भर्नुहोस्\n5. आवश्यक कागजातहरू अपलोड गर्नुहोस्\n6. आफ्नो आवेदनको स्थिति अनलाइन ट्र्याक गर्नुहोस्\n\nके तपाईं CSC सञ्चालक वा सिङ्गल विन्डो सञ्चालक मार्फत आवेदन गर्न चाहनुहुन्छ?",
                 'other_emergency': "🚨 अन्य आकस्मिक सेवाहरू",
-                'back_main_menu': "🔙 मुख्य मेनुमा फिर्ता"
+                'back_main_menu': "🔙 मुख्य मेनुमा फिर्ता",
+                'language_menu': "🌐 *भाषा चयन*\n\nकृपया तपाईंको मनपर्ने भाषा छान्नुहोस्:",
+                'language_changed': "✅ भाषा सफलतापूर्वक नेपालीमा बदलियो!",
+                'language_button_english': "🇺🇸 English",
+                'language_button_hindi': "🇮🇳 हिंदी",
+                'complaint_title': "*शिकायत/ग्रिवेंस दर्ता गर्नुहोस्* 📝",
+                'complaint_name_prompt': "कृपया आफ्नो पूरा नाम प्रविष्ट गर्नुहोस्:",
+                'complaint_mobile_prompt': "कृपया आफ्नो मोबाइल नम्बर प्रविष्ट गर्नुहोस्:",
+                'complaint_mobile_error': "कृपया एक वैध 10-अंकीय मोबाइल नम्बर प्रविष्ट गर्नुहोस्।",
+                'complaint_description_prompt': "कृपया आफ्नो शिकायतको विस्तृत विवरण दिनुहोस्:",
+                'complaint_success': "✅ *शिकायत सफलतापूर्वक दर्ता गरियो*\n\n🆔 शिकायत आईडी: {complaint_id}\n👤 नाम: {name}\n📱 मोबाइल: {mobile}\n🔗 टेलीग्राम: @{telegram_username}\n\nतपाईंको शिकायत दर्ता गरियो र चाँडै प्रशोधन गरिनेछ। कृपया भविष्यको सन्दर्भको लागि आफ्नो शिकायत आईडी सुरक्षित गर्नुहोस्।",
+                'certificate_gpu_prompt': "कृपया आफ्नो GPU (ग्राम पंचायत इकाई) प्रविष्ट गर्नुहोस्:",
+                'certificate_sso_message': "तपाईं सिधै सिक्किम SSO पोर्टलमा आवेदन गर्न सक्नुहुन्छ: https://sso.sikkim.gov.in",
+                'certificate_gpu_not_found': "माफ गर्नुहोस्, तपाईंको GPU को लागि कुनै CSC सञ्चालक फेला परेनन्। कृपया GPU नम्बर जाँच गर्नुहोस् र पुन: प्रयास गर्नुहोस्।",
+                'certificate_csc_details': "*CSC सञ्चालक विवरण*\n\nनाम: {name}\nसम्पर्क: {contact}\nसमय: {timings}",
+                'certificate_error': "माफ गर्नुहोस्, तपाईंको अनुरोध प्रशोधन गर्दा त्रुटि भयो। कृपया पुन: प्रयास गर्नुहोस्।"
             }
         }
 
@@ -308,6 +373,79 @@ Please select a service to continue:""",
         """Ensure aiohttp session exists"""
         if self._session is None:
             self._session = aiohttp.ClientSession()
+
+    def _log_to_sheets(self, user_id: int, user_name: str, interaction_type: str, 
+                      query_text: str, language: str, bot_response: str, **kwargs):
+        """Log interaction to Google Sheets"""
+        if not self.sheets_service:
+            return
+        
+        try:
+            if interaction_type == "complaint":
+                self.sheets_service.log_complaint(
+                    user_id=user_id,
+                    user_name=user_name,
+                    complaint_text=query_text,
+                    complaint_type=kwargs.get('complaint_type', 'General'),
+                    language=language,
+                    status=kwargs.get('status', 'New')
+                )
+            elif interaction_type == "homestay":
+                self.sheets_service.log_homestay_query(
+                    user_id=user_id,
+                    user_name=user_name,
+                    place=kwargs.get('place', ''),
+                    query_text=query_text,
+                    language=language,
+                    result=bot_response
+                )
+            elif interaction_type == "emergency":
+                self.sheets_service.log_emergency_service(
+                    user_id=user_id,
+                    user_name=user_name,
+                    service_type=kwargs.get('service_type', 'General'),
+                    query_text=query_text,
+                    language=language,
+                    result=bot_response
+                )
+            elif interaction_type == "cab_booking":
+                self.sheets_service.log_cab_booking_query(
+                    user_id=user_id,
+                    user_name=user_name,
+                    destination=kwargs.get('destination', ''),
+                    query_text=query_text,
+                    language=language,
+                    result=bot_response
+                )
+            elif interaction_type == "ex_gratia":
+                self.sheets_service.log_ex_gratia_application(
+                    user_id=user_id,
+                    user_name=user_name,
+                    application_data=kwargs.get('application_data', {}),
+                    language=language,
+                    status=kwargs.get('status', 'Submitted')
+                )
+            elif interaction_type == "certificate":
+                self.sheets_service.log_certificate_query(
+                    user_id=user_id,
+                    user_name=user_name,
+                    query_text=query_text,
+                    certificate_type=kwargs.get('certificate_type', 'General'),
+                    language=language,
+                    result=bot_response
+                )
+            else:
+                # Log general interaction
+                self.sheets_service.log_general_interaction(
+                    user_id=user_id,
+                    user_name=user_name,
+                    interaction_type=interaction_type,
+                    query_text=query_text,
+                    language=language,
+                    bot_response=bot_response
+                )
+        except Exception as e:
+            logger.error(f"❌ Error logging to Google Sheets: {str(e)}")
 
     async def detect_language(self, text: str) -> str:
         """
@@ -398,13 +536,55 @@ Please select a service to continue:""",
             # Get current user state
             user_state = self._get_user_state(user_id)
             
-            # Detect language for each message to handle language switching
-            detected_lang = await self.detect_language(message_text)
-            self._set_user_language(user_id, detected_lang)
-            logger.info(f"[LANG] User {user_id} language detected: {detected_lang}")
-            
-            # Get user language
+            # Get user language - only detect language for new conversations, not during workflows
             user_lang = self._get_user_language(user_id)
+            
+            # Check for language change requests first
+            language_change_keywords = {
+                'english': ['english', 'अंग्रेजी', 'english language', 'change to english', 'switch to english'],
+                'hindi': ['hindi', 'हिंदी', 'hindi language', 'change to hindi', 'switch to hindi', 'हिंदी में बात करें'],
+                'nepali': ['nepali', 'नेपाली', 'nepali language', 'change to nepali', 'switch to nepali']
+            }
+            
+            message_lower = message_text.lower().strip()
+            language_changed = False
+            
+            for lang, keywords in language_change_keywords.items():
+                if any(keyword in message_lower for keyword in keywords):
+                    self._set_user_language(user_id, lang)
+                    user_lang = lang
+                    language_changed = True
+                    logger.info(f"[LANG] User {user_id} changed language to: {lang}")
+                    
+                    # Send confirmation message
+                    confirmation_text = self.responses[lang]['language_changed']
+                    await update.message.reply_text(confirmation_text, parse_mode='Markdown')
+                    
+                    # Wait a moment then show main menu
+                    await asyncio.sleep(1.5)
+                    await self.show_main_menu(update, context)
+                    
+                    # Log language change
+                    user_name = update.effective_user.first_name or "Unknown"
+                    self._log_to_sheets(
+                        user_id=user_id,
+                        user_name=user_name,
+                        interaction_type="language_change",
+                        query_text=message_text,
+                        language=lang,
+                        bot_response=confirmation_text
+                    )
+                    return
+            
+            # If user is in a workflow, don't change their language
+            if not user_state.get("workflow"):
+                # Only detect language for new conversations
+                detected_lang = await self.detect_language(message_text)
+                self._set_user_language(user_id, detected_lang)
+                user_lang = detected_lang
+                logger.info(f"[LANG] User {user_id} language detected: {detected_lang}")
+            else:
+                logger.info(f"[LANG] User {user_id} using existing language: {user_lang}")
             
             # If user is in a workflow, handle accordingly
             if user_state.get("workflow"):
@@ -453,6 +633,17 @@ Please select a service to continue:""",
                 else:
                     # Unknown intent, show main menu
                     await self.start(update, context)
+                
+                # Log general interaction to Google Sheets
+                user_name = update.effective_user.first_name or "Unknown"
+                self._log_to_sheets(
+                    user_id=user_id,
+                    user_name=user_name,
+                    interaction_type="general",
+                    query_text=message_text,
+                    language=user_lang,
+                    bot_response=f"Intent detected: {intent}"
+                )
             
         except Exception as e:
             logger.error(f"❌ Error in message handler: {str(e)}")
@@ -486,6 +677,38 @@ Please select a service to continue:""",
             await update.callback_query.edit_message_text(welcome_text, reply_markup=reply_markup, parse_mode='Markdown')
         else:
             await update.message.reply_text(welcome_text, reply_markup=reply_markup, parse_mode='Markdown')
+
+    async def language_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /language command to change language"""
+        user_id = update.effective_user.id
+        user_name = update.effective_user.first_name or "User"
+        
+        # Get current language
+        current_lang = self._get_user_language(user_id)
+        
+        # Create language selection menu
+        keyboard = [
+            [InlineKeyboardButton(self.responses['english']['language_button_english'], callback_data="lang_english")],
+            [InlineKeyboardButton(self.responses['english']['language_button_hindi'], callback_data="lang_hindi")],
+            [InlineKeyboardButton("🇳🇵 नेपाली (Nepali)", callback_data="lang_nepali")],
+            [InlineKeyboardButton(self.responses['english']['back_main_menu'], callback_data="main_menu")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        # Show language menu in current language
+        text = self.responses[current_lang]['language_menu']
+        
+        await update.message.reply_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+        
+        # Log interaction
+        self._log_to_sheets(
+            user_id=user_id,
+            user_name=user_name,
+            interaction_type="language_change",
+            query_text="/language",
+            language=current_lang,
+            bot_response=text
+        )
 
     async def detect_language_with_scoring(self, text: str) -> str:
         """Deprecated: Use detect_language instead."""
@@ -655,15 +878,20 @@ Please select your preferred language to continue:
             elif data == "certificate_csc":
                 # Handle certificate CSC choice
                 user_id = update.effective_user.id
+                user_lang = self._get_user_language(user_id)
                 self._set_user_state(user_id, {"workflow": "certificate", "stage": "gpu"})
-                await query.edit_message_text("Please enter your GPU (Gram Panchayat Unit):", parse_mode='Markdown')
+                gpu_prompt = self.responses[user_lang]['certificate_gpu_prompt']
+                await query.edit_message_text(gpu_prompt, parse_mode='Markdown')
             
             elif data == "certificate_sso":
                 # Handle certificate SSO choice
+                user_id = update.effective_user.id
+                user_lang = self._get_user_language(user_id)
+                sso_message = self.responses[user_lang]['certificate_sso_message']
+                back_button = self.responses[user_lang]['back_main_menu']
                 await query.edit_message_text(
-                    "You can apply directly on the Sikkim SSO Portal: https://sso.sikkim.gov.in\n\n"
-                    "🔙 Back to Main Menu", 
-                    reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Back to Main Menu", callback_data="main_menu")]]),
+                    f"{sso_message}\n\n🔙 {back_button}", 
+                    reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(back_button, callback_data="main_menu")]]),
                     parse_mode='Markdown'
                 )
             
@@ -674,15 +902,9 @@ Please select your preferred language to continue:
                 lang_choice = data.replace("lang_", "")
                 self._set_user_language(user_id, lang_choice)
                 
-                # Show language-specific welcome message
-                welcome_messages = {
-                    'english': "✅ Language set to English! Welcome to SmartGov Assistant!",
-                    'hindi': "✅ भाषा हिंदी में सेट की गई! SmartGov Assistant में आपका स्वागत है!",
-                    'nepali': "✅ भाषा नेपालीमा सेट गरियो! SmartGov Assistant मा तपाईंको स्वागत छ!"
-                }
-                
-                welcome_text = welcome_messages.get(lang_choice, f"Language set to {lang_choice.capitalize()}!")
-                await query.edit_message_text(welcome_text, parse_mode='Markdown')
+                # Show language change confirmation message
+                confirmation_text = self.responses[lang_choice]['language_changed']
+                await query.edit_message_text(confirmation_text, parse_mode='Markdown')
                 
                 # Wait a moment then show main menu
                 await asyncio.sleep(1.5)
@@ -1046,6 +1268,27 @@ Support: +91-1234567890"""
             else:
                 await update.message.reply_text(confirmation, reply_markup=reply_markup, parse_mode='Markdown')
             
+            # Log to Google Sheets
+            user_name = update.effective_user.first_name or "Unknown"
+            user_lang = self._get_user_language(user_id)
+            application_data = {
+                'name': data.get('name'),
+                'phone': data.get('contact'),
+                'address': f"{data.get('village')}, Ward: {data.get('ward')}, GPU: {data.get('gpu')}",
+                'damage_type': data.get('damage_type', ''),
+                'damage_description': data.get('damage_description', '')
+            }
+            self._log_to_sheets(
+                user_id=user_id,
+                user_name=user_name,
+                interaction_type="ex_gratia",
+                query_text=f"Ex-gratia application submission",
+                language=user_lang,
+                bot_response=confirmation,
+                application_data=application_data,
+                status="Submitted"
+            )
+            
             # Clear user state
             self._clear_user_state(user_id)
             
@@ -1109,6 +1352,20 @@ Select the type of emergency service you need:"""
             await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
         else:
             await update.message.reply_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+        
+        # Log to Google Sheets
+        user_id = update.effective_user.id if update.effective_user else update.callback_query.from_user.id
+        user_name = (update.effective_user.first_name if update.effective_user else update.callback_query.from_user.first_name) or "Unknown"
+        user_lang = self._get_user_language(user_id)
+        self._log_to_sheets(
+            user_id=user_id,
+            user_name=user_name,
+            interaction_type="emergency",
+            query_text="Emergency services menu accessed",
+            language=user_lang,
+            bot_response=text,
+            emergency_type="menu"
+        )
 
     async def handle_emergency_direct(self, update: Update, context: ContextTypes.DEFAULT_TYPE, message_text: str):
         """Handle emergency requests directly without showing menu"""
@@ -1145,6 +1402,18 @@ Select the type of emergency service you need:"""
             reply_markup = InlineKeyboardMarkup(keyboard)
             
             await update.message.reply_text(response_text, reply_markup=reply_markup, parse_mode='Markdown')
+            
+            # Log to Google Sheets
+            user_name = update.effective_user.first_name or "Unknown"
+            self._log_to_sheets(
+                user_id=user_id,
+                user_name=user_name,
+                interaction_type="emergency",
+                query_text=message_text,
+                language=user_lang,
+                bot_response=response_text,
+                service_type=service_type
+            )
         except Exception as e:
             logger.error(f"Error handling emergency direct: {str(e)}")
             user_lang = self._get_user_language(update.effective_user.id) if update.effective_user else 'english'
@@ -1172,6 +1441,20 @@ Select the type of emergency service you need:"""
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         await query.edit_message_text(response_text, reply_markup=reply_markup, parse_mode='Markdown')
+        
+        # Log to Google Sheets
+        user_id = query.from_user.id
+        user_name = query.from_user.first_name or "Unknown"
+        user_lang = self._get_user_language(user_id)
+        self._log_to_sheets(
+            user_id=user_id,
+            user_name=user_name,
+            interaction_type="emergency",
+            query_text=f"Emergency service request: {service_type}",
+            language=user_lang,
+            bot_response=response_text,
+            emergency_type=service_type
+        )
 
     # --- Tourism & Homestays ---
     async def handle_tourism_menu(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1213,6 +1496,20 @@ Please select your destination:"""
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+        
+        # Log to Google Sheets
+        user_id = query.from_user.id
+        user_name = query.from_user.first_name or "Unknown"
+        user_lang = self._get_user_language(user_id)
+        self._log_to_sheets(
+            user_id=user_id,
+            user_name=user_name,
+            interaction_type="homestay",
+            query_text=f"Homestay search for {place}",
+            language=user_lang,
+            bot_response=text,
+            place=place
+        )
 
     # --- Common Service Centers ---
     async def handle_csc_menu(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1253,51 +1550,72 @@ Please select an option:
         else:
             await update.message.reply_text(text, reply_markup=reply_markup, parse_mode='Markdown')
 
-    async def handle_certificate_workflow(self, update: Update, context: ContextTypes.DEFAULT_TYPE, text: str):
-        """Handle certificate application workflow"""
-        user_id = update.effective_user.id
-        state = self._get_user_state(user_id)
-        if state.get("stage") == "gpu":
-            gpu = text.strip().upper()
-            csc_info = self.csc_df[self.csc_df['GPU'].str.upper() == gpu]
-            if csc_info.empty:
-                await update.message.reply_text("Sorry, no CSC operator found for your GPU.")
-            else:
-                info = csc_info.iloc[0]
-                message = f"CSC Operator Details:\n\nName: {info['CSC_Operator_Name']}\nContact: {info['PhoneNumber']}\nTimings: {info['Timings']}"
-                await update.message.reply_text(message)
-            self._clear_user_state(user_id)
-
     async def handle_certificate_choice(self, update: Update, context: ContextTypes.DEFAULT_TYPE, choice: str):
+        user_id = update.effective_user.id
+        user_lang = self._get_user_language(user_id)
+        
         if choice == 'yes':
-            self._set_user_state(update.effective_user.id, {"workflow": "certificate", "stage": "gpu"})
-            await update.callback_query.edit_message_text("Please enter your GPU (Gram Panchayat Unit):", parse_mode='Markdown')
+            self._set_user_state(user_id, {"workflow": "certificate", "stage": "gpu"})
+            gpu_prompt = self.responses[user_lang]['certificate_gpu_prompt']
+            await update.callback_query.edit_message_text(gpu_prompt, parse_mode='Markdown')
         else:
-            await update.callback_query.edit_message_text("You can apply directly on the Sikkim SSO Portal: https://sso.sikkim.gov.in", parse_mode='Markdown')
+            sso_message = self.responses[user_lang]['certificate_sso_message']
+            await update.callback_query.edit_message_text(sso_message, parse_mode='Markdown')
         
     async def handle_certificate_workflow(self, update: Update, context: ContextTypes.DEFAULT_TYPE, text: str):
+        """Handle certificate application workflow with multilingual support"""
         user_id = update.effective_user.id
+        user_lang = self._get_user_language(user_id)
         state = self._get_user_state(user_id)
+        
         if state.get("stage") == "gpu":
             gpu = text.strip().upper()
-            csc_info = self.csc_df[self.csc_df['GPU'].str.upper() == gpu]
-            if csc_info.empty:
-                await update.message.reply_text("Sorry, no CSC operator found for your GPU.")
-            else:
-                info = csc_info.iloc[0]
-                message = f"CSC Operator Details:\n\nName: {info['CSC_Operator_Name']}\nContact: {info['PhoneNumber']}\nTimings: {info['Timings']}"
-                await update.message.reply_text(message)
+            
+            # Load CSC data if not already loaded
+            try:
+                csc_df = pd.read_csv('data/csc_contacts.csv')
+                csc_info = csc_df[csc_df['GPU'].str.upper() == gpu]
+                
+                if csc_info.empty:
+                    not_found_msg = self.responses[user_lang]['certificate_gpu_not_found']
+                    await update.message.reply_text(not_found_msg, parse_mode='Markdown')
+                else:
+                    info = csc_info.iloc[0]
+                    # Handle missing Timings column
+                    timings = info.get('Timings', '9:00 AM - 5:00 PM (Mon-Fri)')
+                    message = self.responses[user_lang]['certificate_csc_details'].format(
+                        name=info['CSC_Operator_Name'],
+                        contact=info['PhoneNumber'],
+                        timings=timings
+                    )
+                    await update.message.reply_text(message, parse_mode='Markdown')
+                    
+                    # Log to Google Sheets
+                    user_name = update.effective_user.first_name or "Unknown"
+                    self._log_to_sheets(
+                        user_id=user_id,
+                        user_name=user_name,
+                        interaction_type="certificate",
+                        query_text=f"Certificate query for GPU: {gpu}",
+                        language=user_lang,
+                        bot_response=message,
+                        certificate_type="CSC_Operator"
+                    )
+            except Exception as e:
+                error_msg = self.responses[user_lang]['certificate_error']
+                await update.message.reply_text(error_msg, parse_mode='Markdown')
+                logger.error(f"Error in certificate workflow: {e}")
+            
             self._clear_user_state(user_id)
 
     # --- Complaint ---
     async def start_complaint_workflow(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Start the complaint registration workflow"""
         user_id = update.effective_user.id
+        user_lang = self._get_user_language(user_id)
         self._set_user_state(user_id, {"workflow": "complaint", "step": "name"})
         
-        text = """*Report a Complaint/Grievance* 📝
-
-Please enter your full name:"""
+        text = f"{self.responses[user_lang]['complaint_title']}\n\n{self.responses[user_lang]['complaint_name_prompt']}"
         
         keyboard = [[InlineKeyboardButton("🔙 Cancel", callback_data="main_menu")]]
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -1310,25 +1628,30 @@ Please enter your full name:"""
     async def handle_complaint_workflow(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle the complaint workflow steps"""
         user_id = update.effective_user.id
+        user_lang = self._get_user_language(user_id)
         text = update.message.text
         state = self._get_user_state(user_id)
         step = state.get("step")
         
         if step == "name":
-            state["name"] = text
+            # Store both Telegram username and entered name
+            telegram_username = update.effective_user.first_name or "Unknown"
+            state["telegram_username"] = telegram_username
+            state["entered_name"] = text
+            state["name"] = f"{text} (@{telegram_username})"  # Combine both names
             state["step"] = "mobile"
             self._set_user_state(user_id, state)
-            await update.message.reply_text("Please enter your mobile number:", parse_mode='Markdown')
+            await update.message.reply_text(self.responses[user_lang]['complaint_mobile_prompt'], parse_mode='Markdown')
         
         elif step == "mobile":
             if not text.isdigit() or len(text) != 10:
-                await update.message.reply_text("Please enter a valid 10-digit mobile number.", parse_mode='Markdown')
+                await update.message.reply_text(self.responses[user_lang]['complaint_mobile_error'], parse_mode='Markdown')
                 return
             
             state["mobile"] = text
             state["step"] = "complaint"
             self._set_user_state(user_id, state)
-            await update.message.reply_text("Please describe your complaint in detail:", parse_mode='Markdown')
+            await update.message.reply_text(self.responses[user_lang]['complaint_description_prompt'], parse_mode='Markdown')
         
         elif step == "complaint":
             # Generate complaint ID
@@ -1338,7 +1661,8 @@ Please enter your full name:"""
             # Save complaint to CSV
             complaint_data = {
                 'Complaint_ID': complaint_id,
-                'Name': state.get('name'),
+                'Name': state.get('entered_name', ''),
+                'Telegram_Username': state.get('telegram_username', ''),
                 'Mobile': state.get('mobile'),
                 'Complaint': text,
                 'Date': now.strftime('%Y-%m-%d %H:%M:%S'),
@@ -1348,18 +1672,33 @@ Please enter your full name:"""
             df = pd.DataFrame([complaint_data])
             df.to_csv('data/submission.csv', mode='a', header=False, index=False)
             
-            # Send confirmation
-            confirmation = f"""✅ *Complaint Registered Successfully*
-
-🆔 Complaint ID: {complaint_id}
-👤 Name: {state.get('name')}
-📱 Mobile: {state.get('mobile')}
-
-Your complaint has been registered and will be processed soon. Please save your Complaint ID for future reference."""
+            # Send confirmation in user's language
+            entered_name = state.get('entered_name', '')
+            telegram_username = state.get('telegram_username', '')
+            confirmation = self.responses[user_lang]['complaint_success'].format(
+                complaint_id=complaint_id,
+                name=entered_name,
+                mobile=state.get('mobile'),
+                telegram_username=telegram_username
+            )
             
             keyboard = [[InlineKeyboardButton("🔙 Back to Main Menu", callback_data="main_menu")]]
             reply_markup = InlineKeyboardMarkup(keyboard)
             await update.message.reply_text(confirmation, reply_markup=reply_markup, parse_mode='Markdown')
+            
+            # Log to Google Sheets with both names
+            telegram_username = state.get('telegram_username', update.effective_user.first_name or "Unknown")
+            entered_name = state.get('entered_name', '')
+            self._log_to_sheets(
+                user_id=user_id,
+                user_name=f"{entered_name} (@{telegram_username})",
+                interaction_type="complaint",
+                query_text=text,
+                language=user_lang,
+                bot_response=confirmation,
+                complaint_type="General",
+                status="New"
+            )
             
             # Clear user state
             self._clear_user_state(user_id)
@@ -1375,6 +1714,7 @@ Your complaint has been registered and will be processed soon. Please save your 
     def register_handlers(self):
         """Register message and callback handlers"""
         self.application.add_handler(CommandHandler("start", self.start))
+        self.application.add_handler(CommandHandler("language", self.language_command))
         self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.message_handler))
         self.application.add_handler(CallbackQueryHandler(self.callback_handler))
         self.application.add_error_handler(self.error_handler)  # Add error handler
@@ -1388,6 +1728,7 @@ Your complaint has been registered and will be processed soon. Please save your 
             
             # Add handlers
             self.application.add_handler(CommandHandler("start", self.start))
+            self.application.add_handler(CommandHandler("language", self.language_command))
             self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.message_handler))
             self.application.add_handler(CallbackQueryHandler(self.callback_handler))
             

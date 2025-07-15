@@ -24,6 +24,12 @@ class Config:
     # Support Information
     SUPPORT_PHONE = os.getenv('SUPPORT_PHONE', '+91-1234567890')
     
+    # Google Sheets Configuration
+    GOOGLE_SHEETS_API_KEY = "AIzaSyDOGeGFOwaLeRuVEQmbOE4E-YgHsh3OgV0"
+    GOOGLE_SHEETS_CREDENTIALS_FILE = os.getenv('GOOGLE_SHEETS_CREDENTIALS_FILE', 'credentials.json')
+    GOOGLE_SHEETS_SPREADSHEET_ID = os.getenv('GOOGLE_SHEETS_SPREADSHEET_ID', '1-CjYt8jSyK_Id2q4Wn91gZ8cpaH2a2cXdFXFXO5Veus')
+    GOOGLE_SHEETS_ENABLED = os.getenv('GOOGLE_SHEETS_ENABLED', 'true').lower() == 'true'
+    
     # Debug Mode
     DEBUG = os.getenv('DEBUG', 'false').lower() == 'true'
     
