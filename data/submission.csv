@@ -1,6 +1,9 @@
-submission_id,name,phone,submission_date,status,details,language
+submission_id,name,phone,submission_date,status,details,language,latitude,longitude,location_name
 CMP20250712804,Abhishek,8630230194,Hdhfhbdod durb,2025-07-12 11:10:12,Pending
 CMP20250713355,Pulkit,9306650316,I want to file a compliant regarding jal jeevan mission,2025-07-13 13:31:56,Pending
 CMP20250715793,Ravi,8630230194,I faced robbery,2025-07-15 14:26:35,Pending
 CMP20250715366,Ravi,Abhishek,8630230194,Give me some time,2025-07-15 14:45:42,Pending
 CMP20250715407,Gher,Abhishek,8778888888,Tsjyd idbdhjd,2025-07-15 14:49:04,Pending
+CMP20250724782,Ghi,Abhishek,8888888888,Hdhysgdjdidn,2025-07-24 15:39:47,Pending
+CMP20250724628,Abhishek,8888888888,2025-07-24 16:22:11,Pending,Hagsubdysvs,english,,
+CMP20250724990,,,2025-07-24 17:27:59,Pending,,english,,,Hsihdnd

@@ -21,6 +21,12 @@ class Config:
     LLM_MODEL = 'qwen2.5:3b'
     USE_LLM = True  # Always use Qwen for language detection
     
+    # NC Exgratia API Configuration
+    NC_EXGRATIA_API_URL = "https://ncapi.testwebdevcell.pw"
+    NC_EXGRATIA_USERNAME = "testbot"
+    NC_EXGRATIA_PASSWORD = "testbot123"
+    NC_EXGRATIA_ENABLED = True
+    
     # Support Information
     SUPPORT_PHONE = os.getenv('SUPPORT_PHONE', '+91-1234567890')
     
@@ -28,7 +34,7 @@ class Config:
     GOOGLE_SHEETS_API_KEY = "AIzaSyDOGeGFOwaLeRuVEQmbOE4E-YgHsh3OgV0"
     GOOGLE_SHEETS_CREDENTIALS_FILE = os.getenv('GOOGLE_SHEETS_CREDENTIALS_FILE', 'credentials.json')
     GOOGLE_SHEETS_SPREADSHEET_ID = os.getenv('GOOGLE_SHEETS_SPREADSHEET_ID', '1-CjYt8jSyK_Id2q4Wn91gZ8cpaH2a2cXdFXFXO5Veus')
-    GOOGLE_SHEETS_ENABLED = os.getenv('GOOGLE_SHEETS_ENABLED', 'true').lower() == 'true'
+    GOOGLE_SHEETS_ENABLED = os.getenv('GOOGLE_SHEETS_ENABLED', 'false').lower() == 'true'  # Disabled temporarily
     
     # Debug Mode
     DEBUG = os.getenv('DEBUG', 'false').lower() == 'true'
@@ -66,4 +72,5 @@ How can I assist you today?
             print(f"Created data directory: {cls.DATA_DIR}")
         
         print("✅ Configuration validated successfully")
-        print(f"🤖 Using Qwen ({cls.LLM_MODEL}) for language detection") 
+        print(f"🤖 Using Qwen ({cls.LLM_MODEL}) for language detection")
+        print(f"🔗 NC Exgratia API: {'✅ Enabled' if cls.NC_EXGRATIA_ENABLED else '❌ Disabled'}") 
