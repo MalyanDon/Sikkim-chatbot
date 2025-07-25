@@ -3,7 +3,6 @@
 Comprehensive Sikkim SmartGov Assistant Bot
 """
 import asyncio
-import csv
 import json
 import logging
 import pandas as pd
@@ -12,7 +11,6 @@ import sys
 import os
 import aiohttp
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup, Location
-from simple_location_system import SimpleLocationSystem
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, ContextTypes, filters
 from config import Config
 from datetime import datetime
@@ -69,10 +67,6 @@ class SmartGovAssistantBot:
             logger.warning("⚠️ NC Exgratia API integration disabled")
         
         logger.info("🔒 MULTI-USER SUPPORT: Thread-safe state management initialized")
-
-        # Initialize location system
-        self.location_system = SimpleLocationSystem()
-        logger.info('📍 Location system initialized')
 
     def _load_workflow_data(self):
         """Load all required data files from Excel sheet only"""
@@ -251,10 +245,6 @@ Let's start with your name:""",
 Thank you for your feedback. We will review it and work on improvements.
 
 Your feedback ID: {feedback_id}""",
-                'emergency_type_prompt': "🚨 *Emergency Services*\n\nPlease select the type of emergency:",
-                'emergency_details_prompt': "🚨 *{service_type} Emergency*\n\nPlease provide details about your emergency situation:",
-                'complaint_location_prompt': "📍 *Location Information*\n\nTo help us respond better, would you like to share your location?",
-                'error_message': "❌ Sorry, something went wrong. Please try again.",
             },
             'hindi': {
                 'welcome': "स्मार्टगव सहायक में आपका स्वागत है! मैं आपकी कैसे मदद कर सकता हूं?",
@@ -379,10 +369,6 @@ Your feedback ID: {feedback_id}""",
 आपकी प्रतिक्रिया के लिए धन्यवाद। हम इसे समीक्षा करेंगे और सुधारों पर काम करेंगे।
 
 आपकी प्रतिक्रिया आईडी: {feedback_id}""",
-                'emergency_type_prompt': "🚨 *Emergency Services*\n\nPlease select the type of emergency:",
-                'emergency_details_prompt': "🚨 *{service_type} Emergency*\n\nPlease provide details about your emergency situation:",
-                'complaint_location_prompt': "📍 *Location Information*\n\nTo help us respond better, would you like to share your location?",
-                'error_message': "❌ Sorry, something went wrong. Please try again.",
             },
             'nepali': {
                 'welcome': "स्मार्टगभ सहायकमा स्वागत छ! म तपाईंलाई कसरी मद्दत गर्न सक्छु?",
@@ -507,10 +493,6 @@ Your feedback ID: {feedback_id}""",
 तपाईंको प्रतिक्रियाको लागि धन्यवाद। हामी यसलाई समीक्षा गर्नेछौं र सुधारहरूमा काम गर्नेछौं।
 
 तपाईंको प्रतिक्रिया आईडी: {feedback_id}""",
-                'emergency_type_prompt': "🚨 *Emergency Services*\n\nPlease select the type of emergency:",
-                'emergency_details_prompt': "🚨 *{service_type} Emergency*\n\nPlease provide details about your emergency situation:",
-                'complaint_location_prompt': "📍 *Location Information*\n\nTo help us respond better, would you like to share your location?",
-                'error_message': "❌ Sorry, something went wrong. Please try again.",
             }
         }
 
@@ -547,6 +529,323 @@ Your feedback ID: {feedback_id}""",
         """Ensure aiohttp session exists"""
         if self._session is None:
             self._session = aiohttp.ClientSession()
+
+    async def request_location(self, update: Update, context: ContextTypes.DEFAULT_TYPE, service_type: str = "emergency"):
+        """Request user's location for emergency services or complaints"""
+        user_id = update.effective_user.id
+        user_lang = self._get_user_language(user_id)
+        
+        # Get current state to preserve existing data
+        current_state = self._get_user_state(user_id)
+        
+        logger.info(f"🔒 [LOCATION] Current state before location request: {current_state}")
+        
+        # Set state to expect location while preserving existing data
+        new_state = {
+            "workflow": "location_request",
+            "service_type": service_type,
+            "stage": "waiting_location"
+        }
+        
+        # Preserve existing application data if it exists
+        if current_state.get("data"):
+            new_state["data"] = current_state["data"]
+            logger.info(f"🔒 [LOCATION] Preserved application data: {list(current_state['data'].keys())}")
+        else:
+            logger.warning(f"⚠️ [LOCATION] No application data found to preserve")
+            logger.warning(f"⚠️ [LOCATION] Current state keys: {list(current_state.keys())}")
+        
+        self._set_user_state(user_id, new_state)
+        logger.info(f"🔒 [LOCATION] New state after location request: {new_state}")
+        
+        # Create location request keyboard with fallback options
+        location_button = KeyboardButton("📍 Share My Location", request_location=True)
+        manual_location_button = KeyboardButton("📝 Type Location Name")
+        skip_location_button = KeyboardButton("⏭️ Skip Location")
+        cancel_button = KeyboardButton("❌ Cancel")
+        keyboard = [[location_button], [manual_location_button], [skip_location_button], [cancel_button]]
+        reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, resize_keyboard=True)
+        
+        # Get appropriate message based on service type
+        if service_type == "emergency":
+            if user_lang == "hindi":
+                message = "🚨 **आपातकालीन सेवाओं के लिए आपका स्थान आवश्यक है**\n\nकृपया अपना स्थान साझा करें ताकि हम आपको निकटतम आपातकालीन सेवाएं प्रदान कर सकें।"
+            elif user_lang == "nepali":
+                message = "🚨 **आपतकालीन सेवाहरूको लागि तपाईंको स्थान आवश्यक छ**\n\nकृपया आफ्नो स्थान साझा गर्नुहोस् ताकि हामी तपाईंलाई नजिकको आपतकालीन सेवाहरू प्रदान गर्न सक्छौं।"
+            else:
+                message = "🚨 **Your location is required for emergency services**\n\nPlease share your location so we can provide you with the nearest emergency services."
+        elif service_type == "complaint":
+            if user_lang == "hindi":
+                message = "📝 **शिकायत दर्ज करने के लिए आपका स्थान आवश्यक है**\n\nकृपया अपना स्थान साझा करें ताकि हम आपकी शिकायत को सही तरीके से दर्ज कर सकें।"
+            elif user_lang == "nepali":
+                message = "📝 **शिकायत दर्ता गर्नको लागि तपाईंको स्थान आवश्यक छ**\n\nकृपया आफ्नो स्थान साझा गर्नुहोस् ताकि हामी तपाईंको शिकायतलाई सही तरिकाले दर्ता गर्न सक्छौं।"
+            else:
+                message = "📝 **Your location is required to file a complaint**\n\nPlease share your location so we can properly register your complaint."
+        elif service_type == "ex_gratia":
+            if user_lang == "hindi":
+                message = "🏛️ **एक्स-ग्रेटिया आवेदन के लिए आपका स्थान आवश्यक है**\n\nकृपया अपना स्थान साझा करें ताकि हम आपके आवेदन को सही तरीके से दर्ज कर सकें।"
+            elif user_lang == "nepali":
+                message = "🏛️ **एक्स-ग्रेटिया आवेदनको लागि तपाईंको स्थान आवश्यक छ**\n\nकृपया आफ्नो स्थान साझा गर्नुहोस् ताकि हामी तपाईंको आवेदनलाई सही तरिकाले दर्ता गर्न सक्छौं।"
+            else:
+                message = "🏛️ **Your location is required for NC Exgratia application**\n\nPlease share your location so we can properly register your application with the government."
+        else:
+            # Default message for any other service type
+            if user_lang == "hindi":
+                message = "📍 **कृपया अपना स्थान साझा करें**\n\nआपका स्थान हमारी सेवाओं को बेहतर बनाने में मदद करेगा।"
+            elif user_lang == "nepali":
+                message = "📍 **कृपया आफ्नो स्थान साझा गर्नुहोस्**\n\nतपाईंको स्थानले हाम्रो सेवाहरूलाई राम्रो बनाउन मद्दत गर्नेछ।"
+            else:
+                message = "📍 **Please share your location**\n\nYour location will help us provide better services."
+        
+        # Handle both callback queries and regular messages
+        if update.callback_query:
+            await update.callback_query.edit_message_text(message, parse_mode='Markdown')
+            await update.callback_query.message.reply_text("📍 Please use the button below to share your location:", reply_markup=reply_markup)
+        else:
+            await update.message.reply_text(message, reply_markup=reply_markup, parse_mode='Markdown')
+
+    async def handle_location_received(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle when user shares their location"""
+        user_id = update.effective_user.id
+        user_lang = self._get_user_language(user_id)
+        location = update.message.location
+        
+        logger.info(f"📍 [LOCATION] Received location from user {user_id}")
+        logger.info(f"📍 [LOCATION] Location object: {location}")
+        
+        # Check if location is actually provided
+        if not location or location.latitude is None or location.longitude is None:
+            logger.warning(f"📍 [LOCATION] No valid location received from user {user_id}")
+            
+            # Get current state
+            state = self._get_user_state(user_id)
+            service_type = state.get("service_type", "emergency")
+            
+            # Send error message
+            if user_lang == "hindi":
+                error_msg = "❌ स्थान प्राप्त नहीं हुआ। कृपया अपने फोन की सेटिंग्स जांचें और फिर से कोशिश करें।"
+            elif user_lang == "nepali":
+                error_msg = "❌ स्थान प्राप्त भएन। कृपया आफ्नो फोनको सेटिङहरू जाँच गर्नुहोस् र फेरि प्रयास गर्नुहोस्।"
+            else:
+                error_msg = "❌ Location not received. Please check your phone settings and try again."
+            
+            await update.message.reply_text(error_msg, parse_mode='Markdown')
+            return
+        
+        logger.info(f"📍 [LOCATION] Valid location received: {location.latitude}, {location.longitude}")
+        
+        # Get current state
+        state = self._get_user_state(user_id)
+        service_type = state.get("service_type", "emergency")
+        
+        logger.info(f"📍 [LOCATION] Service type: {service_type}, Current state: {state}")
+        
+        # Store location data
+        location_data = {
+            "latitude": location.latitude,
+            "longitude": location.longitude,
+            "timestamp": datetime.now().isoformat()
+        }
+        
+        # Update state with location
+        state["location"] = location_data
+        self._set_user_state(user_id, state)
+        
+        # Log location to Google Sheets
+        user_name = update.effective_user.first_name or "Unknown"
+        self._log_to_sheets(
+            user_id=user_id,
+            user_name=user_name,
+            interaction_type="location_shared",
+            query_text=f"Location shared for {service_type}",
+            language=user_lang,
+            bot_response=f"Lat: {location.latitude}, Long: {location.longitude}",
+            latitude=location.latitude,
+            longitude=location.longitude,
+            service_type=service_type
+        )
+        
+        # Provide appropriate response based on service type
+        if service_type == "emergency":
+            # Check if this is an emergency report workflow or emergency services
+            if state.get("workflow") == "emergency_report":
+                await self.handle_emergency_report_with_location(update, context, location_data)
+            else:
+                await self.handle_emergency_with_location(update, context, location_data)
+            # Clear state for emergency services
+            self._clear_user_state(user_id)
+        elif service_type == "complaint":
+            await self.handle_complaint_with_location(update, context, location_data)
+            # Don't clear state for complaints - let the complaint workflow handle it
+        elif service_type == "ex_gratia":
+            # Handle ex-gratia application with location
+            await self.handle_ex_gratia_with_location(update, context, location_data)
+
+    async def handle_emergency_with_location(self, update: Update, context: ContextTypes.DEFAULT_TYPE, location_data: dict):
+        """Handle emergency services with user location"""
+        user_id = update.effective_user.id
+        user_lang = self._get_user_language(user_id)
+        
+        # Create normal keyboard
+        keyboard = [[InlineKeyboardButton("🔙 Back to Main Menu", callback_data="main_menu")]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        # Get location display safely
+        location_display = ""
+        if location_data.get('latitude') and location_data.get('longitude'):
+            location_display = f"{location_data['latitude']:.6f}, {location_data['longitude']:.6f}"
+        elif location_data.get('location_name'):
+            location_display = location_data['location_name']
+        else:
+            location_display = "Not provided"
+        
+        # Enhanced emergency response with location
+        if user_lang == "hindi":
+            message = f"""🚨 **आपातकालीन सेवाएं - स्थान प्राप्त** 🚨
+
+📍 **आपका स्थान**: {location_display}
+
+🚑 **निकटतम आपातकालीन सेवाएं**:
+• एम्बुलेंस: 102
+• पुलिस: 100  
+• अग्निशमन: 101
+• राज्य आपातकाल: 1070
+
+⚡ **प्रतिक्रिया समय**: 10-15 मिनट
+
+कृपया अपनी आपातकालीन सेवा का चयन करें:"""
+        elif user_lang == "nepali":
+            message = f"""🚨 **आपतकालीन सेवाहरू - स्थान प्राप्त** 🚨
+
+📍 **तपाईंको स्थान**: {location_display}
+
+🚑 **नजिकको आपतकालीन सेवाहरू**:
+• एम्बुलेन्स: 102
+• प्रहरी: 100
+• दमकल: 101
+• राज्य आपतकालीन: 1070
+
+⚡ **प्रतिक्रिया समय**: 10-15 मिनेट
+
+कृपया आफ्नो आपतकालीन सेवा छान्नुहोस्:"""
+        else:
+            message = f"""🚨 **Emergency Services - Location Received** 🚨
+
+📍 **Your Location**: {location_display}
+
+🚑 **Nearest Emergency Services**:
+• Ambulance: 102
+• Police: 100
+• Fire: 101
+• State Emergency: 1070
+
+⚡ **Response Time**: 10-15 minutes
+
+Please select your emergency service:"""
+        
+        await update.message.reply_text(message, reply_markup=reply_markup, parse_mode='Markdown')
+
+    async def handle_complaint_with_location(self, update: Update, context: ContextTypes.DEFAULT_TYPE, location_data: dict):
+        """Handle complaint filing with user location"""
+        user_id = update.effective_user.id
+        user_lang = self._get_user_language(user_id)
+        state = self._get_user_state(user_id)
+        
+        # Generate complaint ID
+        now = datetime.now()
+        complaint_id = f"CMP{now.strftime('%Y%m%d')}{random.randint(100, 999)}"
+        
+        # Get complaint details from state
+        entered_name = state.get('entered_name', '')
+        mobile = state.get('mobile', '')
+        complaint_description = state.get('complaint_description', '')
+        
+        # Save complaint to CSV with location
+        latitude = location_data.get('latitude', '')
+        longitude = location_data.get('longitude', '')
+        location_name = location_data.get('location_name', '')
+        
+        complaint_data = {
+            'submission_id': complaint_id,
+            'name': entered_name,
+            'phone': mobile,
+            'submission_date': now.strftime('%Y-%m-%d %H:%M:%S'),
+            'status': 'Pending',
+            'details': complaint_description,
+            'language': user_lang,
+            'latitude': latitude,
+            'longitude': longitude,
+            'location_name': location_name
+        }
+        
+        df = pd.DataFrame([complaint_data])
+        df.to_csv('data/submission.csv', mode='a', header=False, index=False)
+        
+                # Create success message with all details
+        location_display = ""
+        if 'latitude' in location_data and 'longitude' in location_data and location_data['latitude'] and location_data['longitude']:
+            location_display = f"{location_data['latitude']:.6f}, {location_data['longitude']:.6f}"
+        elif 'location_name' in location_data and location_data['location_name']:
+            location_display = location_data['location_name']
+        else:
+            location_display = "Not provided"
+        
+        if user_lang == "hindi":
+            success_message = f"""✅ **शिकायत सफलतापूर्वक दर्ज की गई!**
+            
+            📝 **रिपोर्ट विवरण:**
+            • **नाम**: {entered_name}
+            • **मोबाइल**: {mobile}
+            • **समस्या**: {complaint_description}
+            • **स्थान**: {location_display}
+            • **रिपोर्ट ID**: #{complaint_id}
+            
+            🚨 आपातकालीन सेवाओं को सूचित कर दिया गया है।"""
+        elif user_lang == "nepali":
+            success_message = f"""✅ **शिकायत सफलतापूर्वक दर्ता गरियो!**
+            
+            📝 **रिपोर्ट विवरण:**
+            • **नाम**: {entered_name}
+            • **मोबाइल**: {mobile}
+            • **समस्या**: {complaint_description}
+            • **स्थान**: {location_display}
+            • **रिपोर्ट ID**: #{complaint_id}
+            
+            🚨 आपतकालीन सेवाहरूलाई सूचित गरियो।"""
+        else:
+            success_message = f"""✅ **Report submitted successfully!**
+            
+            📝 **Report Details:**
+            • **Name**: {entered_name}
+            • **Mobile**: {mobile}
+            • **Issue**: {complaint_description}
+            • **Location**: {location_display}
+            • **Report ID**: #{complaint_id}
+            
+            🚨 Emergency services have been notified."""
+        
+        # Create normal keyboard
+        keyboard = [[InlineKeyboardButton("🔙 Back to Main Menu", callback_data="main_menu")]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await update.message.reply_text(success_message, reply_markup=reply_markup, parse_mode='Markdown')
+        
+        # Clear user state
+        self._clear_user_state(user_id)
+        
+        # Log to Google Sheets
+        user_name = update.effective_user.first_name or "Unknown"
+        self._log_to_sheets(
+            user_id=user_id,
+            user_name=user_name,
+            interaction_type="complaint_submitted",
+            query_text=f"Complaint submitted: {complaint_description}",
+            language=user_lang,
+            bot_response=success_message,
+            complaint_id=complaint_id,
+            latitude=location_data.get('latitude', ''),
+            longitude=location_data.get('longitude', '')
+        )
 
     async def handle_emergency_workflow(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle the emergency workflow steps"""
@@ -588,8 +887,211 @@ Your feedback ID: {feedback_id}""",
                 message = "Location is required for dispatch. Please share your current location 📍"
             
             # Request location for emergency
-            await self.location_system.request_location(update, context, "emergency")
+            await self.request_location(update, context, "emergency")
             return
+
+    async def handle_manual_location_workflow(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle manual location input workflow"""
+        user_id = update.effective_user.id
+        user_lang = self._get_user_language(user_id)
+        text = update.message.text
+        state = self._get_user_state(user_id)
+        step = state.get("step")
+        
+        if step == "latitude":
+            try:
+                latitude = float(text)
+                if -90 <= latitude <= 90:
+                    state["manual_latitude"] = latitude
+                    state["step"] = "longitude"
+                    self._set_user_state(user_id, state)
+                    
+                    if user_lang == "hindi":
+                        message = "📍 अब कृपया देशांतर (Longitude) दर्ज करें:\n\nउदाहरण: 88.6065"
+                    elif user_lang == "nepali":
+                        message = "📍 अब कृपया देशान्तर (Longitude) दर्ता गर्नुहोस्:\n\nउदाहरण: 88.6065"
+                    else:
+                        message = "📍 Now please enter the longitude:\n\nExample: 88.6065"
+                    
+                    await update.message.reply_text(message, parse_mode='Markdown')
+                else:
+                    if user_lang == "hindi":
+                        message = "❌ अमान्य अक्षांश। कृपया -90 से 90 के बीच का मान दर्ज करें।"
+                    elif user_lang == "nepali":
+                        message = "❌ अमान्य अक्षांश। कृपया -90 देखि 90 को बीचको मान दर्ता गर्नुहोस्।"
+                    else:
+                        message = "❌ Invalid latitude. Please enter a value between -90 and 90."
+                    await update.message.reply_text(message, parse_mode='Markdown')
+            except ValueError:
+                if user_lang == "hindi":
+                    message = "❌ कृपया एक वैध संख्या दर्ज करें।"
+                elif user_lang == "nepali":
+                    message = "❌ कृपया एक वैध संख्या दर्ता गर्नुहोस्।"
+                else:
+                    message = "❌ Please enter a valid number."
+                await update.message.reply_text(message, parse_mode='Markdown')
+        
+        elif step == "longitude":
+            try:
+                longitude = float(text)
+                if -180 <= longitude <= 180:
+                    latitude = state.get("manual_latitude")
+                    
+                    # Create location data
+                    location_data = {
+                        "latitude": latitude,
+                        "longitude": longitude,
+                        "timestamp": datetime.now().isoformat(),
+                        "source": "manual"
+                    }
+                    
+                    # Process the location based on service type
+                    service_type = state.get("service_type", "emergency")
+                    
+                    if service_type == "emergency":
+                        if state.get("workflow") == "emergency_report":
+                            await self.handle_emergency_report_with_location(update, context, location_data)
+                        else:
+                            await self.handle_emergency_with_location(update, context, location_data)
+                    elif service_type == "complaint":
+                        await self.handle_complaint_with_location(update, context, location_data)
+                    
+                    # Clear state
+                    self._clear_user_state(user_id)
+                else:
+                    if user_lang == "hindi":
+                        message = "❌ अमान्य देशांतर। कृपया -180 से 180 के बीच का मान दर्ज करें।"
+                    elif user_lang == "nepali":
+                        message = "❌ अमान्य देशान्तर। कृपया -180 देखि 180 को बीचको मान दर्ता गर्नुहोस्।"
+                    else:
+                        message = "❌ Invalid longitude. Please enter a value between -180 and 180."
+                    await update.message.reply_text(message, parse_mode='Markdown')
+            except ValueError:
+                if user_lang == "hindi":
+                    message = "❌ कृपया एक वैध संख्या दर्ज करें।"
+                elif user_lang == "nepali":
+                    message = "❌ कृपया एक वैध संख्या दर्ता गर्नुहोस्।"
+                else:
+                    message = "❌ Please enter a valid number."
+                await update.message.reply_text(message, parse_mode='Markdown')
+
+    async def handle_manual_location_name_workflow(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle manual location name input workflow"""
+        user_id = update.effective_user.id
+        user_lang = self._get_user_language(user_id)
+        text = update.message.text
+        state = self._get_user_state(user_id)
+        step = state.get("step")
+        
+        if step == "location_name":
+            # Validate location name (not empty and reasonable length)
+            if len(text.strip()) < 2:
+                if user_lang == "hindi":
+                    message = "❌ कृपया एक वैध स्थान का नाम दर्ज करें (कम से कम 2 अक्षर)।"
+                elif user_lang == "nepali":
+                    message = "❌ कृपया एक वैध स्थानको नाम दर्ता गर्नुहोस् (कम्तिमा 2 अक्षर)।"
+                else:
+                    message = "❌ Please enter a valid location name (at least 2 characters)."
+                await update.message.reply_text(message, parse_mode='Markdown')
+                return
+            
+            # Create location data with name
+            location_data = {
+                "location_name": text.strip(),
+                "timestamp": datetime.now().isoformat(),
+                "source": "manual_name"
+            }
+            
+            # Process the location based on service type
+            service_type = state.get("service_type", "emergency")
+            
+            if service_type == "emergency":
+                if state.get("workflow") == "emergency_report":
+                    await self.handle_emergency_report_with_location(update, context, location_data)
+                else:
+                    await self.handle_emergency_with_location(update, context, location_data)
+            elif service_type == "complaint":
+                await self.handle_complaint_with_location(update, context, location_data)
+            
+            # Clear state
+            self._clear_user_state(user_id)
+
+    async def handle_emergency_report_with_location(self, update: Update, context: ContextTypes.DEFAULT_TYPE, location_data: dict):
+        """Handle emergency report with user location"""
+        user_id = update.effective_user.id
+        user_lang = self._get_user_language(user_id)
+        state = self._get_user_state(user_id)
+        
+        # Generate emergency report ID
+        now = datetime.now()
+        emergency_id = f"ER{now.strftime('%Y%m%d')}{random.randint(100, 999)}"
+        
+        # Get emergency details from state
+        entered_name = state.get('entered_name', '')
+        emergency_description = state.get('emergency_description', '')
+        
+        # Create success message with all details
+        location_display = ""
+        if 'latitude' in location_data and 'longitude' in location_data:
+            location_display = f"{location_data['latitude']:.6f}, {location_data['longitude']:.6f}"
+        elif 'location_name' in location_data:
+            location_display = location_data['location_name']
+        else:
+            location_display = "Not provided"
+        
+        if user_lang == "hindi":
+            success_message = f"""✅ **रिपोर्ट सफलतापूर्वक प्रस्तुत की गई!**
+            
+            📝 **रिपोर्ट विवरण:**
+            • **नाम**: {entered_name}
+            • **समस्या**: {emergency_description}
+            • **स्थान**: {location_display}
+            • **रिपोर्ट ID**: #{emergency_id}
+            
+            🚨 आपातकालीन सेवाओं को सूचित कर दिया गया है।"""
+        elif user_lang == "nepali":
+            success_message = f"""✅ **रिपोर्ट सफलतापूर्वक प्रस्तुत गरियो!**
+            
+            📝 **रिपोर्ट विवरण:**
+            • **नाम**: {entered_name}
+            • **समस्या**: {emergency_description}
+            • **स्थान**: {location_display}
+            • **रिपोर्ट ID**: #{emergency_id}
+            
+            🚨 आपतकालीन सेवाहरूलाई सूचित गरियो।"""
+        else:
+            success_message = f"""✅ **Report submitted successfully!**
+            
+            📝 **Report Details:**
+            • **Name**: {entered_name}
+            • **Issue**: {emergency_description}
+            • **Location**: {location_display}
+            • **Report ID**: #{emergency_id}
+            
+            🚨 Emergency services have been notified."""
+        
+        # Create normal keyboard
+        keyboard = [[InlineKeyboardButton("🔙 Back to Main Menu", callback_data="main_menu")]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await update.message.reply_text(success_message, reply_markup=reply_markup, parse_mode='Markdown')
+        
+        # Clear user state
+        self._clear_user_state(user_id)
+        
+        # Log to Google Sheets
+        user_name = update.effective_user.first_name or "Unknown"
+        self._log_to_sheets(
+            user_id=user_id,
+            user_name=user_name,
+            interaction_type="emergency_report_submitted",
+            query_text=f"Emergency report submitted: {emergency_description}",
+            language=user_lang,
+            bot_response=success_message,
+            emergency_id=emergency_id,
+            latitude=location_data.get('latitude', ''),
+            longitude=location_data.get('longitude', '')
+        )
 
     def _log_to_sheets(self, user_id: int, user_name: str, interaction_type: str, 
                       query_text: str, language: str, bot_response: str, **kwargs):
@@ -743,71 +1245,82 @@ Your feedback ID: {feedback_id}""",
             return 'english'  # Fallback to English on error
 
     async def message_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Simplified message handler with working location system"""
-        if not update.message:
-            return
-        
-        user_id = update.effective_user.id
-        
-        # Debug logging for all message types
-        logger.info(f"📍 [DEBUG] Message type: {type(update.message)}")
-        logger.info(f"📍 [DEBUG] Has location: {hasattr(update.message, 'location') and update.message.location}")
-        logger.info(f"📍 [DEBUG] Has text: {hasattr(update.message, 'text') and update.message.text}")
-        
-        # Handle location messages FIRST
-        if update.message.location:
-            logger.info(f"📍 [MAIN] Location message detected from user {user_id}")
-            # Pass the user state to the location system
-            user_state = self._get_user_state(user_id)
-            context.user_data['user_state'] = user_state
-            await self.location_system.handle_location_received(update, context)
-            return
-        
-        # Handle text messages
-        if not update.message.text:
-            return
-        
-        message_text = update.message.text
-        logger.info(f"[MSG] User {user_id}: {message_text}")
-        
-        # Handle location-related buttons
-        if message_text == "⏭️ Skip Location":
-            await self.location_system.handle_location_skip(update, context)
-            return
-        elif message_text == "❌ Cancel":
-            await self.location_system.handle_location_cancel(update, context)
-            return
-        
-        # Check if waiting for location
-        if context.user_data.get('location_request'):
-            # User sent text instead of location, continue without location
-            await self.location_system.handle_location_skip(update, context)
-            return
-        
-        # Check if this interaction should capture location
-        # BUT skip for emergency messages that should go to call buttons
-        if self.location_system.should_capture_location(message_text):
-            interaction_type = self.location_system.detect_interaction_type(message_text)
-            
-            # For emergency messages, let them go to normal processing for call buttons
-            if interaction_type == "emergency":
-                # Let emergency messages go to normal processing for call buttons
-                logger.info(f"📍 [MAIN] Emergency message detected, bypassing location system for call buttons")
-            else:
-                # For non-emergency messages, request location as usual
-                user_state = self._get_user_state(user_id)
-                context.user_data['user_state'] = user_state
-                await self.location_system.request_location(update, context, interaction_type, message_text)
-                return
-        
-        # Continue with normal message processing
-        await self._process_normal_message(update, context, message_text)
-
-    async def _process_normal_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE, message_text: str):
-        """Process normal messages (existing logic)"""
-        user_id = update.effective_user.id
-        
+        """Handle incoming messages"""
         try:
+            user_id = update.effective_user.id
+            
+            # Debug all message attributes
+            logger.info(f"📍 [DEBUG] Message type: {type(update.message)}")
+            logger.info(f"📍 [DEBUG] Message attributes: {dir(update.message)}")
+            logger.info(f"📍 [DEBUG] Has location: {hasattr(update.message, 'location')}")
+            logger.info(f"📍 [DEBUG] Has text: {hasattr(update.message, 'text')}")
+            logger.info(f"📍 [DEBUG] Location value: {getattr(update.message, 'location', 'None')}")
+            
+            # Check if message contains location FIRST
+            if update.message.location:
+                logger.info(f"📍 [MESSAGE] Location message detected from user {user_id}")
+                logger.info(f"📍 [MESSAGE] Location object: {update.message.location}")
+                logger.info(f"📍 [MESSAGE] Location type: {type(update.message.location)}")
+                logger.info(f"📍 [MESSAGE] Location attributes: {dir(update.message.location)}")
+                
+                # Check if coordinates exist
+                if hasattr(update.message.location, 'latitude') and hasattr(update.message.location, 'longitude'):
+                    latitude = update.message.location.latitude
+                    longitude = update.message.location.longitude
+                    logger.info(f"📍 [MESSAGE] Latitude: {latitude}")
+                    logger.info(f"📍 [MESSAGE] Longitude: {longitude}")
+                    
+                    if latitude is not None and longitude is not None:
+                        logger.info(f"📍 [SUCCESS] Valid coordinates received: {latitude}, {longitude}")
+                        await self.handle_location_received(update, context)
+                        return
+                    else:
+                        logger.warning(f"📍 [ERROR] Coordinates are None: lat={latitude}, lon={longitude}")
+                else:
+                    logger.warning(f"📍 [ERROR] Location object missing latitude/longitude attributes")
+                
+                # Send error message to user
+                user_lang = self._get_user_language(user_id)
+                if user_lang == "hindi":
+                    message = """📍 **स्थान साझा करने में समस्या हुई**
+
+कृपया निम्नलिखित जांच करें:
+• 📱 GPS चालू है
+• 🔐 Telegram को स्थान की अनुमति दी गई है
+• 📶 इंटरनेट कनेक्शन स्थिर है
+
+या "📝 Type Location Manually" बटन का उपयोग करें।"""
+                elif user_lang == "nepali":
+                    message = """📍 **स्थान साझा गर्नमा समस्या भयो**
+
+कृपया निम्नलिखित जांच गर्नुहोस्:
+• 📱 GPS सक्रिय छ
+• 🔐 Telegram लाई स्थानको अनुमति दिइएको छ
+• 📶 इन्टरनेट कनेक्सन स्थिर छ
+
+या "📝 Type Location Manually" बटन प्रयोग गर्नुहोस्।"""
+                else:
+                    message = """📍 **Location sharing failed**
+
+Please check:
+• 📱 GPS is enabled
+• 🔐 Telegram has location permission
+• 📶 Internet connection is stable
+
+Or use the "📝 Type Location Manually" button."""
+                
+                await update.message.reply_text(message, parse_mode='Markdown')
+                return
+            
+            # Only process text messages if no location
+            if not update.message.text:
+                logger.info(f"📍 [MESSAGE] Non-text message received from user {user_id}")
+                return
+            
+            message_text = update.message.text
+            
+            logger.info(f"[MSG] User {user_id}: {message_text}")
+            
             # Handle direct commands
             if message_text.startswith('/'):
                 command = message_text.lower().strip()
@@ -821,9 +1334,9 @@ Your feedback ID: {feedback_id}""",
             # Get current user state
             user_state = self._get_user_state(user_id)
             
-            # Handle natural language cancel
+            # Handle location request buttons and natural language cancel
             cancel_keywords = [
-                "cancel", "band karo", "रद्द करें", "रद्द", "बंद करो", 
+                "❌ Cancel", "cancel", "band karo", "रद्द करें", "रद्द", "बंद करो", 
                 "stop", "quit", "exit", "back", "home", "main menu", "मुख्य मेनू",
                 "घर जाओ", "वापस जाओ", "बंद", "छोड़ो", "छोड़ दो"
             ]
@@ -831,6 +1344,76 @@ Your feedback ID: {feedback_id}""",
             if message_text.lower().strip() in [kw.lower() for kw in cancel_keywords]:
                 self._clear_user_state(user_id)
                 await self.show_main_menu(update, context)
+                return
+            elif message_text == "📝 Type Location Name":
+                # Set state for manual location name input
+                state = self._get_user_state(user_id)
+                state["workflow"] = "manual_location_name"
+                state["step"] = "location_name"
+                self._set_user_state(user_id, state)
+                
+                user_lang = self._get_user_language(user_id)
+                if user_lang == "hindi":
+                    message = "📍 कृपया अपने स्थान का नाम दर्ज करें:\n\nउदाहरण: गंगटोक, लाचेन, नामची, या आपका गाँव/शहर"
+                elif user_lang == "nepali":
+                    message = "📍 कृपया आफ्नो स्थानको नाम दर्ता गर्नुहोस्:\n\nउदाहरण: गंगटोक, लाचेन, नामची, वा तपाईंको गाउँ/शहर"
+                else:
+                    message = "📍 Please enter your location name:\n\nExample: Gangtok, Lachen, Namchi, or your village/city"
+                
+                await update.message.reply_text(message, parse_mode='Markdown')
+                return
+            elif message_text == "⏭️ Skip Location":
+                # Skip location and complete the workflow
+                state = self._get_user_state(user_id)
+                service_type = state.get("service_type", "emergency")
+                
+                if service_type == "emergency":
+                    if state.get("workflow") == "emergency_report":
+                        await self.handle_emergency_report_with_location(update, context, {"location_name": "Not provided"})
+                    else:
+                        await self.handle_emergency_with_location(update, context, {"location_name": "Not provided"})
+                elif service_type == "complaint":
+                    await self.handle_complaint_with_location(update, context, {"location_name": "Not provided"})
+                elif service_type == "ex_gratia":
+                    # For ex-gratia, we need to restore the original application data
+                    data = state.get("data", {})
+                    
+                    logger.info(f"🔒 [SKIP] Current state data keys: {list(data.keys()) if data else 'No data'}")
+                    
+                    if not data or len(data) < 5:  # Should have at least name, father_name, village, contact, etc.
+                        # No data found, show error and go back to main menu
+                        user_lang = self._get_user_language(user_id)
+                        if user_lang == "hindi":
+                            error_msg = "❌ आवेदन डेटा नहीं मिला। कृपया फिर से आवेदन शुरू करें।"
+                        elif user_lang == "nepali":
+                            error_msg = "❌ आवेदन डाटा फेला परेन। कृपया फेरि आवेदन सुरु गर्नुहोस्।"
+                        else:
+                            error_msg = "❌ Application data not found. Please start the application again."
+                        
+                        self._clear_user_state(user_id)
+                        await update.message.reply_text(error_msg, parse_mode='Markdown')
+                        await self.show_main_menu(update, context)
+                        return
+                    
+                    # Add location data to application data
+                    data["latitude"] = None
+                    data["longitude"] = None
+                    data["location_timestamp"] = None
+                    data["location_name"] = "Not provided"
+                    
+                    logger.info(f"🔒 [SKIP] Final application data: {list(data.keys())}")
+                    
+                    # Update state with location data
+                    state["data"] = data
+                    self._set_user_state(user_id, state)
+                    
+                    # Show confirmation with all collected data
+                    await self.show_ex_gratia_confirmation(update, context, data)
+                else:
+                    # Default case - just clear state and show main menu
+                    self._clear_user_state(user_id)
+                    await self.show_main_menu(update, context)
+                
                 return
             
             # Get user language - only detect language for new conversations, not during workflows
@@ -894,12 +1477,27 @@ Your feedback ID: {feedback_id}""",
                     await self.show_main_menu(update, context)
                     return
                 
-                if workflow == "ex_gratia":
+                if workflow == "location_request":
+                    # User is waiting to share location, remind them
+                    user_lang = self._get_user_language(user_id)
+                    if user_lang == "hindi":
+                        message = "📍 कृपया अपना स्थान साझा करने के लिए ऊपर दिए गए बटन का उपयोग करें।"
+                    elif user_lang == "nepali":
+                        message = "📍 कृपया आफ्नो स्थान साझा गर्नको लागि माथिको बटन प्रयोग गर्नुहोस्।"
+                    else:
+                        message = "📍 Please use the button above to share your location."
+                    await update.message.reply_text(message, parse_mode='Markdown')
+                    return
+                elif workflow == "ex_gratia":
                     await self.handle_ex_gratia_workflow(update, context, message_text)
                 elif workflow == "complaint":
                     await self.handle_complaint_workflow(update, context)
                 elif workflow == "emergency_report":
                     await self.handle_emergency_workflow(update, context)
+                elif workflow == "manual_location":
+                    await self.handle_manual_location_workflow(update, context)
+                elif workflow == "manual_location_name":
+                    await self.handle_manual_location_name_workflow(update, context)
                 elif workflow == "certificate":
                     await self.handle_certificate_workflow(update, context, message_text)
                 elif workflow == "status_check":
@@ -910,35 +1508,11 @@ Your feedback ID: {feedback_id}""",
                     await self.handle_csc_search_workflow(update, context)
                 elif workflow == "blo_search":
                     await self.handle_blo_search_workflow(update, context)
+                elif workflow == "check_status_":
+                    reference_number = workflow.replace("check_status_", "")
+                    await self.check_nc_exgratia_status(update, context, reference_number)
                 elif workflow == "emergency":
                     await self.handle_emergency_menu(update, context)
-                elif workflow == "emergency_details":
-                    # Store emergency details and request location
-                    state["emergency_details"] = message_text
-                    state["step"] = "location_request"
-                    self._set_user_state(user_id, state)
-                    
-                    # Ask if user wants to share location
-                    keyboard = [
-                        [InlineKeyboardButton("📍 Share My Location", callback_data="emergency_share_location")],
-                        [InlineKeyboardButton("📝 Enter Location Manually", callback_data="emergency_manual_location")],
-                        [InlineKeyboardButton("⏭️ Skip Location", callback_data="emergency_skip_location")],
-                        [InlineKeyboardButton("🔙 Back to Main Menu", callback_data="main_menu")]
-                    ]
-                    reply_markup = InlineKeyboardMarkup(keyboard)
-                    
-                    await update.message.reply_text(
-                        self.responses[user_lang]['complaint_location_prompt'],
-                        reply_markup=reply_markup,
-                        parse_mode='Markdown'
-                    )
-                elif workflow == "manual_location":
-                    # Handle manual location input for complaint
-                    state["manual_location"] = message_text
-                    self._set_user_state(user_id, state)
-                    
-                    # Complete complaint with manual location
-                    await self._complete_complaint_with_manual_location(update, context)
                 else:
                     # Unknown workflow, clear state and show main menu
                     self._clear_user_state(user_id)
@@ -994,8 +1568,7 @@ Your feedback ID: {feedback_id}""",
             logger.error(f"❌ Error in message handler: {str(e)}")
             user_lang = self._get_user_language(update.effective_user.id) if update.effective_user else 'english'
             await update.message.reply_text(
-                self.responses[user_lang]['error_message'],
-                parse_mode='Markdown'
+                self.responses[user_lang]['error']
             )
 
     async def start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1232,63 +1805,7 @@ Please select your preferred language to continue:
             
             elif data.startswith("emergency_"):
                 service = data.replace("emergency_", "")
-                if service == "share_location":
-                    # Request location for emergency
-                    # Pass the user state to the location system
-                    user_state = self._get_user_state(user_id)
-                    context.user_data['user_state'] = user_state
-                    await self.location_system.request_location(update, context, "emergency", "Emergency services")
-                elif service == "manual_location":
-                    # Handle manual location input for emergency
-                    state = self._get_user_state(user_id)
-                    state["step"] = "manual_location"
-                    self._set_user_state(user_id, state)
-                    await query.edit_message_text("📍 Please enter your location (e.g., Gangtok, Lachen, Namchi):")
-                elif service == "skip_location":
-                    # Complete emergency without location
-                    await self._complete_emergency_without_location(update, context)
-                else:
-                    await self.handle_emergency_service(update, context, service)
-            
-            elif data.startswith("call_"):
-                # Handle call button clicks
-                phone_number = data.replace("call_", "")
-                user_lang = self._get_user_language(user_id)
-                
-                # Create a message with the phone number for easy copying
-                call_message = f"""📞 **Emergency Call Information**
-
-🔢 **Phone Number**: `{phone_number}`
-
-📱 **To call this number**:
-1. Copy the number above
-2. Open your phone app
-3. Paste and dial the number
-
-🚨 **Emergency Response**: Help is on the way!
-
-⚠️ **Important**: Stay calm and provide clear information about your emergency."""
-                
-                # Create keyboard with copy button and back options
-                keyboard = [
-                    [InlineKeyboardButton("🔙 Back to Emergency", callback_data="emergency")],
-                    [InlineKeyboardButton("🏠 Main Menu", callback_data="main_menu")]
-                ]
-                reply_markup = InlineKeyboardMarkup(keyboard)
-                
-                await query.edit_message_text(call_message, reply_markup=reply_markup, parse_mode='Markdown')
-                
-                # Log the call attempt
-                user_name = update.effective_user.first_name or "Unknown"
-                self._log_to_sheets(
-                    user_id=user_id,
-                    user_name=user_name,
-                    interaction_type="emergency_call",
-                    query_text=f"Call button clicked for {phone_number}",
-                    language=user_lang,
-                    bot_response=f"Call information provided for {phone_number}",
-                    phone_number=phone_number
-                )
+                await self.handle_emergency_service(update, context, service)
             
             elif data == "csc":
                 await self.handle_csc_menu(update, context)
@@ -1325,21 +1842,6 @@ Please select your preferred language to continue:
                         reply_markup = InlineKeyboardMarkup(keyboard)
                         
                         await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
-                elif complaint_type == "share_location":
-                    # Request location for complaint
-                    # Pass the user state to the location system
-                    user_state = self._get_user_state(user_id)
-                    context.user_data['user_state'] = user_state
-                    await self.location_system.request_location(update, context, "complaint", "Complaint filing")
-                elif complaint_type == "manual_location":
-                    # Handle manual location input
-                    state = self._get_user_state(user_id)
-                    state["step"] = "manual_location"
-                    self._set_user_state(user_id, state)
-                    await query.edit_message_text("📍 Please enter your location (e.g., Gangtok, Lachen, Namchi):")
-                elif complaint_type == "skip_location":
-                    # Complete complaint without location
-                    await self._complete_complaint_without_location(update, context)
             
             elif data == "certificate_csc":
                 # Handle certificate CSC choice
@@ -1672,7 +2174,7 @@ If the problem persists, contact support."""
             self._set_user_state(user_id, state)
             
             # Request location
-            await self.location_system.request_location(update, context, "ex_gratia")
+            await self.request_location(update, context, "ex_gratia")
 
         else:
             await update.message.reply_text(self.responses[user_lang]['error'], parse_mode='Markdown')
@@ -1966,39 +2468,16 @@ Select the field you want to update:"""
 
     # --- Emergency Services ---
     async def handle_emergency_menu(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle emergency services menu - show emergency options"""
+        """Handle emergency services menu"""
         user_id = update.effective_user.id if update.effective_user else update.callback_query.from_user.id
         user_lang = self._get_user_language(user_id)
         
-        # Show emergency services menu with call buttons
-        emergency_text = f"""🚨 **Emergency Services** 🚨
-
-Choose the service you need:
-
-🚑 **Medical Emergency**
-👮 **Police Emergency** 
-🔥 **Fire Emergency**
-📞 **Suicide Helpline**
-👩 **Women Helpline**
-
-Select an option below:"""
-        
-        keyboard = [
-            [InlineKeyboardButton("🚑 Ambulance", callback_data="emergency_ambulance")],
-            [InlineKeyboardButton("👮 Police", callback_data="emergency_police")],
-            [InlineKeyboardButton("🔥 Fire", callback_data="emergency_fire")],
-            [InlineKeyboardButton("📞 Suicide Helpline", callback_data="emergency_suicide")],
-            [InlineKeyboardButton("👩 Women Helpline", callback_data="emergency_women")],
-            [InlineKeyboardButton(self.responses[user_lang]['back_main_menu'], callback_data="main_menu")]
-        ]
-        
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        
+        # Request location first for emergency services
         if update.callback_query:
             await update.callback_query.answer()
-            await update.callback_query.edit_message_text(emergency_text, reply_markup=reply_markup, parse_mode='Markdown')
+            await self.request_location(update, context, "emergency")
         else:
-            await update.message.reply_text(emergency_text, reply_markup=reply_markup, parse_mode='Markdown')
+            await self.request_location(update, context, "emergency")
         
         # Log to Google Sheets
         user_name = (update.effective_user.first_name if update.effective_user else update.callback_query.from_user.first_name) or "Unknown"
@@ -2006,9 +2485,9 @@ Select an option below:"""
             user_id=user_id,
             user_name=user_name,
             interaction_type="emergency",
-            query_text="Emergency services menu accessed",
+            query_text="Emergency services menu accessed - location requested",
             language=user_lang,
-            bot_response="Emergency menu shown",
+            bot_response="Location request sent",
             emergency_type="menu"
         )
 
@@ -2023,70 +2502,27 @@ Select an option below:"""
             if any(word in message_lower for word in ['ambulance', 'ambulance', 'medical', 'doctor', 'hospital']):
                 service_type = 'ambulance'
                 response_text = self.responses[user_lang]['emergency_ambulance']
-                # Create clickable call buttons for ambulance
-                keyboard = [
-                    [InlineKeyboardButton("📞 Call Ambulance (102)", callback_data="call_102")],
-                    [InlineKeyboardButton("📞 Call Ambulance (108)", callback_data="call_108")],
-                    [InlineKeyboardButton("📞 Control Room", callback_data="call_03592202033")],
-                    [InlineKeyboardButton("📍 Share Location for Dispatch", callback_data="emergency_share_location")],
-                    [InlineKeyboardButton(self.responses[user_lang]['other_emergency'], callback_data="emergency")],
-                    [InlineKeyboardButton(self.responses[user_lang]['back_main_menu'], callback_data="main_menu")]
-                ]
             elif any(word in message_lower for word in ['police', 'police', 'thief', 'robbery', 'crime']):
                 service_type = 'police'
                 response_text = self.responses[user_lang]['emergency_police']
-                # Create clickable call buttons for police
-                keyboard = [
-                    [InlineKeyboardButton("📞 Call Police (100)", callback_data="call_100")],
-                    [InlineKeyboardButton("📞 Control Room", callback_data="call_03592202022")],
-                    [InlineKeyboardButton("📍 Share Location for Dispatch", callback_data="emergency_share_location")],
-                    [InlineKeyboardButton(self.responses[user_lang]['other_emergency'], callback_data="emergency")],
-                    [InlineKeyboardButton(self.responses[user_lang]['back_main_menu'], callback_data="main_menu")]
-                ]
             elif any(word in message_lower for word in ['fire', 'fire', 'burning', 'blaze']):
                 service_type = 'fire'
                 response_text = self.responses[user_lang]['emergency_fire']
-                # Create clickable call buttons for fire
-                keyboard = [
-                    [InlineKeyboardButton("📞 Call Fire (101)", callback_data="call_101")],
-                    [InlineKeyboardButton("📞 Control Room", callback_data="call_03592202099")],
-                    [InlineKeyboardButton("📍 Share Location for Dispatch", callback_data="emergency_share_location")],
-                    [InlineKeyboardButton(self.responses[user_lang]['other_emergency'], callback_data="emergency")],
-                    [InlineKeyboardButton(self.responses[user_lang]['back_main_menu'], callback_data="main_menu")]
-                ]
             elif any(word in message_lower for word in ['suicide', 'suicide', 'helpline']):
                 service_type = 'suicide'
                 response_text = self.responses[user_lang]['emergency_suicide']
-                # Create clickable call buttons for suicide helpline
-                keyboard = [
-                    [InlineKeyboardButton("📞 Call Suicide Helpline", callback_data="call_9152987821")],
-                    [InlineKeyboardButton("📍 Share Location for Support", callback_data="emergency_share_location")],
-                    [InlineKeyboardButton(self.responses[user_lang]['other_emergency'], callback_data="emergency")],
-                    [InlineKeyboardButton(self.responses[user_lang]['back_main_menu'], callback_data="main_menu")]
-                ]
             elif any(word in message_lower for word in ['women', 'women', 'harassment']):
                 service_type = 'women'
                 response_text = self.responses[user_lang]['emergency_women']
-                # Create clickable call buttons for women helpline
-                keyboard = [
-                    [InlineKeyboardButton("📞 Call Women Helpline (1091)", callback_data="call_1091")],
-                    [InlineKeyboardButton("📞 State Commission", callback_data="call_03592205607")],
-                    [InlineKeyboardButton("📍 Share Location for Support", callback_data="emergency_share_location")],
-                    [InlineKeyboardButton(self.responses[user_lang]['other_emergency'], callback_data="emergency")],
-                    [InlineKeyboardButton(self.responses[user_lang]['back_main_menu'], callback_data="main_menu")]
-                ]
             else:
                 # Default to ambulance for general emergency
                 service_type = 'ambulance'
                 response_text = self.responses[user_lang]['emergency_ambulance']
-                keyboard = [
-                    [InlineKeyboardButton("📞 Call Ambulance (102)", callback_data="call_102")],
-                    [InlineKeyboardButton("📞 Call Ambulance (108)", callback_data="call_108")],
-                    [InlineKeyboardButton("📍 Share Location for Dispatch", callback_data="emergency_share_location")],
-                    [InlineKeyboardButton(self.responses[user_lang]['other_emergency'], callback_data="emergency")],
-                    [InlineKeyboardButton(self.responses[user_lang]['back_main_menu'], callback_data="main_menu")]
-                ]
             
+            keyboard = [
+                [InlineKeyboardButton(self.responses[user_lang]['other_emergency'], callback_data="emergency")],
+                [InlineKeyboardButton(self.responses[user_lang]['back_main_menu'], callback_data="main_menu")]
+            ]
             reply_markup = InlineKeyboardMarkup(keyboard)
             
             await update.message.reply_text(response_text, reply_markup=reply_markup, parse_mode='Markdown')
@@ -2108,78 +2544,37 @@ Select an option below:"""
             await update.message.reply_text(self.responses[user_lang]['error'])
 
     async def handle_emergency_service(self, update: Update, context: ContextTypes.DEFAULT_TYPE, service_type: str):
-        """Handle emergency service selection - provide immediate call buttons"""
-        user_id = update.effective_user.id
-        user_lang = self._get_user_language(user_id)
+        """Handle specific emergency service selection"""
+        query = update.callback_query
         
-        # Store emergency type
-        state = self._get_user_state(user_id)
-        state["emergency_type"] = service_type
-        self._set_user_state(user_id, state)
+        # Default emergency numbers for all services
+        response_text = {
+                'police': "👮 *Police Emergency*\nDial: 100\nControl Room: 03592-202022",
+                'fire': "🚒 *Fire Emergency*\nDial: 101\nControl Room: 03592-202099",
+                'women': "👩 *Women Helpline*\nDial: 1091\nState Commission: 03592-205607",
+                'health': "🏥 *Health Helpline*\nDial: 104\nToll Free: 1800-345-3049",
+                'suicide': "💭 *Suicide Prevention Helpline*\nDial: 9152987821"
+            }.get(service_type, "Please call 112 for any emergency assistance.")
         
-        # Get the appropriate response text and create call buttons
-        if service_type == "ambulance":
-            response_text = self.responses[user_lang]['emergency_ambulance']
-            keyboard = [
-                [InlineKeyboardButton("📞 Call Ambulance (102)", callback_data="call_102")],
-                [InlineKeyboardButton("📞 Call Ambulance (108)", callback_data="call_108")],
-                [InlineKeyboardButton("📞 Control Room", callback_data="call_03592202033")],
-                [InlineKeyboardButton("📍 Share Location for Dispatch", callback_data="emergency_share_location")],
-                [InlineKeyboardButton("🔙 Back to Emergency Menu", callback_data="emergency")],
-                [InlineKeyboardButton("🏠 Main Menu", callback_data="main_menu")]
-            ]
-        elif service_type == "police":
-            response_text = self.responses[user_lang]['emergency_police']
-            keyboard = [
-                [InlineKeyboardButton("📞 Call Police (100)", callback_data="call_100")],
-                [InlineKeyboardButton("📞 Control Room", callback_data="call_03592202022")],
-                [InlineKeyboardButton("📍 Share Location for Dispatch", callback_data="emergency_share_location")],
-                [InlineKeyboardButton("🔙 Back to Emergency Menu", callback_data="emergency")],
-                [InlineKeyboardButton("🏠 Main Menu", callback_data="main_menu")]
-            ]
-        elif service_type == "fire":
-            response_text = self.responses[user_lang]['emergency_fire']
-            keyboard = [
-                [InlineKeyboardButton("📞 Call Fire (101)", callback_data="call_101")],
-                [InlineKeyboardButton("📞 Control Room", callback_data="call_03592202099")],
-                [InlineKeyboardButton("📍 Share Location for Dispatch", callback_data="emergency_share_location")],
-                [InlineKeyboardButton("🔙 Back to Emergency Menu", callback_data="emergency")],
-                [InlineKeyboardButton("🏠 Main Menu", callback_data="main_menu")]
-            ]
-        elif service_type == "suicide":
-            response_text = self.responses[user_lang]['emergency_suicide']
-            keyboard = [
-                [InlineKeyboardButton("📞 Call Suicide Helpline", callback_data="call_9152987821")],
-                [InlineKeyboardButton("📍 Share Location for Support", callback_data="emergency_share_location")],
-                [InlineKeyboardButton("🔙 Back to Emergency Menu", callback_data="emergency")],
-                [InlineKeyboardButton("🏠 Main Menu", callback_data="main_menu")]
-            ]
-        elif service_type == "women":
-            response_text = self.responses[user_lang]['emergency_women']
-            keyboard = [
-                [InlineKeyboardButton("📞 Call Women Helpline (1091)", callback_data="call_1091")],
-                [InlineKeyboardButton("📞 State Commission", callback_data="call_03592205607")],
-                [InlineKeyboardButton("📍 Share Location for Support", callback_data="emergency_share_location")],
-                [InlineKeyboardButton("🔙 Back to Emergency Menu", callback_data="emergency")],
-                [InlineKeyboardButton("🏠 Main Menu", callback_data="main_menu")]
-            ]
-        else:
-            # Default to ambulance for general emergency
-            response_text = self.responses[user_lang]['emergency_ambulance']
-            keyboard = [
-                [InlineKeyboardButton("📞 Call Ambulance (102)", callback_data="call_102")],
-                [InlineKeyboardButton("📞 Call Ambulance (108)", callback_data="call_108")],
-                [InlineKeyboardButton("📍 Share Location for Dispatch", callback_data="emergency_share_location")],
-                [InlineKeyboardButton("🔙 Back to Emergency Menu", callback_data="emergency")],
-                [InlineKeyboardButton("🏠 Main Menu", callback_data="main_menu")]
-            ]
-        
+        keyboard = [
+            [InlineKeyboardButton("🔙 Back to Emergency Services", callback_data="emergency")],
+            [InlineKeyboardButton("🏠 Back to Main Menu", callback_data="main_menu")]
+        ]
         reply_markup = InlineKeyboardMarkup(keyboard)
+        await query.edit_message_text(response_text, reply_markup=reply_markup, parse_mode='Markdown')
         
-        await update.callback_query.edit_message_text(
-            response_text,
-            reply_markup=reply_markup,
-            parse_mode='Markdown'
+        # Log to Google Sheets
+        user_id = query.from_user.id
+        user_name = query.from_user.first_name or "Unknown"
+        user_lang = self._get_user_language(user_id)
+        self._log_to_sheets(
+            user_id=user_id,
+            user_name=user_name,
+            interaction_type="emergency",
+            query_text=f"Emergency service request: {service_type}",
+            language=user_lang,
+            bot_response=response_text,
+            emergency_type=service_type
         )
 
     # --- Tourism & Homestays ---
@@ -2338,67 +2733,78 @@ Please select an option:
 
     # --- Complaint ---
     async def start_emergency_workflow(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Start emergency workflow - ask questions first, location at end"""
+        """Start the emergency report workflow"""
         user_id = update.effective_user.id
         user_lang = self._get_user_language(user_id)
         
-        # Initialize emergency workflow state
-        state = {
-            "workflow": "emergency",
-            "step": "emergency_type"
-        }
-        self._set_user_state(user_id, state)
+        # Set state for emergency workflow
+        self._set_user_state(user_id, {
+            "workflow": "emergency_report",
+            "step": "name"
+        })
         
-        # Show emergency type options
-        keyboard = [
-            [InlineKeyboardButton("🚑 Ambulance", callback_data="emergency_ambulance")],
-            [InlineKeyboardButton("👮 Police", callback_data="emergency_police")],
-            [InlineKeyboardButton("🔥 Fire", callback_data="emergency_fire")],
-            [InlineKeyboardButton("🚨 General Emergency", callback_data="emergency_general")],
-            [InlineKeyboardButton("🔙 Back to Main Menu", callback_data="main_menu")]
-        ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        
-        if hasattr(update, 'callback_query') and update.callback_query:
-            # Handle callback query
-            await update.callback_query.edit_message_text(
-                self.responses[user_lang]['emergency_type_prompt'],
-                reply_markup=reply_markup,
-                parse_mode='Markdown'
-            )
+        # Get appropriate message for emergency name request
+        if user_lang == "hindi":
+            message = "🚨 **आपातकालीन रिपोर्ट**\n\nकृपया अपना पूरा नाम दर्ज करें:"
+        elif user_lang == "nepali":
+            message = "🚨 **आपतकालीन रिपोर्ट**\n\nकृपया आफ्नो पूरा नाम दर्ता गर्नुहोस्:"
         else:
-            # Handle regular message
-            await update.message.reply_text(
-                self.responses[user_lang]['emergency_type_prompt'],
-                reply_markup=reply_markup,
-                parse_mode='Markdown'
-            )
+            message = "🚨 **Emergency Report**\n\nPlease provide your full name:"
+        
+        # Handle both callback queries and regular messages
+        if update.callback_query:
+            await update.callback_query.edit_message_text(message, parse_mode='Markdown')
+        else:
+            await update.message.reply_text(message, parse_mode='Markdown')
+        
+        # Log to Google Sheets
+        user_name = update.effective_user.first_name or "Unknown"
+        self._log_to_sheets(
+            user_id=user_id,
+            user_name=user_name,
+            interaction_type="emergency_report",
+            query_text="Emergency workflow started",
+            language=user_lang,
+            bot_response="Emergency workflow started",
+            emergency_type="started"
+        )
 
     async def start_complaint_workflow(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Start complaint workflow - ask questions first, location at end"""
+        """Start the complaint registration workflow"""
         user_id = update.effective_user.id
         user_lang = self._get_user_language(user_id)
         
-        # Initialize complaint workflow state
-        state = {
+        # Set state for complaint workflow
+        self._set_user_state(user_id, {
             "workflow": "complaint",
             "step": "name"
-        }
-        self._set_user_state(user_id, state)
+        })
         
-        # Start with asking for name
-        if hasattr(update, 'callback_query') and update.callback_query:
-            # Handle callback query
-            await update.callback_query.edit_message_text(
-                self.responses[user_lang]['complaint_name_prompt'],
-                parse_mode='Markdown'
-            )
+        # Get appropriate message for complaint name request
+        if user_lang == "hindi":
+            message = "📝 **शिकायत दर्ज करें**\n\nकृपया अपना पूरा नाम दर्ज करें:"
+        elif user_lang == "nepali":
+            message = "📝 **शिकायत दर्ता गर्नुहोस्**\n\nकृपया आफ्नो पूरा नाम दर्ता गर्नुहोस्:"
         else:
-            # Handle regular message
-            await update.message.reply_text(
-                self.responses[user_lang]['complaint_name_prompt'],
-                parse_mode='Markdown'
-            )
+            message = "📝 **File a Complaint**\n\nPlease enter your full name:"
+        
+        # Handle both callback queries and regular messages
+        if update.callback_query:
+            await update.callback_query.edit_message_text(message, parse_mode='Markdown')
+        else:
+            await update.message.reply_text(message, parse_mode='Markdown')
+        
+        # Log to Google Sheets
+        user_name = update.effective_user.first_name or "Unknown"
+        self._log_to_sheets(
+            user_id=user_id,
+            user_name=user_name,
+            interaction_type="complaint",
+            query_text="Complaint workflow started",
+            language=user_lang,
+            bot_response="Complaint workflow started",
+            complaint_type="started"
+        )
 
     async def handle_complaint_workflow(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle the complaint workflow steps"""
@@ -2429,25 +2835,47 @@ Please select an option:
             await update.message.reply_text(self.responses[user_lang]['complaint_description_prompt'], parse_mode='Markdown')
         
         elif step == "complaint":
-            # Store complaint description and request location at the end
+            # Store complaint description and request location
             state["complaint_description"] = text
-            state["step"] = "location_request"
+            state["step"] = "location"
             self._set_user_state(user_id, state)
             
-            # Ask if user wants to share location
-            keyboard = [
-                [InlineKeyboardButton("📍 Share My Location", callback_data="complaint_share_location")],
-                [InlineKeyboardButton("📝 Enter Location Manually", callback_data="complaint_manual_location")],
-                [InlineKeyboardButton("⏭️ Skip Location", callback_data="complaint_skip_location")],
-                [InlineKeyboardButton("🔙 Back to Main Menu", callback_data="main_menu")]
-            ]
-            reply_markup = InlineKeyboardMarkup(keyboard)
+            # Request location for complaint
+            await self.request_location(update, context, "complaint")
+            return
             
-            await update.message.reply_text(
-                self.responses[user_lang]['complaint_location_prompt'],
-                reply_markup=reply_markup,
-                parse_mode='Markdown'
+            # Send confirmation in user's language
+            entered_name = state.get('entered_name', '')
+            telegram_username = state.get('telegram_username', '')
+            confirmation = self.responses[user_lang]['complaint_success'].format(
+                complaint_id=complaint_id,
+                name=entered_name,
+                mobile=state.get('mobile'),
+                telegram_username=telegram_username
             )
+            
+            keyboard = [[InlineKeyboardButton("🔙 Back to Main Menu", callback_data="main_menu")]]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            await update.message.reply_text(confirmation, reply_markup=reply_markup, parse_mode='Markdown')
+            
+            # Log to Google Sheets with both names and location
+            telegram_username = state.get('telegram_username', update.effective_user.first_name or "Unknown")
+            entered_name = state.get('entered_name', '')
+            self._log_to_sheets(
+                user_id=user_id,
+                user_name=f"{entered_name} (@{telegram_username})",
+                interaction_type="complaint",
+                query_text=text,
+                language=user_lang,
+                bot_response=confirmation,
+                complaint_type="General",
+                status="New",
+                latitude=latitude,
+                longitude=longitude
+            )
+            
+            # Clear user state
+            self._clear_user_state(user_id)
 
     async def error_handler(self, update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Handle errors in the bot"""
@@ -3030,13 +3458,7 @@ Use the CSC search to find your nearest operator."""
         self.application.add_handler(CommandHandler("start", self.start))
         self.application.add_handler(CommandHandler("language", self.language_command))
         self.application.add_handler(CommandHandler("status", self.handle_status_command))
-        
-        # Add handler for location messages FIRST (higher priority)
-        self.application.add_handler(MessageHandler(filters.LOCATION, self.message_handler))
-        
-        # Add handler for text messages
         self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.message_handler))
-        
         self.application.add_handler(CallbackQueryHandler(self.callback_handler))
         self.application.add_error_handler(self.error_handler)  # Add error handler
         logger.info("✅ All handlers registered successfully")
@@ -3051,13 +3473,7 @@ Use the CSC search to find your nearest operator."""
             self.application.add_handler(CommandHandler("start", self.start))
             self.application.add_handler(CommandHandler("language", self.language_command))
             self.application.add_handler(CommandHandler("status", self.handle_status_command))
-            
-            # Add handler for location messages FIRST (higher priority)
-            self.application.add_handler(MessageHandler(filters.LOCATION, self.message_handler))
-            
-            # Add handler for text messages
             self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.message_handler))
-            
             self.application.add_handler(CallbackQueryHandler(self.callback_handler))
             
             # Add error handler
@@ -3074,6 +3490,25 @@ Use the CSC search to find your nearest operator."""
         except Exception as e:
             logger.error(f"❌ Failed to start bot: {str(e)}")
             raise
+
+    async def handle_ex_gratia_with_location(self, update: Update, context: ContextTypes.DEFAULT_TYPE, location_data: dict):
+        """Handle ex-gratia application with user location"""
+        user_id = update.effective_user.id
+        user_lang = self._get_user_language(user_id)
+        state = self._get_user_state(user_id)
+        data = state.get("data", {})
+        
+        # Add location data to application data
+        data["latitude"] = location_data.get("latitude")
+        data["longitude"] = location_data.get("longitude")
+        data["location_timestamp"] = location_data.get("timestamp")
+        
+        # Update state with location data
+        state["data"] = data
+        self._set_user_state(user_id, state)
+        
+        # Show confirmation with all collected data
+        await self.show_ex_gratia_confirmation(update, context, data)
 
     async def check_nc_exgratia_status(self, update: Update, context: ContextTypes.DEFAULT_TYPE, reference_number: str):
         """Check NC Exgratia application status using API"""
@@ -3203,153 +3638,6 @@ Disaster Management → Check Status"""
         
         # Check status
         await self.check_nc_exgratia_status(update, context, reference_number)
-
-    async def _complete_complaint_without_location(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Complete complaint workflow without location"""
-        user_id = update.effective_user.id
-        user_lang = self._get_user_language(user_id)
-        state = self._get_user_state(user_id)
-        
-        # Generate complaint ID
-        complaint_id = f"CMP{datetime.now().strftime('%Y%m%d%H%M%S')}"
-        
-        # Send confirmation
-        entered_name = state.get('entered_name', '')
-        telegram_username = state.get('telegram_username', '')
-        confirmation = self.responses[user_lang]['complaint_success'].format(
-            complaint_id=complaint_id,
-            name=entered_name,
-            mobile=state.get('mobile'),
-            telegram_username=telegram_username
-        )
-        
-        keyboard = [[InlineKeyboardButton("🔙 Back to Main Menu", callback_data="main_menu")]]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        
-        if hasattr(update, 'callback_query') and update.callback_query:
-            await update.callback_query.edit_message_text(confirmation, reply_markup=reply_markup, parse_mode='Markdown')
-        else:
-            await update.message.reply_text(confirmation, reply_markup=reply_markup, parse_mode='Markdown')
-        
-        # Log to Google Sheets
-        user_name = f"{entered_name} (@{telegram_username})"
-        self._log_to_sheets(
-            user_id=user_id,
-            user_name=user_name,
-            interaction_type="complaint",
-            query_text=state.get('complaint_description', ''),
-            language=user_lang,
-            bot_response=confirmation,
-            complaint_type="General",
-            status="New",
-            latitude=None,
-            longitude=None
-        )
-        
-        # Clear user state
-        self._clear_user_state(user_id)
-
-    async def _complete_emergency_without_location(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Complete emergency report without location"""
-        user_id = update.effective_user.id
-        user_lang = self._get_user_language(user_id)
-        
-        # Get emergency data from state
-        state = self._get_user_state(user_id)
-        emergency_type = state.get("emergency_type", "General Emergency")
-        emergency_details = state.get("emergency_details", "No details provided")
-        
-        # Generate emergency ID
-        emergency_id = f"EMG{datetime.now().strftime('%Y%m%d%H%M%S')}"
-        
-        # Show success message
-        message = f"""🚨 **Emergency Report Filed Successfully!** 🚨
-
-📝 **Emergency Details**:
-• **Type**: {emergency_type}
-• **Details**: {emergency_details}
-• **Location**: Not provided
-
-🆔 **Emergency ID**: {emergency_id}
-📊 **Status**: Emergency Response Initiated
-⏰ **Reported**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
-
-🚑 **Emergency Services Contacted**:
-• Ambulance: 102/108
-• Police: 100
-• Fire: 101
-
-Your emergency has been reported. Help is on the way!"""
-        
-        await update.message.reply_text(message, parse_mode='Markdown')
-        
-        # Log to Google Sheets
-        user_name = update.effective_user.first_name or "Unknown"
-        self._log_to_sheets(
-            user_id=user_id,
-            user_name=user_name,
-            interaction_type="emergency_report",
-            query_text=f"Emergency: {emergency_type} - {emergency_details}",
-            language=user_lang,
-            bot_response=f"Emergency ID: {emergency_id}",
-            emergency_type=emergency_type,
-            emergency_details=emergency_details,
-            emergency_id=emergency_id
-        )
-        
-        # Clear user state
-        self._clear_user_state(user_id)
-        
-        # Show main menu after a short delay
-        await asyncio.sleep(2)
-        await self.show_main_menu(update, context)
-
-    async def _complete_complaint_with_manual_location(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Complete complaint workflow with manual location"""
-        user_id = update.effective_user.id
-        user_lang = self._get_user_language(user_id)
-        state = self._get_user_state(user_id)
-        
-        # Generate complaint ID
-        complaint_id = f"CMP{datetime.now().strftime('%Y%m%d%H%M%S')}"
-        
-        # Send confirmation
-        entered_name = state.get('entered_name', '')
-        telegram_username = state.get('telegram_username', '')
-        manual_location = state.get('manual_location', 'Not provided')
-        confirmation = self.responses[user_lang]['complaint_success'].format(
-            complaint_id=complaint_id,
-            name=entered_name,
-            mobile=state.get('mobile'),
-            telegram_username=telegram_username
-        )
-        
-        # Add location info
-        confirmation += f"\n📍 **Location**: {manual_location}"
-        
-        keyboard = [[InlineKeyboardButton("🔙 Back to Main Menu", callback_data="main_menu")]]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        
-        await update.message.reply_text(confirmation, reply_markup=reply_markup, parse_mode='Markdown')
-        
-        # Log to Google Sheets
-        user_name = f"{entered_name} (@{telegram_username})"
-        self._log_to_sheets(
-            user_id=user_id,
-            user_name=user_name,
-            interaction_type="complaint",
-            query_text=state.get('complaint_description', ''),
-            language=user_lang,
-            bot_response=confirmation,
-            complaint_type="General",
-            status="New",
-            latitude=None,
-            longitude=None,
-            location_name=manual_location
-        )
-        
-        # Clear user state
-        self._clear_user_state(user_id)
 
 if __name__ == "__main__":
     # Initialize and run bot
