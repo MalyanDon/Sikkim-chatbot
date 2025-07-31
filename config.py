@@ -1,5 +1,5 @@
 """
-Configuration management for SmartGov Ex-Gratia Chatbot
+Configuration management for Sajilo Sewak Chatbot
 
 This module handles all configuration settings for the bot.
 """
@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 class Config:
-    """Configuration class for the SmartGov chatbot"""
+    """Configuration class for the Sajilo Sewak chatbot"""
     
     # Telegram Bot Token
     BOT_TOKEN = "7641958089:AAH2UW5H0EX9pGfE6wZZaURCpkyMHtJK8zw"
@@ -34,7 +34,7 @@ class Config:
     GOOGLE_SHEETS_API_KEY = "AIzaSyDOGeGFOwaLeRuVEQmbOE4E-YgHsh3OgV0"
     GOOGLE_SHEETS_CREDENTIALS_FILE = os.getenv('GOOGLE_SHEETS_CREDENTIALS_FILE', 'credentials.json')
     GOOGLE_SHEETS_SPREADSHEET_ID = os.getenv('GOOGLE_SHEETS_SPREADSHEET_ID', '1-CjYt8jSyK_Id2q4Wn91gZ8cpaH2a2cXdFXFXO5Veus')
-    GOOGLE_SHEETS_ENABLED = os.getenv('GOOGLE_SHEETS_ENABLED', 'false').lower() == 'true'  # Disabled temporarily
+    GOOGLE_SHEETS_ENABLED = os.getenv('GOOGLE_SHEETS_ENABLED', 'true').lower() == 'true'  # Enabled
     
     # Debug Mode
     DEBUG = os.getenv('DEBUG', 'false').lower() == 'true'
@@ -48,7 +48,7 @@ class Config:
     
     # Bot Messages
     WELCOME_MESSAGE = """
-🏛️ **Welcome to SmartGov Ex-Gratia Assistance!**
+        🏛️ **Welcome to Sajilo Sewak Assistance!**
 
 I'm here to help you with disaster relief services. You can:
 

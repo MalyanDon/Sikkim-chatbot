@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Simple Location System for SmartGov Bot
+Simple Location System for Sajilo Sewak Bot
 This is a clean, working implementation that actually captures coordinates
 """
 
@@ -349,62 +349,26 @@ This will help us process your claim faster."""
             await update.message.reply_text(message)
             return
         
-        # Extract ex-gratia data from state
-        ex_gratia_data = {
-            'name': user_state.get('name', 'Unknown'),
-            'father_name': user_state.get('father_name', 'Unknown'),
-            'village': user_state.get('village', 'Unknown'),
-            'contact': user_state.get('contact', 'Unknown'),
-            'voter_id': user_state.get('voter_id', 'Unknown'),
-            'ward': user_state.get('ward', 'Unknown'),
-            'gpu': user_state.get('gpu', 'Unknown'),
-            'district': user_state.get('district', 'Unknown'),
-            'khatiyan_no': user_state.get('khatiyan_no', 'Unknown'),
-            'plot_no': user_state.get('plot_no', 'Unknown'),
-            'nc_datetime': user_state.get('nc_datetime', 'Unknown'),
-            'damage_type': user_state.get('damage_type', 'Unknown'),
-            'damage_description': user_state.get('damage_description', 'No description'),
-            'location_lat': lat,
-            'location_lon': lon,
-            'timestamp': datetime.now().isoformat()
-        }
+        # Add location data to the user state
+        user_state['latitude'] = lat
+        user_state['longitude'] = lon
         
-        # Generate application ID
-        application_id = f"EXG{datetime.now().strftime('%Y%m%d%H%M%S')}"
+        # Update the context with the enhanced state
+        context.user_data['user_state'] = user_state
         
-        # Show success message with all details
-        message = f"""✅ Ex-Gratia Application Submitted Successfully! ✅
+        # Now call the main bot's confirmation function
+        if hasattr(self, 'main_bot') and self.main_bot:
+            # Call the main bot's confirmation function
+            await self.main_bot.show_ex_gratia_confirmation(update, context, user_state)
+        else:
+            # Fallback: show a message asking user to continue
+            message = f"""📍 Location Captured Successfully! 📍
 
-📝 Application Details:
-• Name: {ex_gratia_data['name']}
-• Father's Name: {ex_gratia_data['father_name']}
-• Village: {ex_gratia_data['village']}
-• Contact: {ex_gratia_data['contact']}
-• District: {ex_gratia_data['district']}
-• Damage Type: {ex_gratia_data['damage_type']}
-• Location: {lat:.6f}, {lon:.6f}
+Your location ({lat:.6f}, {lon:.6f}) has been added to your ex-gratia application.
 
-🆔 Application ID: {application_id}
-📊 Status: Under Review
-⏰ Submitted: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
-
-💰 **Next Steps:**
-• Your application will be reviewed within 7-10 working days
-• You'll receive updates via SMS on {ex_gratia_data['contact']}
-• Track your application using ID: {application_id}
-
-Your ex-gratia application has been submitted with location data. We'll process it as soon as possible!"""
-        
-        await update.message.reply_text(message)
-        
-        # Clear the user state to return to main menu
-        context.user_data.pop('user_state', None)
-        context.user_data.pop('location_request', None)
-        
-        # Show main menu after a short delay
-        await asyncio.sleep(2)
-        # Note: We can't call the main bot's show_main_menu from here
-        # The main bot should handle this in its message handler
+Please continue with your application to submit it to the NC Exgratia API."""
+            
+            await update.message.reply_text(message)
     
     async def _handle_homestay_with_location(self, update: Update, context: ContextTypes.DEFAULT_TYPE, location_data: dict):
         """Handle homestay booking with location"""

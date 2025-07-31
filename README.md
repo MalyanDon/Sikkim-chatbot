@@ -1,4 +1,4 @@
-# Enhanced SmartGov Assistant Bot 🏛️
+# Sajilo Sewak Bot 🏛️
 
 A comprehensive multilingual Telegram chatbot for Sikkim government services with LLM-powered intent detection and rule-based workflows.
 

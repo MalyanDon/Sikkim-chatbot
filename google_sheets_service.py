@@ -399,4 +399,129 @@ class GoogleSheetsService:
             date
         ]
         
-        return self.append_row(sheet_name, row_data) 
+        return self.append_row(sheet_name, row_data)
+    
+    def log_scheme_application(self, user_id: int, user_name: str, scheme_name: str,
+                             applicant_name: str, father_name: str, phone: str,
+                             village: str, ward: str, gpu: str, block: str,
+                             reference_number: str, application_status: str,
+                             submission_date: str, language: str = "english") -> bool:
+        """Log scheme application details to a dedicated sheet"""
+        if not self.service:
+            logger.error("❌ Google Sheets service not initialized")
+            return False
+        
+        sheet_name = "Scheme_Applications"
+        headers = [
+            "Timestamp", "User ID", "User Name", "Scheme Name", "Applicant Name",
+            "Father's Name", "Phone", "Village", "Ward", "GPU", "Block",
+            "Reference Number", "Application Status", "Submission Date", "Language", "Date"
+        ]
+        
+        # Create sheet if not exists
+        if not self.create_sheet_if_not_exists(sheet_name, headers):
+            return False
+        
+        # Prepare row data
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        date = datetime.now().strftime("%Y-%m-%d")
+        
+        row_data = [
+            timestamp,
+            user_id,
+            user_name,
+            scheme_name,
+            applicant_name,
+            father_name,
+            phone,
+            village,
+            ward,
+            gpu,
+            block,
+            reference_number,
+            application_status,
+            submission_date,
+            language,
+            date
+        ]
+        
+        return self.append_row(sheet_name, row_data)
+    
+    def log_certificate_application(self, user_id: int, user_name: str, certificate_type: str,
+                                  applicant_name: str, father_name: str, phone: str,
+                                  village: str, gpu: str, block: str,
+                                  reference_number: str, application_status: str,
+                                  submission_date: str, language: str = "english") -> bool:
+        """Log certificate application details to a dedicated sheet"""
+        if not self.service:
+            logger.error("❌ Google Sheets service not initialized")
+            return False
+        
+        sheet_name = "Certificate_Applications"
+        headers = [
+            "Timestamp", "User ID", "User Name", "Certificate Type", "Applicant Name",
+            "Father's Name", "Phone", "Village", "GPU", "Block",
+            "Reference Number", "Application Status", "Submission Date", "Language", "Date"
+        ]
+        
+        # Create sheet if not exists
+        if not self.create_sheet_if_not_exists(sheet_name, headers):
+            return False
+        
+        # Prepare row data
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        date = datetime.now().strftime("%Y-%m-%d")
+        
+        row_data = [
+            timestamp,
+            user_id,
+            user_name,
+            certificate_type,
+            applicant_name,
+            father_name,
+            phone,
+            village,
+            gpu,
+            block,
+            reference_number,
+            application_status,
+            submission_date,
+            language,
+            date
+        ]
+        
+        return self.append_row(sheet_name, row_data)
+    
+    def log_csc_operator_update(self, reference_number: str, operator_name: str,
+                               update_type: str, update_details: str,
+                               status_change: str = None) -> bool:
+        """Log CSC operator updates to a dedicated sheet"""
+        if not self.service:
+            logger.error("❌ Google Sheets service not initialized")
+            return False
+        
+        sheet_name = "CSC_Operator_Updates"
+        headers = [
+            "Timestamp", "Reference Number", "Operator Name", "Update Type",
+            "Update Details", "Status Change", "Date"
+        ]
+        
+        # Create sheet if not exists
+        if not self.create_sheet_if_not_exists(sheet_name, headers):
+            return False
+        
+        # Prepare row data
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        date = datetime.now().strftime("%Y-%m-%d")
+        
+        row_data = [
+            timestamp,
+            reference_number,
+            operator_name,
+            update_type,
+            update_details,
+            status_change or "",
+            date
+        ]
+        
+        return self.append_row(sheet_name, row_data)

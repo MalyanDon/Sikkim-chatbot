@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Comprehensive Sikkim SmartGov Assistant Bot
+Comprehensive Sikkim Sajilo Sewak Bot
 """
 import asyncio
 import csv
@@ -11,6 +11,7 @@ import threading
 import sys
 import os
 import aiohttp
+import re
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup, Location
 from simple_location_system import SimpleLocationSystem
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, ContextTypes, filters
@@ -37,7 +38,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-class SmartGovAssistantBot:
+class SajiloSewakBot:
     def __init__(self):
         """Initialize bot with configuration"""
         # Load configuration
@@ -70,8 +71,9 @@ class SmartGovAssistantBot:
         
         logger.info("🔒 MULTI-USER SUPPORT: Thread-safe state management initialized")
 
-        # Initialize location system
+        # Initialize location system with main bot reference
         self.location_system = SimpleLocationSystem()
+        self.location_system.main_bot = self  # Pass main bot reference
         logger.info('📍 Location system initialized')
 
     def _load_workflow_data(self):
@@ -114,8 +116,8 @@ class SmartGovAssistantBot:
         """Initialize multilingual response templates"""
         self.responses = {
             'english': {
-                'welcome': "Welcome to SmartGov Assistant! How can I help you today?",
-                'main_menu': """🏛️ *Welcome to SmartGov Assistant* 🏛️
+                        'welcome': "Welcome to Sajilo Sewak! How can I help you today?",
+        'main_menu': """🏛️ *Welcome to Sajilo Sewak* 🏛️
 
 Our services include:
 
@@ -193,7 +195,7 @@ Please select a service to continue:""",
                 'ex_gratia_khatiyan': "What is your Khatiyan Number? (Land record number)",
                 'ex_gratia_plot': "What is your Plot Number?",
                 'ex_gratia_damage': "Please provide a detailed description of the damage:",
-                'certificate_info': "To apply for services through the Sikkim SSO portal:\n1. Register and create an account on the Sikkim SSO portal\n2. Log in using your Sikkim SSO credentials\n3. Navigate to the desired service\n4. Fill out the application form\n5. Upload necessary documents\n6. Track your application status online\n\nWould you like to apply through a CSC operator or Single Window operator?",
+                'certificate_info': "You can apply for certificates in two ways:\n\n1. **Apply Online** - Use the Sikkim SSO portal directly\n2. **Apply via CSC** - Get assistance from your nearest Common Service Centre\n\nWhich method would you prefer?",
                 'other_emergency': "🚨 Other Emergency Services",
                 'back_main_menu': "🔙 Back to Main Menu",
                 'language_menu': "🌐 *Language Selection*\n\nPlease select your preferred language:",
@@ -321,7 +323,7 @@ Your feedback ID: {feedback_id}""",
                 'ex_gratia_khatiyan': "आपका खतियान नंबर क्या है? (जमीन का रिकॉर्ड नंबर)",
                 'ex_gratia_plot': "आपका प्लॉट नंबर क्या है?",
                 'ex_gratia_damage': "कृपया क्षति का विस्तृत विवरण प्रदान करें:",
-                'certificate_info': "सिक्किम SSO पोर्टल के माध्यम से सेवाओं के लिए आवेदन करने के लिए:\n1. सिक्किम SSO पोर्टल पर पंजीकरण करें और खाता बनाएं\n2. अपने सिक्किम SSO क्रेडेंशियल्स का उपयोग करके लॉगिन करें\n3. वांछित सेवा पर नेविगेट करें\n4. आवेदन फॉर्म भरें\n5. आवश्यक दस्तावेज अपलोड करें\n6. अपने आवेदन की स्थिति ऑनलाइन ट्रैक करें\n\nक्या आप CSC ऑपरेटर या सिंगल विंडो ऑपरेटर के माध्यम से आवेदन करना चाहते हैं?",
+                'certificate_info': "आप प्रमाणपत्र के लिए दो तरीकों से आवेदन कर सकते हैं:\n\n1. **ऑनलाइन आवेदन** - सिक्किम SSO पोर्टल का सीधा उपयोग करें\n2. **CSC के माध्यम से आवेदन** - अपने निकटतम कॉमन सर्विस सेंटर से सहायता प्राप्त करें\n\nआप कौन सा तरीका पसंद करेंगे?",
                 'other_emergency': "🚨 अन्य आपातकालीन सेवाएं",
                 'back_main_menu': "🔙 मुख्य मेनू पर वापस",
                 'language_menu': "🌐 *भाषा चयन*\n\nकृपया अपनी पसंदीदा भाषा चुनें:",
@@ -449,7 +451,7 @@ Your feedback ID: {feedback_id}""",
                 'ex_gratia_khatiyan': "तपाईंको खतियान नम्बर के हो? (जमिनको रेकर्ड नम्बर)",
                 'ex_gratia_plot': "तपाईंको प्लट नम्बर के हो?",
                 'ex_gratia_damage': "कृपया क्षतिको विस्तृत विवरण प्रदान गर्नुहोस्:",
-                'certificate_info': "सिक्किम SSO पोर्टल मार्फत सेवाहरूको लागि आवेदन गर्न:\n1. सिक्किम SSO पोर्टलमा दर्ता गर्नुहोस् र खाता सिर्जना गर्नुहोस्\n2. आफ्ना सिक्किम SSO क्रेडेन्सियलहरू प्रयोग गरेर लगइन गर्नुहोस्\n3. इच्छित सेवामा नेविगेट गर्नुहोस्\n4. आवेदन फारम भर्नुहोस्\n5. आवश्यक कागजातहरू अपलोड गर्नुहोस्\n6. आफ्नो आवेदनको स्थिति अनलाइन ट्र्याक गर्नुहोस्\n\nके तपाईं CSC सञ्चालक वा सिङ्गल विन्डो सञ्चालक मार्फत आवेदन गर्न चाहनुहुन्छ?",
+                'certificate_info': "तपाईंले प्रमाणपत्रको लागि दुई तरिकाले आवेदन गर्न सक्नुहुन्छ:\n\n1. **अनलाइन आवेदन** - सिक्किम SSO पोर्टल सिधै प्रयोग गर्नुहोस्\n2. **CSC मार्फत आवेदन** - आफ्नो नजिकैको कमन सर्भिस सेन्टरबाट सहायता लिनुहोस्\n\nतपाईं कुन तरिका रोज्नुहुन्छ?",
                 'other_emergency': "🚨 अन्य आकस्मिक सेवाहरू",
                 'back_main_menu': "🔙 मुख्य मेनुमा फिर्ता",
                 'language_menu': "🌐 *भाषा चयन*\n\nकृपया तपाईंको मनपर्ने भाषा छान्नुहोस्:",
@@ -651,6 +653,41 @@ Your feedback ID: {feedback_id}""",
                     language=language,
                     result=bot_response
                 )
+            elif interaction_type == "csc_scheme_application":
+                # Log CSC scheme application to dedicated sheet
+                self.sheets_service.log_scheme_application(
+                    user_id=user_id,
+                    user_name=user_name,
+                    scheme_name=kwargs.get('scheme_name', ''),
+                    applicant_name=kwargs.get('applicant_name', ''),
+                    father_name=kwargs.get('father_name', ''),
+                    phone=kwargs.get('phone', ''),
+                    village=kwargs.get('village', ''),
+                    ward=kwargs.get('ward', ''),
+                    gpu=kwargs.get('gpu', ''),
+                    block=kwargs.get('block', ''),
+                    reference_number=kwargs.get('reference_number', ''),
+                    application_status=kwargs.get('application_status', ''),
+                    submission_date=kwargs.get('submission_date', ''),
+                    language=language
+                )
+            elif interaction_type == "certificate_application":
+                # Log certificate application to dedicated sheet
+                self.sheets_service.log_certificate_application(
+                    user_id=user_id,
+                    user_name=user_name,
+                    certificate_type=kwargs.get('certificate_type', ''),
+                    applicant_name=kwargs.get('applicant_name', ''),
+                    father_name=kwargs.get('father_name', ''),
+                    phone=kwargs.get('phone', ''),
+                    village=kwargs.get('village', ''),
+                    gpu=kwargs.get('gpu', ''),
+                    block=kwargs.get('block', ''),
+                    reference_number=kwargs.get('reference_number', ''),
+                    application_status=kwargs.get('application_status', ''),
+                    submission_date=kwargs.get('submission_date', ''),
+                    language=language
+                )
             else:
                 # Log general interaction
                 self.sheets_service.log_general_interaction(
@@ -661,8 +698,11 @@ Your feedback ID: {feedback_id}""",
                     language=language,
                     bot_response=bot_response
                 )
+            
+            return True  # Return True on successful logging
         except Exception as e:
             logger.error(f"❌ Error logging to Google Sheets: {str(e)}")
+            return False  # Return False on error
 
     async def detect_language(self, text: str) -> str:
         """
@@ -910,6 +950,11 @@ Your feedback ID: {feedback_id}""",
                     await self.handle_csc_search_workflow(update, context)
                 elif workflow == "blo_search":
                     await self.handle_blo_search_workflow(update, context)
+                elif workflow == "scheme_csc_application":
+                    print(f"DEBUG: Routing message to scheme_csc_application_workflow")
+                    await self.handle_scheme_csc_application_workflow(update, context, message_text)
+                elif workflow == "certificate_csc_application":
+                    await self.handle_certificate_application_workflow(update, context, message_text)
                 elif workflow == "emergency":
                     await self.handle_emergency_menu(update, context)
                 elif workflow == "emergency_details":
@@ -968,9 +1013,12 @@ Your feedback ID: {feedback_id}""",
                 elif intent == "complaint":
                     await self.start_complaint_workflow(update, context)
                 elif intent == "certificate":
+                    # Route to certificate workflow instead of just showing info
                     await self.handle_certificate_info(update, context)
                 elif intent == "csc":
                     await self.handle_csc_menu(update, context)
+                elif intent == "scheme":
+                    await self.handle_scheme_menu(update, context)
                 elif intent == "cancel":
                     # Clear state and show main menu
                     self._clear_user_state(user_id)
@@ -1068,7 +1116,7 @@ Your feedback ID: {feedback_id}""",
         try:
             await self._ensure_session()
             
-            prompt = f"""You are an intent classifier for SmartGov Assistant, a government services chatbot in Sikkim. Given the user's message, classify it into one of these intents:
+            prompt = f"""You are an intent classifier for Sajilo Sewak, a government services chatbot in Sikkim. Given the user's message, classify it into one of these intents:
 
 Available intents:
 - greeting: User is saying hello, hi, namaste, or starting a conversation (hello, hi, namaste, good morning, etc.)
@@ -1078,8 +1126,9 @@ Available intents:
 - emergency: User needs emergency help (ambulance, police, fire)
 - tourism: User wants tourism/homestay services
 - complaint: User wants to file a complaint
-- certificate: User wants to apply for certificates
+- certificate: User wants to apply for certificates (apply for certificate, certificate application, birth certificate, income certificate, etc.)
 - csc: User wants CSC (Common Service Center) services
+- scheme: User wants to apply for government schemes (PM-KISAN, scholarships, youth schemes, health schemes, etc.)
 - cancel: User wants to cancel, stop, go back, or return to main menu (cancel, stop, quit, exit, back, home, band karo, रद्द करें, बंद करो)
 - unknown: If none of the above match
 
@@ -1091,8 +1140,9 @@ Example messages for each intent:
 - emergency: "Need ambulance", "Call police", "Fire emergency"
 - tourism: "Book homestay", "Tourist places", "Accommodation"
 - complaint: "File complaint", "Register grievance", "Report issue"
-- certificate: "Apply for certificate", "Birth certificate", "Document"
+- certificate: "Apply for certificate", "Apply for certificates", "Birth certificate", "Income certificate", "Document", "Certificate application"
 - csc: "Find CSC", "CSC operator", "Common Service Center"
+- scheme: "I want to apply for PM-KISAN", "Apply for scholarship", "Government schemes", "PM-KISAN scheme", "Youth scheme", "Health scheme", "Farmer scheme"
 
 User message: {text}
 Language: {lang}
@@ -1118,7 +1168,7 @@ Respond with ONLY one of the intent names listed above, nothing else."""
                 logger.info(f"🎯 [LLM] Intent Classification Response: {intent}")
                 
                 # Validate intent
-                valid_intents = ['greeting', 'ex_gratia', 'check_status', 'relief_norms', 'emergency', 'tourism', 'complaint', 'certificate', 'csc', 'cancel']
+                valid_intents = ['greeting', 'ex_gratia', 'check_status', 'relief_norms', 'emergency', 'tourism', 'complaint', 'certificate', 'csc', 'scheme', 'cancel']
                 return intent if intent in valid_intents else 'unknown'
                 
         except Exception as e:
@@ -1136,7 +1186,7 @@ Respond with ONLY one of the intent names listed above, nothing else."""
         # Clear any existing state
         self._clear_user_state(user_id)
         
-        greeting_text = """👋 *Welcome to SmartGov Assistant!*
+        greeting_text = """👋 *Welcome to Sajilo Sewak!*
 
 नमस्ते! / नमस्कार! / Hello!
 
@@ -1207,10 +1257,12 @@ Please select your preferred language to continue:
             elif data.startswith("district_"):
                 district = data.replace("district_", "")
                 district_mapping = {
-                    "east": "East Sikkim",
-                    "west": "West Sikkim", 
-                    "north": "North Sikkim",
-                    "south": "South Sikkim"
+                    "east": "Gangtok",  # East Sikkim -> Gangtok (GT)
+                    "west": "Gyalshing",  # West Sikkim -> Gyalshing (GY)
+                    "north": "Mangan",  # North Sikkim -> Mangan (MN)
+                    "south": "Namchi",  # South Sikkim -> Namchi (NM)
+                    "pakyong": "Pakyong",  # Add Pakyong (PK)
+                    "soreng": "Soreng"  # Add Soreng (SR)
                 }
                 district_name = district_mapping.get(district, district)
                 
@@ -1226,6 +1278,30 @@ Please select your preferred language to continue:
                         self.responses[user_lang]['ex_gratia_khatiyan'],
                         parse_mode='Markdown'
                     )
+            
+            elif data.startswith("relationship_"):
+                relationship = data.replace("relationship_", "")
+                
+                # Update user state with relationship
+                user_state = self._get_user_state(user_id)
+                if user_state.get("workflow") == "ex_gratia":
+                    user_state["data"]["relationship"] = relationship
+                    
+                    # Set the appropriate label and prompt
+                    if relationship == "son":
+                        user_state["data"]["relationship_label"] = "Father's Name"
+                        prompt = "👨 Please enter your Father's Name:"
+                    elif relationship == "daughter":
+                        user_state["data"]["relationship_label"] = "Father's Name"
+                        prompt = "👨 Please enter your Father's Name:"
+                    elif relationship == "wife":
+                        user_state["data"]["relationship_label"] = "Husband's Name"
+                        prompt = "👨 Please enter your Husband's Name:"
+                    
+                    user_state["step"] = "father_name"
+                    self._set_user_state(user_id, user_state)
+                    
+                    await query.edit_message_text(prompt, parse_mode='Markdown')
             
             elif data == "emergency":
                 await self.handle_emergency_menu(update, context)
@@ -1293,16 +1369,49 @@ Please select your preferred language to continue:
             elif data == "csc":
                 await self.handle_csc_menu(update, context)
             
-            elif data.startswith("csc_"):
-                district = data.replace("csc_", "")
-                await self.handle_csc_selection(update, context, district)
+            elif data == "csc_submit_application":
+                print(f"DEBUG: csc_submit_application callback triggered")
+                await self.handle_csc_submit_application(update, context)
             
             elif data == "certificate":
                 await self.handle_certificate_info(update, context)
             
+            # Certificate type handlers - MUST come before generic csc_ handler
+            elif data.startswith("cert_type_"):
+                print(f"DEBUG: cert_type_ callback triggered: {data}")
+                try:
+                    cert_type = data.replace("cert_type_", "").upper()
+                    print(f"DEBUG: Extracted cert_type: {cert_type}")
+                    await self.handle_certificate_type_selection(update, context, cert_type)
+                    print(f"DEBUG: handle_certificate_type_selection completed successfully")
+                except Exception as e:
+                    print(f"DEBUG: Error in cert_type_ handler: {e}")
+                    import traceback
+                    traceback.print_exc()
+            
+            # Certificate workflow handlers - MUST BE BEFORE generic cert_ handler
+            elif data.startswith("cert_block_"):
+                print(f"DEBUG: cert_block_ callback triggered: {data}")
+                block_index = data.replace("cert_block_", "")
+                print(f"DEBUG: Extracted block_index: {block_index}")
+                print(f"DEBUG: About to call handle_certificate_block_selection")
+                await self.handle_certificate_block_selection(update, context, block_index)
+                print(f"DEBUG: handle_certificate_block_selection completed")
+            
+            elif data.startswith("cert_gpu_"):
+                gpu_index = data.replace("cert_gpu_", "")
+                await self.handle_certificate_gpu_selection(update, context, gpu_index)
+            
+            elif data == "cert_apply_now":
+                await self.handle_certificate_apply_now(update, context)
+            
             elif data.startswith("cert_"):
                 cert_type = data.replace("cert_", "")
                 await self.handle_certificate_choice(update, context, cert_type)
+            
+            elif data.startswith("csc_"):
+                district = data.replace("csc_", "")
+                await self.handle_csc_selection(update, context, district)
             
             elif data == "complaint":
                 await self.start_complaint_workflow(update, context)
@@ -1342,12 +1451,30 @@ Please select your preferred language to continue:
                     await self._complete_complaint_without_location(update, context)
             
             elif data == "certificate_csc":
-                # Handle certificate CSC choice
+                # Handle certificate CSC choice - show certificate types
                 user_id = update.effective_user.id
                 user_lang = self._get_user_language(user_id)
-                self._set_user_state(user_id, {"workflow": "certificate", "stage": "gpu"})
-                gpu_prompt = self.responses[user_lang]['certificate_gpu_prompt']
-                await query.edit_message_text(gpu_prompt, parse_mode='Markdown')
+                
+                text = f"""📋 **Select Certificate Type**
+
+Please select the certificate you want to apply for:
+
+**You can apply online at sso.sikkim.gov.in (Apply online)**
+**or**
+**Apply through your nearest CSC (Common Service Centre).**"""
+
+                keyboard = [
+                    [InlineKeyboardButton("🏛️ SC Certificate", callback_data="cert_type_sc")],
+                    [InlineKeyboardButton("🏛️ ST Certificate", callback_data="cert_type_st")],
+                    [InlineKeyboardButton("🏛️ OBC Certificate", callback_data="cert_type_obc")],
+                    [InlineKeyboardButton("💰 Income Certificate", callback_data="cert_type_income")],
+                    [InlineKeyboardButton("💼 Employment Card", callback_data="cert_type_employment")],
+                    [InlineKeyboardButton("🏛️ Primitive Tribe Certificate", callback_data="cert_type_primitive")],
+                    [InlineKeyboardButton("🔙 Back", callback_data="certificate_info")]
+                ]
+                reply_markup = InlineKeyboardMarkup(keyboard)
+                
+                await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
             
             elif data == "certificate_sso":
                 # Handle certificate SSO choice
@@ -1360,6 +1487,10 @@ Please select your preferred language to continue:
                     reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(back_button, callback_data="main_menu")]]),
                     parse_mode='Markdown'
                 )
+            
+
+            
+            # Certificate application choice handlers - REMOVED (going directly to block selection)
             
             elif data == "complaint":
                 await self.start_complaint_workflow(update, context)
@@ -1380,15 +1511,156 @@ Please select your preferred language to continue:
             elif data == "schemes":
                 await self.handle_scheme_menu(update, context)
             
-            elif data.startswith("scheme_"):
-                scheme_id = data.replace("scheme_", "")
-                await self.handle_scheme_selection(update, context, scheme_id)
+            # Scheme category handlers
+            elif data == "scheme_category_farmer":
+                await self.handle_scheme_category_farmer(update, context)
+            
+            elif data == "scheme_category_student":
+                await self.handle_scheme_category_student(update, context)
+            
+            elif data == "scheme_category_youth":
+                await self.handle_scheme_category_youth(update, context)
+            
+            elif data == "scheme_category_health":
+                await self.handle_scheme_category_health(update, context)
+            
+            elif data == "scheme_category_other":
+                await self.handle_scheme_category_other(update, context)
+            
+            # Individual scheme handlers
+            elif data == "scheme_pmkisan":
+                await self.handle_scheme_pmkisan(update, context)
+            
+            elif data == "scheme_pmfasal":
+                await self.handle_scheme_pmfasal(update, context)
+            
+            elif data == "scheme_scholarships":
+                await self.handle_scheme_scholarships(update, context)
+            
+            elif data == "scheme_sikkim_mentor":
+                await self.handle_scheme_sikkim_mentor(update, context)
+            
+            elif data == "scheme_sikkim_youth":
+                await self.handle_scheme_sikkim_youth(update, context)
+            
+            elif data == "scheme_pmegp":
+                await self.handle_scheme_pmegp(update, context)
+            
+            elif data == "scheme_pmfme":
+                await self.handle_scheme_pmfme(update, context)
+            
+            elif data == "scheme_ayushman":
+                await self.handle_scheme_ayushman(update, context)
+            
+            # Scheme application handlers
+            elif data.startswith("scheme_apply_online_"):
+                scheme_name = data.replace("scheme_apply_online_", "").replace("_", " ").title()
+                # Handle online application - show website links
+                await self.handle_scheme_apply_online(update, context, scheme_name)
+            
+            elif data.startswith("scheme_apply_csc_"):
+                scheme_name = data.replace("scheme_apply_csc_", "").replace("_", " ").title()
+                # Start CSC application process
+                await self.handle_scheme_csc_application(update, context, scheme_name)
+            
+            # CSC Application workflow callbacks
+            elif data.startswith("scheme_csc_block_"):
+                block_index = data.replace("scheme_csc_block_", "")
+                await self.handle_csc_block_selection(update, context, block_index)
+            
+            # Handle old callback pattern for backward compatibility
+            elif data.startswith("csc_block_"):
+                block_index = data.replace("csc_block_", "")
+                await self.handle_csc_block_selection(update, context, block_index)
+            
+            elif data.startswith("scheme_csc_gpu_"):
+                gpu_index = data.replace("scheme_csc_gpu_", "")
+                await self.handle_csc_gpu_selection(update, context, gpu_index)
+            
+            elif data == "scheme_csc_back_to_blocks":
+                # Go back to block selection
+                user_id = update.effective_user.id
+                state = self._get_user_state(user_id)
+                if state.get("workflow") == "scheme_csc_application":
+                    scheme_name = state.get("scheme", "Unknown Scheme")
+                    await self.handle_scheme_csc_application(update, context, scheme_name)
+            
+            # Handle old back button pattern for backward compatibility
+            elif data == "csc_back_to_blocks":
+                # Go back to block selection
+                user_id = update.effective_user.id
+                state = self._get_user_state(user_id)
+                if state.get("workflow") == "scheme_csc_application":
+                    scheme_name = state.get("scheme", "Unknown Scheme")
+                    await self.handle_scheme_csc_application(update, context, scheme_name)
+                else:
+                    # If not in scheme workflow, go back to main menu
+                    await self.show_main_menu(update, context)
+            
+            elif data.startswith("csc_back_to_gpus_"):
+                # This handler is deprecated - use csc_back_to_blocks instead
+                await update.callback_query.answer("Please use the Back to Blocks button")
             
             elif data == "contacts":
                 await self.handle_contacts_menu(update, context)
             
             elif data == "contacts_csc":
                 await self.handle_csc_search(update, context)
+            
+            elif data == "csc_search_retry":
+                # Handle CSC search retry
+                user_id = update.effective_user.id
+                user_lang = self._get_user_language(user_id)
+                state = self._get_user_state(user_id)
+                
+                # Get the last search term if available
+                last_search = state.get("last_search", "")
+                
+                retry_message = f"""🔄 **CSC Search - Try Again**
+
+Please enter your GPU name, ward name, or constituency name to search for CSC operators.
+
+**Examples:**
+• GPU: "Karzi Mangnam GP"
+• Ward: "Mangder", "Tashiding"
+• Constituency: "KARZI MANGNAM"
+
+{f"**Last search:** {last_search}" if last_search else ""}"""
+                
+                keyboard = [
+                    [InlineKeyboardButton("🔙 Back to Contacts", callback_data="contacts")],
+                    [InlineKeyboardButton(self.responses[user_lang]['back_main_menu'], callback_data="main_menu")]
+                ]
+                reply_markup = InlineKeyboardMarkup(keyboard)
+                
+                await query.edit_message_text(retry_message, reply_markup=reply_markup, parse_mode='Markdown')
+            
+            elif data == "certificate_retry":
+                # Handle certificate retry
+                user_id = update.effective_user.id
+                user_lang = self._get_user_language(user_id)
+                state = self._get_user_state(user_id)
+                
+                # Get the last GPU if available
+                last_gpu = state.get("last_gpu", "")
+                
+                retry_message = f"""🔄 **Certificate Search - Try Again**
+
+Please enter your GPU (Gram Panchayat Unit) name to find the CSC operator.
+
+**Examples:**
+• "Karzi Mangnam GP"
+• "Gangtok Municipal Corporation"
+• "Namchi Municipal Council"
+
+{f"**Last search:** {last_gpu}" if last_gpu else ""}"""
+                
+                keyboard = [
+                    [InlineKeyboardButton("🔙 Back to Main Menu", callback_data="main_menu")]
+                ]
+                reply_markup = InlineKeyboardMarkup(keyboard)
+                
+                await query.edit_message_text(retry_message, reply_markup=reply_markup, parse_mode='Markdown')
             
             elif data == "contacts_blo":
                 await self.handle_blo_search(update, context)
@@ -1451,43 +1723,234 @@ Please select an option:
         
         text = """*Check Application Status* 🔍
 
-Please enter your Application ID:
-(Format: EX2025XXXXXXX)"""
+Please enter your NC Exgratia Application Reference Number.
+
+**Format:** SK2025XXXXXXX
+**Example:** SK2025MN0002
+
+**How to find your reference number:**
+• Check your SMS after application submission
+• Look for format: SK2025 + District Code + Number
+• District codes: MN (Mangan), GT (Gangtok), etc.
+
+**Note:** This will check the real-time status from the NIC server."""
 
         keyboard = [[InlineKeyboardButton("🔙 Cancel", callback_data="disaster")]]
         reply_markup = InlineKeyboardMarkup(keyboard)
         await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
 
     async def process_status_check(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Process application status check"""
-        application_id = update.message.text.strip().upper()
+        """Process application status check for ex-gratia, scheme, and certificate applications"""
+        reference_number = update.message.text.strip().upper()
         
-        try:
-            # Read status from CSV
-            df = pd.read_csv('data/exgratia_applications.csv')
-            application = df[df['ApplicationID'] == application_id].iloc[0]
-            
-            status_text = f"""*Application Status* 📋
-
-Application ID: {application_id}
-Name: {application['ApplicantName']}
-Village: {application['Village']}
-Status: Processing
-Submission Date: {application['SubmissionTimestamp']}
-
-Your application is being reviewed by the district administration."""
-        except:
-            status_text = """❌ *Application Not Found*
-
-Please check the Application ID and try again.
-If the problem persists, contact support."""
-
-        keyboard = [[InlineKeyboardButton("🔙 Back to Disaster Menu", callback_data="disaster")]]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        await update.message.reply_text(status_text, reply_markup=reply_markup, parse_mode='Markdown')
+        # Check if it's an ex-gratia reference number (format: SK2025MN0002)
+        if reference_number.startswith("SK") and len(reference_number) == 12 and reference_number[6:8] in ["MN", "PK", "GN", "SN"]:
+            # Ex-gratia application - use NIC API
+            await self.check_nc_exgratia_status(update, context, reference_number)
+        elif reference_number.startswith("CERT"):
+            # Certificate application - check Google Sheets
+            await self.check_certificate_application_status(update, context, reference_number)
+        else:
+            # Scheme application - check Google Sheets
+            await self.check_scheme_application_status(update, context, reference_number)
         
         # Clear the workflow state
         self._clear_user_state(update.effective_user.id)
+
+    async def check_scheme_application_status(self, update: Update, context: ContextTypes.DEFAULT_TYPE, reference_number: str):
+        """Check scheme application status from Google Sheets"""
+        try:
+            # Get the Google Sheets service
+            service = self.sheets_service
+            if not service:
+                await update.message.reply_text("❌ **Error:** Unable to access application database. Please try again later.", parse_mode='Markdown')
+                return
+            
+            # Search for the application in Google Sheets
+            spreadsheet_id = self.config['GOOGLE_SHEETS']['SPREADSHEET_ID']
+            range_name = 'Scheme_Applications!A:Z'  # Look in the dedicated scheme applications sheet
+            
+            result = service.spreadsheets().values().get(
+                spreadsheetId=spreadsheet_id,
+                range=range_name
+            ).execute()
+            
+            values = result.get('values', [])
+            
+            # Search for the reference number
+            application_data = None
+            for row in values:
+                if len(row) > 11 and row[11] == reference_number:  # Reference number is in column L (index 11)
+                    application_data = row
+                    break
+            
+            if application_data:
+                # Extract application details based on new sheet structure
+                scheme_name = application_data[3] if len(application_data) > 3 else "Unknown"  # Column D
+                applicant_name = application_data[4] if len(application_data) > 4 else "Unknown"  # Column E
+                phone = application_data[6] if len(application_data) > 6 else "Unknown"  # Column G
+                gpu = application_data[9] if len(application_data) > 9 else "Unknown"  # Column J
+                block = application_data[10] if len(application_data) > 10 else "Unknown"  # Column K
+                status = application_data[12] if len(application_data) > 12 else "Submitted"  # Column M
+                submission_date = application_data[13] if len(application_data) > 13 else "Unknown"  # Column N
+                
+                # Create status message
+                status_emoji = {
+                    "Submitted": "📝",
+                    "Under Review": "🔍",
+                    "Approved": "✅",
+                    "Rejected": "❌",
+                    "In Progress": "⏳",
+                    "Completed": "🎉"
+                }.get(status, "📋")
+                
+                text = f"""📋 **Application Status**
+
+**Reference Number:** `{reference_number}`
+**Scheme:** {scheme_name}
+**Applicant:** {applicant_name}
+**Phone:** {phone}
+**GPU:** {gpu}
+**Block:** {block}
+**Submission Date:** {submission_date}
+
+{status_emoji} **Status:** {status}
+
+**Next Steps:**
+• CSC operator will contact you for verification
+• Visit the CSC center with required documents
+• Keep this reference number for future updates
+
+**Need Help?** Contact your CSC operator using the 'Important Contacts' section."""
+                
+                keyboard = [
+                    [InlineKeyboardButton("🔙 Back to Main Menu", callback_data="main_menu")],
+                    [InlineKeyboardButton("📞 Contact CSC", callback_data="contacts")]
+                ]
+                reply_markup = InlineKeyboardMarkup(keyboard)
+                
+                await update.message.reply_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+                
+            else:
+                # Application not found
+                text = f"""❌ **Application Not Found**
+
+**Reference Number:** `{reference_number}`
+
+Sorry, we couldn't find an application with this reference number.
+
+**Possible reasons:**
+• Reference number is incorrect
+• Application was submitted recently and not yet processed
+• Application was submitted through a different channel
+
+**Please check:**
+• Verify the reference number is correct
+• Try again in a few minutes if recently submitted
+• Contact support if the issue persists"""
+                
+                keyboard = [
+                    [InlineKeyboardButton("🔄 Try Again", callback_data="check_status")],
+                    [InlineKeyboardButton("🔙 Back to Main Menu", callback_data="main_menu")]
+                ]
+                reply_markup = InlineKeyboardMarkup(keyboard)
+                
+                await update.message.reply_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+                
+        except Exception as e:
+            logger.error(f"Error checking scheme application status: {str(e)}")
+            await update.message.reply_text("❌ **Error:** Unable to check application status. Please try again later.", parse_mode='Markdown')
+    
+    async def check_certificate_application_status(self, update: Update, context: ContextTypes.DEFAULT_TYPE, reference_number: str):
+        """Check certificate application status from Google Sheets"""
+        try:
+            # Get Google Sheets service
+            service = self.sheets_service.service
+            if not service:
+                await update.message.reply_text("❌ **Error:** Google Sheets service not available.", parse_mode='Markdown')
+                return
+            
+            # Search for the application in Google Sheets
+            spreadsheet_id = self.config['GOOGLE_SHEETS']['SPREADSHEET_ID']
+            range_name = 'Certificate_Applications!A:Z'  # Look in the dedicated certificate applications sheet
+            
+            result = service.spreadsheets().values().get(
+                spreadsheetId=spreadsheet_id,
+                range=range_name
+            ).execute()
+            
+            values = result.get('values', [])
+            if not values:
+                await update.message.reply_text("❌ **Error:** No certificate applications found.", parse_mode='Markdown')
+                return
+            
+            # Search for the reference number
+            application_data = None
+            for row in values:
+                if len(row) > 10 and row[10] == reference_number:  # Reference number is in column K (index 10)
+                    application_data = row
+                    break
+            
+            if application_data:
+                # Extract application details based on new sheet structure
+                certificate_type = application_data[3] if len(application_data) > 3 else "Unknown"  # Column D
+                applicant_name = application_data[4] if len(application_data) > 4 else "Unknown"  # Column E
+                phone = application_data[6] if len(application_data) > 6 else "Unknown"  # Column G
+                gpu = application_data[8] if len(application_data) > 8 else "Unknown"  # Column I
+                block = application_data[9] if len(application_data) > 9 else "Unknown"  # Column J
+                status = application_data[11] if len(application_data) > 11 else "Submitted"  # Column L
+                submission_date = application_data[12] if len(application_data) > 12 else "Unknown"  # Column M
+                
+                # Create status message
+                text = f"""📋 **Certificate Application Status**
+
+**Reference Number:** `{reference_number}`
+**Certificate Type:** {certificate_type}
+**Applicant Name:** {applicant_name}
+**Phone:** {phone}
+**Block:** {block}
+**GPU:** {gpu}
+
+**📊 Current Status:** {status}
+**📅 Submitted On:** {submission_date}
+
+**📞 Next Steps:**
+• CSC operator will contact you within 24-48 hours
+• Keep your reference number safe for tracking
+• Contact your block office if no response within 48 hours
+
+**🔄 Status Updates:**
+CSC operators update status in our system. Check back later for updates."""
+                
+                keyboard = [[InlineKeyboardButton("🔙 Main Menu", callback_data="main_menu")]]
+                reply_markup = InlineKeyboardMarkup(keyboard)
+                
+                await update.message.reply_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+            else:
+                text = f"""❌ **Application Not Found**
+
+**Reference Number:** `{reference_number}`
+
+This reference number was not found in our certificate applications database.
+
+**Possible reasons:**
+• Reference number is incorrect
+• Application was submitted recently (may take a few minutes to appear)
+• Application was submitted through a different channel
+
+**💡 What to do:**
+• Double-check your reference number
+• Try again in a few minutes
+• Contact support if the issue persists"""
+                
+                keyboard = [[InlineKeyboardButton("🔙 Main Menu", callback_data="main_menu")]]
+                reply_markup = InlineKeyboardMarkup(keyboard)
+                
+                await update.message.reply_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+                
+        except Exception as e:
+            logger.error(f"Error checking certificate application status: {str(e)}")
+            await update.message.reply_text("❌ **Error:** Unable to check application status. Please try again later.", parse_mode='Markdown')
 
     async def handle_ex_gratia(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle ex-gratia application"""
@@ -1552,10 +2015,36 @@ If the problem persists, contact support."""
 
         if step == "name":
             data["name"] = text
+            state["step"] = "relationship"
+            state["data"] = data
+            self._set_user_state(user_id, state)
+            
+            # Show relationship options
+            keyboard = [
+                [InlineKeyboardButton("👨 Son of (S/O)", callback_data="relationship_son")],
+                [InlineKeyboardButton("👧 Daughter of (D/O)", callback_data="relationship_daughter")],
+                [InlineKeyboardButton("👰 Wife of (W/O)", callback_data="relationship_wife")]
+            ]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            await update.message.reply_text("👨‍👩‍👧‍👦 Please select your relationship:", reply_markup=reply_markup, parse_mode='Markdown')
+
+        elif step == "relationship":
+            # Store the relationship type
+            data["relationship"] = text
+            if text == "son":
+                data["relationship_label"] = "Father's Name"
+                prompt = "👨 Please enter your Father's Name:"
+            elif text == "daughter":
+                data["relationship_label"] = "Father's Name"
+                prompt = "👨 Please enter your Father's Name:"
+            elif text == "wife":
+                data["relationship_label"] = "Husband's Name"
+                prompt = "👨 Please enter your Husband's Name:"
+            
             state["step"] = "father_name"
             state["data"] = data
             self._set_user_state(user_id, state)
-            await update.message.reply_text(self.responses[user_lang]['ex_gratia_father'], parse_mode='Markdown')
+            await update.message.reply_text(prompt, parse_mode='Markdown')
 
         elif step == "father_name":
             data["father_name"] = text
@@ -1583,6 +2072,11 @@ If the problem persists, contact support."""
             await update.message.reply_text("🆔 Please enter your Voter ID number:", parse_mode='Markdown')
 
         elif step == "voter_id":
+            # Validate voter ID - minimum 5 characters
+            if len(text.strip()) < 5:
+                await update.message.reply_text("❌ Voter ID must be at least 5 characters long. Please enter a valid Voter ID:", parse_mode='Markdown')
+                return
+            
             data["voter_id"] = text
             state["step"] = "ward"
             state["data"] = data
@@ -1602,12 +2096,14 @@ If the problem persists, contact support."""
             state["data"] = data
             self._set_user_state(user_id, state)
             
-            # Show district options
+            # Show district options - Updated with correct Sikkim district names
             keyboard = [
-                [InlineKeyboardButton("East Sikkim", callback_data="district_east")],
-                [InlineKeyboardButton("West Sikkim", callback_data="district_west")],
-                [InlineKeyboardButton("North Sikkim", callback_data="district_north")],
-                [InlineKeyboardButton("South Sikkim", callback_data="district_south")]
+                [InlineKeyboardButton("Gangtok (East Sikkim)", callback_data="district_east")],
+                [InlineKeyboardButton("Gyalshing (West Sikkim)", callback_data="district_west")],
+                [InlineKeyboardButton("Mangan (North Sikkim)", callback_data="district_north")],
+                [InlineKeyboardButton("Namchi (South Sikkim)", callback_data="district_south")],
+                [InlineKeyboardButton("Pakyong", callback_data="district_pakyong")],
+                [InlineKeyboardButton("Soreng", callback_data="district_soreng")]
             ]
             reply_markup = InlineKeyboardMarkup(keyboard)
             await update.message.reply_text("🏛️ Please select your district:", reply_markup=reply_markup, parse_mode='Markdown')
@@ -1682,7 +2178,8 @@ If the problem persists, contact support."""
         keyboard = [
             [InlineKeyboardButton("🏠 House Damage (₹4,000 - ₹25,000)", callback_data='damage_type_house')],
             [InlineKeyboardButton("🌾 Crop Loss (₹4,000 - ₹15,000)", callback_data='damage_type_crop')],
-            [InlineKeyboardButton("🐄 Livestock Loss (₹2,000 - ₹15,000)", callback_data='damage_type_livestock')]
+            [InlineKeyboardButton("🐄 Livestock Loss (₹2,000 - ₹15,000)", callback_data='damage_type_livestock')],
+            [InlineKeyboardButton("🏞️ Land Damage (₹4,000 - ₹20,000)", callback_data='damage_type_land')]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
@@ -1701,7 +2198,8 @@ If the problem persists, contact support."""
         damage_types = {
             'house': '🏠 House Damage',
             'crop': '🌾 Crop Loss',
-            'livestock': '🐄 Livestock Loss'
+            'livestock': '🐄 Livestock Loss',
+            'land': '🏞️ Land Damage'
         }
         
         data['damage_type'] = damage_types[damage_type]
@@ -1733,11 +2231,23 @@ Please provide detailed description of the damage:
             except:
                 datetime_display = data.get('nc_datetime', 'Not provided')
         
+        # Get relationship information
+        relationship_info = ""
+        if data.get('relationship'):
+            if data['relationship'] == 'son':
+                relationship_info = f"👨 **Son of**: {data.get('father_name', 'N/A')}"
+            elif data['relationship'] == 'daughter':
+                relationship_info = f"👧 **Daughter of**: {data.get('father_name', 'N/A')}"
+            elif data['relationship'] == 'wife':
+                relationship_info = f"👰 **Wife of**: {data.get('father_name', 'N/A')}"
+        else:
+            relationship_info = f"👨‍👦 **Father's Name**: {data.get('father_name', 'N/A')}"
+
         summary = f"""*Please Review Your NC Exgratia Application* 📋
 
 *Personal Details:*
 👤 **Name**: {data.get('name', 'N/A')}
-👨‍👦 **Father's Name**: {data.get('father_name', 'N/A')}
+{relationship_info}
 🆔 **Voter ID**: {data.get('voter_id', 'N/A')}
 📱 **Contact**: {data.get('contact', 'N/A')}
 
@@ -1889,9 +2399,62 @@ Thank you for using NC Exgratia service! 🏛️"""
             else:
                 # API submission failed
                 error_details = api_result.get("details", "Unknown error")
+                error_type = api_result.get("error", "Unknown error")
+                retry_attempts = api_result.get("retry_attempts", 0)
                 logger.error(f"❌ NC Exgratia API submission failed: {error_details}")
                 
-                error_msg = f"""❌ *Application Submission Failed*
+                # Check if this is a server-wide outage
+                if "NIC API Server Outage" in error_type:
+                    error_msg = f"""🚨 *NIC API Server Outage Detected*
+
+The NIC API server is currently experiencing a major outage.
+
+*What happened:*
+• Your application was retried {retry_attempts} times
+• All attempts failed due to server-side issues
+• This is a server-wide outage affecting all districts
+
+*What to do:*
+1. **Try again later** - The server may be restored soon
+2. **Contact support** - {Config.SUPPORT_PHONE}
+3. **Alternative**: Visit your nearest CSC center for manual submission
+
+*Your data is safe:*
+✅ All your information has been saved locally
+✅ You can retry when the server is back online
+
+*Support Contact:*
+📞 {Config.SUPPORT_PHONE}
+🏛️ Visit nearest CSC center
+
+*Status:*
+🔴 NIC API Server: **DOWN**
+⚠️ All ex-gratia submissions: **TEMPORARILY UNAVAILABLE**"""
+                # Check if this is a PK district specific issue
+                elif "PK District API Issue" in error_type:
+                    error_msg = f"""⚠️ *PK District API Issue Detected*
+
+The NIC API is currently experiencing issues with PK district submissions.
+
+*What happened:*
+• Your application was retried {retry_attempts} times
+• All attempts failed due to server-side issues
+• This is a known issue with the NIC API
+
+*What to do:*
+1. **Try again later** - The issue may be temporary
+2. **Contact support** - {Config.SUPPORT_PHONE}
+3. **Alternative**: Visit your nearest CSC center for manual submission
+
+*Your data is safe:*
+✅ All your information has been saved locally
+✅ You can retry when the API is working again
+
+*Support Contact:*
+📞 {Config.SUPPORT_PHONE}
+🏛️ Visit nearest CSC center"""
+                else:
+                    error_msg = f"""❌ *Application Submission Failed*
 
 The NC Exgratia API returned an error. Please try again later.
 
@@ -2256,8 +2819,7 @@ Please select an option:
 
     async def handle_csc_selection(self, update: Update, context: ContextTypes.DEFAULT_TYPE, district: str):
         # This will be used for finding nearest CSC
-        self._set_user_state(update.effective_user.id, {"workflow": "certificate", "stage": "gpu"}) # piggybacking on certificate flow for now
-        await update.callback_query.edit_message_text("Please enter your GPU (Gram Panchayat Unit):", parse_mode='Markdown')
+        await update.callback_query.edit_message_text("CSC selection functionality coming soon!", parse_mode='Markdown')
 
     async def handle_certificate_info(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle certificate services information"""
@@ -2283,58 +2845,14 @@ Please select an option:
         user_lang = self._get_user_language(user_id)
         
         if choice == 'yes':
-            self._set_user_state(user_id, {"workflow": "certificate", "stage": "gpu"})
-            gpu_prompt = self.responses[user_lang]['certificate_gpu_prompt']
-            await update.callback_query.edit_message_text(gpu_prompt, parse_mode='Markdown')
+            await self.handle_certificate_info(update, context)
         else:
             sso_message = self.responses[user_lang]['certificate_sso_message']
             await update.callback_query.edit_message_text(sso_message, parse_mode='Markdown')
         
     async def handle_certificate_workflow(self, update: Update, context: ContextTypes.DEFAULT_TYPE, text: str):
-        """Handle certificate application workflow with multilingual support"""
-        user_id = update.effective_user.id
-        user_lang = self._get_user_language(user_id)
-        state = self._get_user_state(user_id)
-        
-        if state.get("stage") == "gpu":
-            gpu = text.strip().upper()
-            
-            # Load CSC data if not already loaded
-            try:
-                csc_df = pd.read_csv('data/csc_contacts.csv')
-                csc_info = csc_df[csc_df['GPU'].str.upper() == gpu]
-                
-                if csc_info.empty:
-                    not_found_msg = self.responses[user_lang]['certificate_gpu_not_found']
-                    await update.message.reply_text(not_found_msg, parse_mode='Markdown')
-                else:
-                    info = csc_info.iloc[0]
-                    # Handle missing Timings column
-                    timings = info.get('Timings', '9:00 AM - 5:00 PM (Mon-Fri)')
-                    message = self.responses[user_lang]['certificate_csc_details'].format(
-                        name=info['CSC_Operator_Name'],
-                        contact=info['PhoneNumber'],
-                        timings=timings
-                    )
-                    await update.message.reply_text(message, parse_mode='Markdown')
-                    
-                    # Log to Google Sheets
-                    user_name = update.effective_user.first_name or "Unknown"
-                    self._log_to_sheets(
-                        user_id=user_id,
-                        user_name=user_name,
-                        interaction_type="certificate",
-                        query_text=f"Certificate query for GPU: {gpu}",
-                        language=user_lang,
-                        bot_response=message,
-                        certificate_type="CSC_Operator"
-                    )
-            except Exception as e:
-                error_msg = self.responses[user_lang]['certificate_error']
-                await update.message.reply_text(error_msg, parse_mode='Markdown')
-                logger.error(f"Error in certificate workflow: {e}")
-            
-            self._clear_user_state(user_id)
+        """Handle certificate application workflow - DEPRECATED, use new certificate workflow"""
+        await update.message.reply_text("Please use the new certificate workflow from the main menu.", parse_mode='Markdown')
 
     # --- Complaint ---
     async def start_emergency_workflow(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -2459,86 +2977,889 @@ Please select an option:
 
     # New functionality methods
     async def handle_scheme_menu(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle government schemes menu"""
+        """Handle comprehensive government schemes menu"""
         user_id = update.effective_user.id
         user_lang = self._get_user_language(user_id)
         
-        # Create scheme selection keyboard from Excel data
-        schemes = self.scheme_df['Farmer'].tolist()
-        keyboard = []
-        
-        for i, scheme in enumerate(schemes):
-            keyboard.append([InlineKeyboardButton(scheme, callback_data=f"scheme_{i+1}")])
-        
-        # Add back button
-        keyboard.append([InlineKeyboardButton(
-            self.responses[user_lang]['back_main_menu'],
-            callback_data="main_menu"
-        )])
+        text = """🛠️ **MAIN MENU – "Scheme – Know & Apply"**
+
+👉 Please select your category:"""
+
+        keyboard = [
+            [InlineKeyboardButton("👨‍🌾 I am a Farmer", callback_data="scheme_category_farmer")],
+            [InlineKeyboardButton("🎓 I am a Student", callback_data="scheme_category_student")],
+            [InlineKeyboardButton("👩‍💼 I am Youth / Entrepreneur / SHG", callback_data="scheme_category_youth")],
+            [InlineKeyboardButton("🏥 Health Related", callback_data="scheme_category_health")],
+            [InlineKeyboardButton("📦 Other Schemes via CSC", callback_data="scheme_category_other")],
+            [InlineKeyboardButton("🔙 Back to Main Menu", callback_data="main_menu")]
+        ]
         
         reply_markup = InlineKeyboardMarkup(keyboard)
         
         if update.callback_query:
-            await update.callback_query.edit_message_text(
-                self.responses[user_lang]['scheme_info'],
-                reply_markup=reply_markup,
-                parse_mode='Markdown'
-            )
+            await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
         else:
-            await update.message.reply_text(
-                self.responses[user_lang]['scheme_info'],
-                reply_markup=reply_markup,
-                parse_mode='Markdown'
-            )
+            await update.message.reply_text(text, reply_markup=reply_markup, parse_mode='Markdown')
 
-    async def handle_scheme_selection(self, update: Update, context: ContextTypes.DEFAULT_TYPE, scheme_id: str):
-        """Handle scheme selection and show details"""
-        user_id = update.effective_user.id
-        user_lang = self._get_user_language(user_id)
+    # Scheme Category Handlers
+    async def handle_scheme_category_farmer(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle farmer schemes category"""
+        text = """👨‍🌾 **I am a Farmer**
+
+Please select a scheme:"""
+
+        keyboard = [
+            [InlineKeyboardButton("PM-KISAN", callback_data="scheme_pmkisan")],
+            [InlineKeyboardButton("PM Fasal Bima Yojana", callback_data="scheme_pmfasal")],
+            [InlineKeyboardButton("🔙 Back to Categories", callback_data="schemes")]
+        ]
         
-        try:
-            scheme_index = int(scheme_id) - 1
-            if 0 <= scheme_index < len(self.scheme_df):
-                scheme_name = self.scheme_df.iloc[scheme_index]['Farmer']
-                
-                # Create scheme details message
-                scheme_details = f"""🏛️ **{scheme_name}**
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+
+    async def handle_scheme_category_student(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle student schemes category"""
+        text = """🎓 **I am a Student**
+
+Please select a scheme:"""
+
+        keyboard = [
+            [InlineKeyboardButton("Scholarships", callback_data="scheme_scholarships")],
+            [InlineKeyboardButton("Sikkim Mentor", callback_data="scheme_sikkim_mentor")],
+            [InlineKeyboardButton("🔙 Back to Categories", callback_data="schemes")]
+        ]
+        
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+
+    async def handle_scheme_category_youth(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle youth/entrepreneur schemes category"""
+        text = """👩‍💼 **I am Youth / Entrepreneur / SHG**
+
+Please select a scheme:"""
+
+        keyboard = [
+            [InlineKeyboardButton("Sikkim Skilled Youth Startup Yojana", callback_data="scheme_sikkim_youth")],
+            [InlineKeyboardButton("PMEGP", callback_data="scheme_pmegp")],
+            [InlineKeyboardButton("PM FME", callback_data="scheme_pmfme")],
+            [InlineKeyboardButton("Mentorship", callback_data="scheme_mentorship")],
+            [InlineKeyboardButton("🔙 Back to Categories", callback_data="schemes")]
+        ]
+        
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+
+    async def handle_scheme_category_health(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle health schemes category"""
+        text = """🏥 **Health Related Schemes**
+
+Please select a scheme:"""
+
+        keyboard = [
+            [InlineKeyboardButton("Ayushman Bharat", callback_data="scheme_ayushman")],
+            [InlineKeyboardButton("🔙 Back to Categories", callback_data="schemes")]
+        ]
+        
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+
+    async def handle_scheme_category_other(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle other schemes via CSC category"""
+        text = """📦 **Other Useful Public Services (Available at CSC / GPK)**
+
+You can get help from your local CSC operator or apply online.
+
+**🧰 Work & Identity**
+• PM Vishwakarma – Support for traditional artisans
+• e-Shram Registration – National database for unorganised workers
+• Kisan Credit Card – Easy credit for farmers
+
+**🚗 Transport**
+• Token Tax, HPT, HPA
+• DL Renewal, DOB Correction
+• Duplicate RC, Change of Address
+• Learner's Licence, Permanent Licence
+
+**🛡️ Insurance**
+• LIC Premium Payment
+• Health Insurance (incl. Ayushman Bharat)
+• Cattle Insurance
+• Motor Insurance
+• Life Insurance
+
+**💼 Pension & Proof**
+• Jeevan Pramaan – Life certificate for pensioners
+• National Pension Scheme (NPS)
+
+**📱 Utility & Travel**
+• Bill Payments (Electricity, DTH, Mobile Recharge)
+• Flight & Train Tickets – IRCTC, airline booking support
+• PAN Card / Passport Application
+
+**💰 Finance & Tax**
+• GST Filing / ITR Filing
+• Digipay / Micro ATM Services
+
+**📚 Education & Scholarships**
+• NIOS/BOSSE Open Schooling Registration
+• Olympiad / National Scholarships Biometric Authentication
+
+⏩ **Where to Apply?**
+✅ Visit nearest CSC (Common Service Centre) or GPK (Gram Panchayat Kendra)"""
+
+        keyboard = [
+            [InlineKeyboardButton("📞 Contact your CSC Operator", callback_data="contacts_csc")],
+            [InlineKeyboardButton("🔙 Back to Categories", callback_data="schemes")]
+        ]
+        
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+
+    # Individual Scheme Handlers
+    async def handle_scheme_pmkisan(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle PM-KISAN scheme"""
+        text = """📄 **About PM-KISAN**
+Get ₹6,000 per year (₹2,000 every 4 months) directly into your bank account.
+
+📝 **How to Apply**
+Apply online at https://pmkisan.gov.in
+OR visit your nearest CSC (Common Service Centre)
+
+📞 **Contact**
+Agriculture Department or your local CSC Operator
+
+Would you like to:"""
+
+        keyboard = [
+            [InlineKeyboardButton("🌐 Apply Online", url="https://pmkisan.gov.in")],
+            [InlineKeyboardButton("📞 Apply via CSC", callback_data="scheme_apply_csc_pmkisan")],
+            [InlineKeyboardButton("🔙 Back to Farmer Schemes", callback_data="scheme_category_farmer")]
+        ]
+        
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+
+    async def handle_scheme_pmfasal(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle PM Fasal Bima Yojana scheme"""
+        text = """📄 **About PM Fasal Bima Yojana**
+Get insurance cover for crop damage due to natural calamities.
+
+📝 **How to Apply**
+Apply at https://pmfby.gov.in
+OR visit nearest CSC
+
+📞 **Contact**
+Agriculture Department / CSC Operator
+
+Would you like to:"""
+
+        keyboard = [
+            [InlineKeyboardButton("🌐 Apply Online", url="https://pmfby.gov.in")],
+            [InlineKeyboardButton("📞 Apply via CSC", callback_data="scheme_apply_csc_pmfasal")],
+            [InlineKeyboardButton("🔙 Back to Farmer Schemes", callback_data="scheme_category_farmer")]
+        ]
+        
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+
+    async def handle_scheme_scholarships(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle scholarships scheme"""
+        text = """🎓 **Scholarships**
+
+1️⃣ **CENTRAL GOVERNMENT SCHOLARSHIPS**
+✅ Apply at: https://scholarships.gov.in
+
+**A. Pre-Matric Scholarships**
+Target: SC/ST/OBC/Minority students studying in Class 1–10
+Eligibility: Parental income < ₹1 lakh (varies by scheme)
+Benefits: ₹1,000–5,000 per year + additional allowance
+
+**B. Post-Matric Scholarships**
+Target: Class 11 to PG-level students from SC/ST/OBC/EBC/Minority communities
+Eligibility: Varies by category (usually income < ₹2.5 lakh)
+Benefits: Tuition fees, maintenance, allowances (₹7,000–₹25,000+)
+
+**C. Merit Cum Means Scholarships**
+Target: Professional and Technical Courses
+Eligibility: Minority students with income < ₹2.5 lakh/year
+Benefits: ₹20,000/year + maintenance
+
+**D. Top Class Education for SC/ST Students**
+Fully funded scholarship for top institutions (IITs, IIMs, AIIMS)
+Includes tuition, boarding, laptop, etc.
+
+**E. National Means-cum-Merit Scholarship (NMMS)**
+Target: Class 8 students with 55%+ marks
+Benefit: ₹12,000 per year from Class 9 to 12
+
+2️⃣ **SIKKIM STATE SCHOLARSHIPS**
+✅ Apply at: https://scholarships.sikkim.gov.in
+
+**A. Post-Matric State Scholarship (Sikkim Subject/COI holders)**
+Eligibility: SC/ST/OBC/MBC/EWS students
+Courses: Class 11 to PG, professional courses
+Benefit: ₹5,000 to ₹35,000/year depending on level
+
+**B. Chief Minister's Merit Scholarship**
+Target: Class 5+ students scoring high marks in government exams
+Benefit: Full residential school fee, coaching support
+
+**C. EBC State Scholarship**
+Target: Economically Backward Class (non-SC/ST/OBC)
+Eligibility: Parental income < ₹2.5 lakh/year
+Courses: Class 11–PG
+Benefit: ₹6,000–₹15,000/year
+
+**D. Scholarship for Indigenous Students**
+Target: Lepcha, Bhutia, Limboo, and other notified communities
+Benefit: ₹10,000–₹25,000/year
+
+**Contact:** Education Department, Or CSC Operator to Apply"""
+
+        keyboard = [
+            [InlineKeyboardButton("🌐 Central Scholarships", url="https://scholarships.gov.in")],
+            [InlineKeyboardButton("🌐 State Scholarships", url="https://scholarships.sikkim.gov.in")],
+            [InlineKeyboardButton("📞 Apply via CSC", callback_data="scheme_apply_csc_scholarships")],
+            [InlineKeyboardButton("🔙 Back to Student Schemes", callback_data="scheme_category_student")]
+        ]
+        
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+
+    async def handle_scheme_sikkim_mentor(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle Sikkim Mentor scheme"""
+        text = """🧑‍🏫 **Sikkim Mentor**
+
+**What it is:**
+Sikkim Mentor is a free mentorship platform that connects students, job seekers, and entrepreneurs with experienced professionals from fields like civil services, education, business, mental health, sports, and more.
+
+**How it works:**
+• Offers one-on-one and group sessions, both online (Zoom/Google Meet) and in-person
+• Organized community events—marathons, quizzes, mental health seminars—have already served 400+ students over 20,000+ counseling minutes
+• Totally free; mentors include professionals and volunteers across sectors
+
+**Who can benefit:**
+• Students needing academic or career guidance
+• Youth seeking entrepreneurship or startup support
+• Individuals looking for personal or mental wellness mentoring
+
+**How to join:**
+1. Visit https://sikkimmentor.com
+2. Click "Sign Up" and fill in details (name, email, DOB, mobile, interests)
+3. Log in and connect with mentors based on your goals."""
+
+        keyboard = [
+            [InlineKeyboardButton("🌐 Visit Website", url="https://sikkimmentor.com")],
+            [InlineKeyboardButton("🔙 Back to Student Schemes", callback_data="scheme_category_student")]
+        ]
+        
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+
+    async def handle_scheme_sikkim_youth(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle Sikkim Skilled Youth Startup Yojana"""
+        text = """🧑‍💼 **Sikkim Skilled Youth Startup Yojana**
+
+**About the Scheme**
+• Launched in 2020 by Sikkim's Department of Commerce & Industries
+• Aims to support educated but unemployed youth to start businesses (manufacturing, services, agriculture, tourism, retail, food processing, IT, homestays, etc.)
+
+**Financial Benefits**
+• BPL applicants: 50% subsidy on project cost
+• Other applicants: 35% subsidy on project cost
+• Applicant must contribute 5–15%; remaining cost is covered by bank loan
+• Eligible project cost ranges from ₹3 lakh up to ₹20 lakh
+
+**Eligibility**
+• Age: 18–45 years
+• Sikkim subject with COI
+• Minimum education: 5th pass + technical training/certificate if required
+• Family income under ₹8 lakh per annum
+
+**How to Apply**
+1. Visit the Department of Commerce & Industries office (Udyog Bhawan, Upper Tadong)
+2. Obtain the application form free of cost
+3. Fill it out with your business plan and attach required documents
+4. Submit it to the GM's office
+5. If selected, attend a 5-day Entrepreneur Training Programme
+6. Bank disburses loan; subsidy is released after bank finalizes your loan
+
+**Project Examples & Limits**
+Small businesses like dairy, poultry, food processing, tourism, IT, retail, service units, homestays, workshops—with segments up to ₹20 lakh
+
+**Contact & Support**
+• Scheme Helplines: 09775979806, 09609876534
+• Dept. Commerce & Industries (Gangtok): 03592‑202318
+• Email: sikkimindustries@gmail.com
+
+**Want to Apply?**"""
+
+        keyboard = [
+            [InlineKeyboardButton("🌐 Apply Online", callback_data="scheme_apply_online_sikkim_youth")],
+            [InlineKeyboardButton("📞 Apply via CSC", callback_data="scheme_apply_csc_sikkim_youth")],
+            [InlineKeyboardButton("🔙 Back to Youth Schemes", callback_data="scheme_category_youth")]
+        ]
+        
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+
+    async def handle_scheme_pmegp(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle PMEGP scheme"""
+        text = """🏭 **PMEGP (Prime Minister's Employment Generation Programme)**
+
+**What it is:**
+A central government credit-linked subsidy to help youth and artisans start micro-enterprises in urban & rural areas via KVIC and banks.
+
+**Key Benefits:**
+• Subsidy up to 35% of project cost (rural special category), 15–25% for general applicants
+• Loan for remaining cost through PSUs, RRBs, cooperatives, SIDBI
+• No income ceiling—eligible to all ages 18+, with basic education requirement for larger projects
+• Project cost range: up to ₹25 L (manufacturing), ₹10 L (services)
+
+**Eligibility:**
+Individuals, SHGs, societies, trusts starting new enterprises (not previously availing subsidy)
 
 **How to Apply:**
-1. Visit your nearest CSC center
-2. Contact CSC operator for assistance
-3. Submit required documents
-4. Track application status
+1. Register & apply online via KVIC portal
+2. Submit business plan & documents
+3. Attend mandatory training (EDP)
+4. Project evaluated & loan disbursed by bank
+5. Subsidy released into bank account post-verification
 
-**Required Documents:**
-• Aadhar Card
-• Address Proof
-• Income Certificate
-• Other relevant documents
+**Want to Apply?**"""
 
-**Contact CSC Operator:**
-Use the 'Important Contacts' section to find your nearest CSC operator.
+        keyboard = [
+            [InlineKeyboardButton("🌐 Apply Online", callback_data="scheme_apply_online_pmegp")],
+            [InlineKeyboardButton("📞 Apply via CSC", callback_data="scheme_apply_csc_pmegp")],
+            [InlineKeyboardButton("🔙 Back to Youth Schemes", callback_data="scheme_category_youth")]
+        ]
+        
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
 
-Would you like to find your nearest CSC operator?"""
-                
-                keyboard = [
-                    [InlineKeyboardButton("📞 Find CSC Operator", callback_data="contacts_csc")],
-                    [InlineKeyboardButton("🔙 Back to Schemes", callback_data="schemes")],
-                    [InlineKeyboardButton(self.responses[user_lang]['back_main_menu'], callback_data="main_menu")]
-                ]
-                reply_markup = InlineKeyboardMarkup(keyboard)
-                
-                await update.callback_query.edit_message_text(
-                    scheme_details,
-                    reply_markup=reply_markup,
-                    parse_mode='Markdown'
-                )
-            else:
-                await update.callback_query.answer("Invalid scheme selection")
-                
-        except Exception as e:
-            logger.error(f"❌ Error handling scheme selection: {str(e)}")
-            await update.callback_query.answer("Error processing request")
+    async def handle_scheme_pmfme(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle PM FME scheme"""
+        text = """🌾 **PM FME – Pradhan Mantri Formalisation of Micro Food Processing Enterprises**
+
+**What it is**
+A Government of India initiative to modernize small food processing units, integrating unorganized enterprises into the formal market and boosting capacity with training and support.
+
+**Key Benefits**
+• Up to 35% subsidy on project cost (max ₹10 lakh/unit)
+• ₹40,000 seed capital grants for SHGs to buy tools & working capital
+• Marketing/branding support and infrastructure aid
+• Training, handholding, capacity building, and quality compliance
+
+**Who can apply**
+• Micro food processors: Individuals, FPOs, SHGs, Cooperatives
+• Must register and upgrade existing / new units
+• Scheme period: 2020–2025, ₹10,000 cr funding
+
+**📝 How to Apply**
+1. Visit https://pmfme.mofpi.gov.in
+2. Register and log in
+3. Complete the online application
+4. Upload necessary docs (project details, SHG info, etc.)
+5. Upon approval, receive subsidy and support
+6. For SHGs, register on NULM portal for ₹40k seed capital
+
+**Contact:** District Industries Centre- GM DIC - For More Information
+
+**Want to Apply?**"""
+
+        keyboard = [
+            [InlineKeyboardButton("🌐 Apply Online", url="https://pmfme.mofpi.gov.in")],
+            [InlineKeyboardButton("📞 Apply via CSC", callback_data="scheme_apply_csc_pmfme")],
+            [InlineKeyboardButton("🔙 Back to Youth Schemes", callback_data="scheme_category_youth")]
+        ]
+        
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+
+    async def handle_scheme_ayushman(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle Ayushman Bharat scheme"""
+        text = """🏥 **Ayushman Bharat Card (PM-JAY Card)**
+
+The Ayushman Bharat card gives eligible families access to free health insurance up to ₹5 lakh per year for secondary and tertiary care at empanelled hospitals.
+
+✅ **Key Benefits:**
+• Cashless treatment at government & private hospitals
+• Covers surgery, ICU, diagnostics, medicines
+• No age or family size limit
+• Portable across India
+
+🧾 **Eligibility:**
+• Families listed in SECC 2011 database
+• Also includes construction workers, street vendors, domestic workers, etc.
+
+🛠️ **How to Get Your Ayushman Card:**
+1. Visit: https://pmjay.gov.in
+2. Check eligibility using mobile/Aadhaar
+3. Visit nearest CSC or empanelled hospital to register and generate your card
+4. Carry Aadhaar and ration card while visiting
+
+📍 **Where to Apply in Gyalshing District?**
+• District Hospital – Gyalshing
+• Yuksom PHC
+• Dentam PHC
+• Tashiding PHC
+• You can also apply through the nearest Common Service Centre (CSC)
+
+For help, call Ayushman Helpline: 14555.
+
+**Want to Apply?**"""
+
+        keyboard = [
+            [InlineKeyboardButton("🌐 Apply Online", url="https://pmjay.gov.in")],
+            [InlineKeyboardButton("📞 Apply via CSC", callback_data="scheme_apply_csc_ayushman")],
+            [InlineKeyboardButton("🔙 Back to Health Schemes", callback_data="scheme_category_health")]
+        ]
+        
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+
+    async def handle_scheme_apply_online(self, update: Update, context: ContextTypes.DEFAULT_TYPE, scheme_name: str):
+        """Handle online scheme application"""
+        # Define website URLs for different schemes
+        scheme_urls = {
+            "Sikkim Youth": "https://sikkimindustries.gov.in",
+            "Pmegp": "https://pmegp.kvic.org.in",
+            "Pmfme": "https://pmfme.mofpi.gov.in",
+            "Ayushman": "https://pmjay.gov.in"
+        }
+        
+        url = scheme_urls.get(scheme_name, "https://sikkim.gov.in")
+        
+        text = f"""🌐 **Apply Online - {scheme_name}**
+
+You can apply online for this scheme by visiting the official website.
+
+**Website:** {url}
+
+**Steps to apply online:**
+1. Visit the website above
+2. Register/Login to your account
+3. Fill in the application form
+4. Upload required documents
+5. Submit your application
+6. Track your application status
+
+**Alternative:** You can also visit your nearest CSC for assistance with online application."""
+
+        keyboard = [
+            [InlineKeyboardButton("🌐 Visit Website", url=url)],
+            [InlineKeyboardButton("📞 Apply via CSC", callback_data="contacts_csc")],
+            [InlineKeyboardButton("🔙 Back to Schemes", callback_data="schemes")]
+        ]
+        
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+
+    # CSC Application Workflow for Schemes
+    async def handle_scheme_csc_application(self, update: Update, context: ContextTypes.DEFAULT_TYPE, scheme_name: str):
+        """Start CSC application process for schemes"""
+        user_id = update.effective_user.id
+        
+        # Set user state for CSC application
+        self._set_user_state(user_id, {
+            "workflow": "scheme_csc_application",
+            "scheme": scheme_name,
+            "step": "block_selection"
+        })
+        
+        # Get unique blocks from the data
+        blocks = sorted(self.sub_division_block_mapping_df['NAME OF BLOCK / Officer Incharge'].dropna().unique().tolist())
+        
+        text = f"""📋 **{scheme_name} - Apply via CSC**
+
+Please select your block to find the nearest CSC operator:"""
+        
+        # Create keyboard with blocks - use shorter callback data
+        keyboard = []
+        for i, block in enumerate(blocks):
+            # Use index-based callback data to avoid length issues
+            keyboard.append([InlineKeyboardButton(block, callback_data=f"scheme_csc_block_{i}")])
+        
+        # Store blocks in user state for later reference
+        state = self._get_user_state(user_id)
+        state["available_blocks"] = blocks
+        self._set_user_state(user_id, state)
+        
+        keyboard.append([InlineKeyboardButton("🔙 Back to Schemes", callback_data="schemes")])
+        
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+
+
+
+    async def handle_csc_block_selection(self, update: Update, context: ContextTypes.DEFAULT_TYPE, block_index: str):
+        """Handle block selection and show GPUs"""
+        user_id = update.effective_user.id
+        state = self._get_user_state(user_id)
+        
+        if state.get("workflow") != "scheme_csc_application":
+            return
+        
+        # Get the actual block name from the index
+        available_blocks = state.get("available_blocks", [])
+        try:
+            block_index = int(block_index)
+            block_name = available_blocks[block_index]
+        except (ValueError, IndexError):
+            await update.callback_query.answer("Invalid block selection")
+            return
+        
+        # Update state with selected block
+        state["block"] = block_name
+        state["step"] = "gpu_selection"
+        self._set_user_state(user_id, state)
+        
+        # Get GPUs for the selected block from CSC details
+        # First, extract the block name without the contact info
+        block_name_clean = block_name.split('\n')[0].strip() if '\n' in block_name else block_name.strip()
+        
+        # Map block names from bot format to CSC details format
+        block_mapping = {
+            '(BAC CHONGRANG)': 'Chongrang',
+            '(BAC DENTAM)': 'Dentam', 
+            '(BAC GYALSHING)': 'Gyalshing',
+            '(BAC YUKSAM)': 'Yuksam',
+            'BAC - Hee Martam': 'Hee Martam'
+        }
+        
+        # Get the correct block name for CSC details
+        csc_block_name = block_mapping.get(block_name_clean, block_name_clean)
+        
+        # Debug: Print the block name being searched
+        print(f"DEBUG: Original block name: {block_name_clean}")
+        print(f"DEBUG: Mapped block name: {csc_block_name}")
+        print(f"DEBUG: Available blocks in CSV: {self.csc_details_df['BLOCK'].unique()}")
+        
+        # Get GPUs from CSC details for this block - use case-insensitive matching
+        print(f"DEBUG: Looking for block: '{csc_block_name}'")
+        print(f"DEBUG: Available blocks in CSV: {self.csc_details_df['BLOCK'].unique()}")
+        
+        # Try exact match first (case-insensitive)
+        block_gpus = self.csc_details_df[
+            self.csc_details_df['BLOCK'].str.lower() == csc_block_name.lower()
+        ]['GPU Name'].dropna().unique().tolist()
+        
+        print(f"DEBUG: Found {len(block_gpus)} GPUs with exact match")
+        
+        # If no exact match found, try partial matching
+        if not block_gpus:
+            block_gpus = self.csc_details_df[
+                self.csc_details_df['BLOCK'].str.contains(csc_block_name, case=False, na=False, regex=False)
+            ]['GPU Name'].dropna().unique().tolist()
+            print(f"DEBUG: Found {len(block_gpus)} GPUs with partial match")
+        
+        # Clean GPU names by removing leading digits and dots
+        cleaned_gpus = []
+        for gpu in block_gpus:
+            # Remove leading digits and dots (e.g., "19. SARDONG LUNGZICK" -> "SARDONG LUNGZICK")
+            cleaned_gpu = re.sub(r'^\d+\.\s*', '', gpu.strip())
+            cleaned_gpus.append(cleaned_gpu)
+        
+        block_gpus = sorted(cleaned_gpus)
+        
+        text = f"""🏘️ **Block: {block_name}**
+
+Please select your GPU (Gram Panchayat Unit):"""
+        
+        # Create keyboard with GPUs - use shorter callback data
+        keyboard = []
+        for i, gpu in enumerate(block_gpus):
+            # Use index-based callback data to avoid length issues
+            keyboard.append([InlineKeyboardButton(gpu, callback_data=f"scheme_csc_gpu_{i}")])
+        
+        # Store GPUs in user state for later reference
+        state["available_gpus"] = block_gpus
+        self._set_user_state(user_id, state)
+        
+        keyboard.append([InlineKeyboardButton("🔙 Back to Blocks", callback_data="scheme_csc_back_to_blocks")])
+        keyboard.append([InlineKeyboardButton("🔙 Back to Schemes", callback_data="schemes")])
+        
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+
+    async def handle_csc_gpu_selection(self, update: Update, context: ContextTypes.DEFAULT_TYPE, gpu_index: str):
+        """Handle GPU selection and show CSC info directly"""
+        user_id = update.effective_user.id
+        state = self._get_user_state(user_id)
+        
+        if state.get("workflow") != "scheme_csc_application":
+            return
+        
+        # Get the actual GPU name from the index
+        available_gpus = state.get("available_gpus", [])
+        try:
+            gpu_index = int(gpu_index)
+            gpu_name = available_gpus[gpu_index]
+        except (ValueError, IndexError):
+            await update.callback_query.answer("Invalid GPU selection")
+            return
+        
+        # Update state with selected GPU
+        state["gpu"] = gpu_name
+        state["step"] = "csc_info"
+        self._set_user_state(user_id, state)
+        
+        # Get subdivision info for the selected block
+        block_name = state.get("block", "")
+        subdivision_info = self.sub_division_block_mapping_df[
+            self.sub_division_block_mapping_df['NAME OF BLOCK / Officer Incharge'] == block_name
+        ]['Sub Division / Officer Incharge'].dropna().unique()
+        
+        subdivision_name = subdivision_info[0] if len(subdivision_info) > 0 else "N/A"
+        state["subdivision"] = subdivision_name
+        self._set_user_state(user_id, state)
+        
+        # Get CSC info for the selected GPU - try multiple matching strategies
+        print(f"DEBUG: Looking for GPU: '{gpu_name}'")
+        print(f"DEBUG: Available GPUs in CSV: {self.csc_details_df['GPU Name'].unique()}")
+        
+        # Try exact match first
+        csc_info = self.csc_details_df[
+            self.csc_details_df['GPU Name'].str.strip() == gpu_name.strip()
+        ]
+        
+        # If no exact match, try case-insensitive match
+        if csc_info.empty:
+            csc_info = self.csc_details_df[
+                self.csc_details_df['GPU Name'].str.lower() == gpu_name.lower()
+            ]
+        
+        # If still no match, try partial match
+        if csc_info.empty:
+            csc_info = self.csc_details_df[
+                self.csc_details_df['GPU Name'].str.contains(gpu_name, case=False, na=False, regex=False)
+            ]
+        
+        # If still no match, try matching cleaned version
+        if csc_info.empty:
+            csc_info = self.csc_details_df[
+                self.csc_details_df['GPU Name'].apply(lambda x: re.sub(r'^\d+\.\s*', '', x.strip()) if pd.notna(x) else '') == gpu_name.strip()
+            ]
+        
+        print(f"DEBUG: Found {len(csc_info)} CSC entries for GPU '{gpu_name}'")
+        
+        # Get ward information from block_gpu_mapping
+        ward_info = self.block_gpu_mapping_df[
+            (self.block_gpu_mapping_df['Name of GPU'].str.contains(gpu_name, case=False, na=False)) |
+            # Also try matching the cleaned version against the original
+            (self.block_gpu_mapping_df['Name of GPU'].apply(lambda x: re.sub(r'^\d+\.\s*', '', x.strip()) if pd.notna(x) else '') == gpu_name.strip())
+        ]['Name of Ward'].dropna().unique().tolist()
+        
+        if not csc_info.empty:
+            info = csc_info.iloc[0]
+            
+            # Get block single window and subdivision single window contacts
+            block_contacts = info.get('Block Single Window', 'N/A')
+            subdivision_contacts = info.get('SubDivision Single Window', 'N/A')
+            
+            # Truncate long contact strings to avoid message length issues
+            if len(block_contacts) > 50:
+                block_contacts = block_contacts[:50] + "..."
+            if len(subdivision_contacts) > 50:
+                subdivision_contacts = subdivision_contacts[:50] + "..."
+            
+            text = f"""📞 **CSC Operator Information**
+
+**Subdivision:** {subdivision_name}
+**Block:** {info.get('BLOCK', 'N/A')}
+**GPU:** {info.get('GPU Name', gpu_name)}
+**Wards:** {', '.join(ward_info) if ward_info else 'N/A'}
+
+**CSC Operator Details:**
+• **Name:** {info.get('Name', 'N/A')}
+• **Contact:** {info.get('Contact No.', 'N/A')}
+
+**Block Single Window:** {block_contacts}
+**Subdivision Single Window:** {subdivision_contacts}
+
+**Scheme:** {state.get('scheme', 'N/A')}
+
+Would you like to submit your application details to this CSC operator?"""
+            
+            keyboard = [
+                [InlineKeyboardButton("✅ Yes, Submit Application", callback_data="csc_submit_application")],
+                [InlineKeyboardButton("🔙 Back to GPUs", callback_data="scheme_csc_back_to_blocks")],
+                [InlineKeyboardButton("🔙 Back to Schemes", callback_data="schemes")]
+            ]
+        else:
+            text = f"""❌ **CSC Operator Not Found**
+
+**Subdivision:** {subdivision_name}
+**Block:** {block_name}
+**GPU:** {gpu_name}
+
+No CSC operator found for this GPU. Please try another GPU or contact support."""
+            
+            keyboard = [
+                [InlineKeyboardButton("🔙 Back to GPUs", callback_data="scheme_csc_back_to_blocks")],
+                [InlineKeyboardButton("🔙 Back to Schemes", callback_data="schemes")]
+            ]
+        
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+
+
+
+    async def handle_csc_submit_application(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Start application details collection"""
+        user_id = update.effective_user.id
+        state = self._get_user_state(user_id)
+        
+        print(f"DEBUG: handle_csc_submit_application called")
+        print(f"DEBUG: Current workflow: {state.get('workflow')}")
+        print(f"DEBUG: Current state: {state}")
+        
+        if state.get("workflow") != "scheme_csc_application":
+            print(f"DEBUG: Wrong workflow, returning")
+            return
+        
+        # Update state to start collecting details
+        state["step"] = "name"
+        self._set_user_state(user_id, state)
+        
+        print(f"DEBUG: State updated to step: name")
+        
+        text = f"""📝 **Application Details**
+
+Please provide your details for **{state.get('scheme', 'Unknown Scheme')}**.
+
+**Step 1: Please enter your full name**"""
+        
+        keyboard = [[InlineKeyboardButton("🔙 Cancel", callback_data="schemes")]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        print(f"DEBUG: About to send message asking for name")
+        await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+        print(f"DEBUG: Message sent successfully")
+
+    async def handle_scheme_csc_application_workflow(self, update: Update, context: ContextTypes.DEFAULT_TYPE, text: str):
+        """Handle CSC application workflow"""
+        user_id = update.effective_user.id
+        state = self._get_user_state(user_id)
+        
+        if state.get("workflow") != "scheme_csc_application":
+            return
+        
+        step = state.get("step")
+        scheme_name = state.get("scheme", "Unknown Scheme")
+        
+        if step == "name":
+            state["name"] = text
+            state["step"] = "father_name"
+            self._set_user_state(user_id, state)
+            
+            await update.message.reply_text("**Step 2: Please enter your father's name**", parse_mode='Markdown')
+            
+        elif step == "father_name":
+            state["father_name"] = text
+            state["step"] = "phone"
+            self._set_user_state(user_id, state)
+            
+            await update.message.reply_text("**Step 3: Please enter your phone number**", parse_mode='Markdown')
+            
+        elif step == "phone":
+            state["phone"] = text
+            state["step"] = "village"
+            self._set_user_state(user_id, state)
+            
+            await update.message.reply_text("**Step 4: Please enter your village name**", parse_mode='Markdown')
+            
+        elif step == "village":
+            state["village"] = text
+            self._set_user_state(user_id, state)
+            
+            # Submit application
+            await self.submit_csc_application(update, context, state)
+
+    async def submit_csc_application(self, update: Update, context: ContextTypes.DEFAULT_TYPE, state: dict):
+        """Submit CSC application to Google Sheets with reference number"""
+        user_id = update.effective_user.id
+        user_name = update.effective_user.first_name or "Unknown"
+        scheme_name = state.get("scheme", "Unknown")
+        applicant_name = state.get("name", "Unknown")
+        father_name = state.get("father_name", "Unknown")
+        phone = state.get("phone", "Unknown")
+        village = state.get("village", "Unknown")
+        ward = state.get("ward", "Unknown")
+        gpu = state.get("gpu", "Unknown")
+        block = state.get("block", "Unknown")
+        
+        # Generate unique reference number
+        import datetime
+        timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+        reference_number = f"SK{timestamp}{user_id % 1000:03d}"
+        
+        # Log to Google Sheets with reference number
+        success = self._log_to_sheets(
+            user_id=user_id,
+            user_name=user_name,
+            interaction_type="csc_scheme_application",
+            query_text=f"CSC application: {scheme_name}",
+            language="english",
+            bot_response=f"Application submitted for {scheme_name} via CSC",
+            scheme_name=scheme_name,
+            applicant_name=applicant_name,
+            father_name=father_name,
+            phone=phone,
+            village=village,
+            ward=ward,
+            gpu=gpu,
+            block=block,
+            reference_number=reference_number,
+            application_status="Submitted",
+            submission_date=datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        )
+        
+        if success:
+            text = f"""✅ **Application Submitted Successfully!**
+
+**Scheme:** {scheme_name}
+**Name:** {applicant_name}
+**Father's Name:** {father_name}
+**Phone:** {phone}
+**Village:** {village}
+**Ward:** {ward}
+**GPU:** {gpu}
+**Block:** {block}
+
+🆔 **Reference Number:** `{reference_number}`
+
+Your application has been submitted to the CSC operator. You will be contacted soon for further processing.
+
+**What happens next:**
+• CSC operator will review your application
+• You'll receive a call/SMS for verification
+• Visit the CSC center with required documents
+• Track your application status using your reference number
+
+**📋 How to track your application:**
+• Use the 'Check Status of My Application' option
+• Enter your reference number: `{reference_number}`
+• CSC operator will update the status in our system
+
+**CSC Contact:** Use the 'Important Contacts' section to find your CSC operator.
+
+Thank you for using Sajilo Sewak Bot! 🎉"""
+        else:
+            text = f"""❌ **Application Submission Failed**
+
+Sorry, there was an error submitting your application. Please try again or contact support.
+
+**Scheme:** {scheme_name}
+**Name:** {applicant_name}
+**Phone:** {phone}
+**Reference Number:** {reference_number}"""
+        
+        keyboard = [[InlineKeyboardButton("🔙 Back to Main Menu", callback_data="main_menu")]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await update.message.reply_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+        self._clear_user_state(user_id)
 
     async def handle_contacts_menu(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle important contacts menu"""
@@ -2911,7 +4232,7 @@ Use the CSC search to find your nearest operator."""
                 self._clear_user_state(user_id)
                 return
             
-            # 4. No exact match found - provide suggestions
+            # 4. No exact match found - provide suggestions with retry mechanism
             # Get similar GPU names for suggestions
             all_gpu_names = self.csc_details_df['GPU Name'].dropna().tolist()
             suggestions = []
@@ -2935,7 +4256,7 @@ Use the CSC search to find your nearest operator."""
                 response += "**Did you mean one of these?**\n"
                 for suggestion in suggestions:
                     response += f"• {suggestion}\n"
-                response += "\nPlease try searching with one of the suggested names."
+                response += "\n**Please try again with one of the suggested names above.**"
             else:
                 response += "**Available GPUs in Sikkim:**\n"
                 # Show first 10 GPUs as examples
@@ -2943,16 +4264,22 @@ Use the CSC search to find your nearest operator."""
                     response += f"• {gpu_name}\n"
                 if len(all_gpu_names) > 10:
                     response += f"... and {len(all_gpu_names) - 10} more\n"
-                response += "\nPlease enter the exact GPU name."
+                response += "\n**Please try again with the exact GPU name.**"
             
+            # Add retry button and keep user in search state
             keyboard = [
+                [InlineKeyboardButton("🔄 Try Again", callback_data="csc_search_retry")],
                 [InlineKeyboardButton("🔙 Back to Contacts", callback_data="contacts")],
                 [InlineKeyboardButton(self.responses[user_lang]['back_main_menu'], callback_data="main_menu")]
             ]
             reply_markup = InlineKeyboardMarkup(keyboard)
             
+            # Keep user in search state for retry instead of clearing
+            state["step"] = "gpu_input"
+            state["last_search"] = search_term
+            self._set_user_state(user_id, state)
+            
             await update.message.reply_text(response, reply_markup=reply_markup, parse_mode='Markdown')
-            self._clear_user_state(user_id)
 
     async def handle_blo_search_workflow(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle enhanced BLO search workflow with better suggestions"""
@@ -3064,8 +4391,8 @@ Use the CSC search to find your nearest operator."""
             self.application.add_error_handler(self.error_handler)
             
             # Start the bot
-            logger.info("🚀 Starting Enhanced SmartGov Assistant Bot...")
-            print("🚀 Starting Enhanced SmartGov Assistant Bot...")
+            logger.info("🚀 Starting Sajilo Sewak Bot...")
+            print("🚀 Starting Sajilo Sewak Bot...")
             print("✅ Ready to serve citizens!")
             
             # Run the bot until the user presses Ctrl-C
@@ -3147,7 +4474,10 @@ Unable to retrieve status for application: {reference_number}
 2. Try again in a few minutes
 3. Contact support: {Config.SUPPORT_PHONE}"""
                 
-                keyboard = [[InlineKeyboardButton("🔙 Back to Disaster Management", callback_data="disaster")]]
+                keyboard = [
+                    [InlineKeyboardButton("🔄 Try Again", callback_data="check_status")],
+                    [InlineKeyboardButton("🔙 Back to Disaster Management", callback_data="disaster")]
+                ]
                 reply_markup = InlineKeyboardMarkup(keyboard)
                 
                 await update.message.reply_text(error_msg, reply_markup=reply_markup, parse_mode='Markdown')
@@ -3163,7 +4493,10 @@ An unexpected error occurred while checking status.
 
 Contact support: {Config.SUPPORT_PHONE}"""
             
-            keyboard = [[InlineKeyboardButton("🔙 Back to Disaster Management", callback_data="disaster")]]
+            keyboard = [
+                [InlineKeyboardButton("🔄 Try Again", callback_data="check_status")],
+                [InlineKeyboardButton("🔙 Back to Disaster Management", callback_data="disaster")]
+            ]
             reply_markup = InlineKeyboardMarkup(keyboard)
             
             await update.message.reply_text(error_msg, reply_markup=reply_markup, parse_mode='Markdown')
@@ -3351,7 +4684,490 @@ Your emergency has been reported. Help is on the way!"""
         # Clear user state
         self._clear_user_state(user_id)
 
+    # New Certificate Workflow Functions
+    async def handle_certificate_type_selection(self, update: Update, context: ContextTypes.DEFAULT_TYPE, cert_type: str):
+        """Handle certificate type selection and show block selection directly"""
+        print(f"DEBUG: handle_certificate_type_selection called with cert_type: {cert_type}")
+        try:
+            user_id = update.effective_user.id
+            print(f"DEBUG: User ID: {user_id}")
+            
+            # Set state for certificate application
+            self._set_user_state(user_id, {
+                "workflow": "certificate_csc_application",
+                "certificate_type": cert_type,
+                "step": "block_selection"
+            })
+            print(f"DEBUG: State set for user {user_id}: certificate_csc_application")
+            
+            # Available blocks for certificate application (from Details for Smart Govt Assistant)
+            available_blocks = [
+                "Yuksam",
+                "Gyalshing", 
+                "Dentam",
+                "Hee Martam",
+                "Arithang Chongrang",
+                "Gyalshing Municipal Council"
+            ]
+            
+            text = f"""🏛️ **CSC Application Flow**
+
+**Certificate:** {cert_type}
+
+**Step 1: Block Selection**
+                
+Please choose your block:"""
+            
+            # Create keyboard with blocks
+            keyboard = []
+            for i, block in enumerate(available_blocks):
+                keyboard.append([InlineKeyboardButton(block, callback_data=f"cert_block_{i}")])
+            
+            # Store available blocks in user state
+            state = self._get_user_state(user_id)
+            state["available_blocks"] = available_blocks
+            self._set_user_state(user_id, state)
+            
+            keyboard.append([InlineKeyboardButton("🔙 Back", callback_data="certificate_csc")])
+            keyboard.append([InlineKeyboardButton("🔙 Main Menu", callback_data="main_menu")])
+            
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            print(f"DEBUG: About to edit message with text length: {len(text)}")
+            await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+            print(f"DEBUG: Message edited successfully")
+            print(f"DEBUG: handle_certificate_type_selection completed successfully")
+            
+        except Exception as e:
+            print(f"DEBUG: Error in handle_certificate_type_selection: {e}")
+            import traceback
+            traceback.print_exc()
+            # Fallback: send a new message
+            try:
+                await update.callback_query.answer("Error occurred, please try again")
+                await update.callback_query.message.reply_text("❌ Error occurred. Please try again from the main menu.", parse_mode='Markdown')
+            except:
+                pass
+
+    async def handle_certificate_block_selection(self, update: Update, context: ContextTypes.DEFAULT_TYPE, block_index: str):
+        """Handle certificate block selection and show GPU selection"""
+        print(f"DEBUG: handle_certificate_block_selection called with block_index: {block_index}")
+        user_id = update.effective_user.id
+        state = self._get_user_state(user_id)
+        print(f"DEBUG: User ID: {user_id}")
+        print(f"DEBUG: Current state: {state}")
+        
+        if state.get("workflow") != "certificate_csc_application":
+            return
+        
+        # Get the actual block name from the index
+        available_blocks = state.get("available_blocks", [])
+        try:
+            block_index = int(block_index)
+            block_name = available_blocks[block_index]
+        except (ValueError, IndexError):
+            await update.callback_query.answer("Invalid block selection")
+            return
+        
+        # Update state with selected block
+        state["block"] = block_name
+        state["step"] = "gpu_selection"
+        self._set_user_state(user_id, state)
+        
+        # Get GPUs for the selected block from CSC details
+        print(f"DEBUG: Looking for GPUs for block: {block_name}")
+        print(f"DEBUG: Available blocks in CSV: {self.csc_details_df['BLOCK'].unique()}")
+        
+        block_gpus = self.csc_details_df[
+            self.csc_details_df['BLOCK'].str.lower() == block_name.lower()
+        ]['GPU Name'].dropna().unique().tolist()
+        
+        print(f"DEBUG: Found GPUs (exact match): {block_gpus}")
+        
+        # If no exact match found, try partial matching
+        if not block_gpus:
+            block_gpus = self.csc_details_df[
+                self.csc_details_df['BLOCK'].str.contains(block_name, case=False, na=False, regex=False)
+            ]['GPU Name'].dropna().unique().tolist()
+            print(f"DEBUG: Found GPUs (partial match): {block_gpus}")
+        
+        # If still no GPUs found, show error message
+        if not block_gpus:
+            text = f"""❌ **No GPUs Found**
+
+Sorry, no GPUs were found for the block: **{block_name}**
+
+Please try selecting a different block or contact support."""
+            
+            keyboard = [
+                [InlineKeyboardButton("🔙 Back to Blocks", callback_data="certificate_csc")],
+                [InlineKeyboardButton("🔙 Main Menu", callback_data="main_menu")]
+            ]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+            return
+        
+        # Clean GPU names by removing leading digits and dots
+        cleaned_gpus = []
+        for gpu in block_gpus:
+            cleaned_gpu = re.sub(r'^\d+\.\s*', '', gpu.strip())
+            cleaned_gpus.append(cleaned_gpu)
+        
+        block_gpus = sorted(cleaned_gpus)
+        
+        text = f"""🏛️ **CSC Application Flow**
+
+**Certificate:** {state.get('certificate_type', 'Unknown')}
+**Block:** {block_name}
+
+**Step 2: GPU Selection**
+
+Select your GPU:
+(Options populate based on selected block)
+
+Please choose your GPU:"""
+        
+        # Create keyboard with GPUs
+        keyboard = []
+        for i, gpu in enumerate(block_gpus):
+            keyboard.append([InlineKeyboardButton(gpu, callback_data=f"cert_gpu_{i}")])
+        
+        # Store GPUs in user state
+        state["available_gpus"] = block_gpus
+        self._set_user_state(user_id, state)
+        
+        keyboard.append([InlineKeyboardButton("🔙 Back to Blocks", callback_data="certificate_csc")])
+        keyboard.append([InlineKeyboardButton("🔙 Main Menu", callback_data="main_menu")])
+        
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+
+    async def handle_certificate_gpu_selection(self, update: Update, context: ContextTypes.DEFAULT_TYPE, gpu_index: str):
+        """Handle certificate GPU selection and show CSC info"""
+        user_id = update.effective_user.id
+        state = self._get_user_state(user_id)
+        
+        if state.get("workflow") != "certificate_csc_application":
+            return
+        
+        # Get the actual GPU name from the index
+        available_gpus = state.get("available_gpus", [])
+        try:
+            gpu_index = int(gpu_index)
+            gpu_name = available_gpus[gpu_index]
+        except (ValueError, IndexError):
+            await update.callback_query.answer("Invalid GPU selection")
+            return
+        
+        # Update state with selected GPU
+        state["gpu"] = gpu_name
+        state["step"] = "csc_info"
+        self._set_user_state(user_id, state)
+        
+        # Get CSC info for the selected GPU
+        csc_info = self.csc_details_df[
+            self.csc_details_df['GPU Name'].str.strip() == gpu_name.strip()
+        ]
+        
+        # If no exact match, try case-insensitive match
+        if csc_info.empty:
+            csc_info = self.csc_details_df[
+                self.csc_details_df['GPU Name'].str.lower() == gpu_name.lower()
+            ]
+        
+        # If still no match, try partial match
+        if csc_info.empty:
+            csc_info = self.csc_details_df[
+                self.csc_details_df['GPU Name'].str.contains(gpu_name, case=False, na=False, regex=False)
+            ]
+        
+        # If still no match, try matching cleaned version
+        if csc_info.empty:
+            csc_info = self.csc_details_df[
+                self.csc_details_df['GPU Name'].apply(lambda x: re.sub(r'^\d+\.\s*', '', x.strip()) if pd.notna(x) else '') == gpu_name.strip()
+            ]
+        
+        if not csc_info.empty:
+            info = csc_info.iloc[0]
+            
+            # Get block single window and subdivision single window contacts
+            block_contacts = info.get('Block Single Window', 'N/A')
+            subdivision_contacts = info.get('SubDivision Single Window', 'N/A')
+            
+            # Truncate long contact strings to avoid message length issues
+            if len(block_contacts) > 50:
+                block_contacts = block_contacts[:50] + "..."
+            if len(subdivision_contacts) > 50:
+                subdivision_contacts = subdivision_contacts[:50] + "..."
+            
+            text = f"""📞 **Step 3: CSC Operator Details**
+
+**Certificate:** {state.get('certificate_type', 'Unknown')}
+**Block:** {info.get('BLOCK', 'N/A')}
+**GPU:** {info.get('GPU Name', gpu_name)}
+
+**You may contact your CSC Operator:**
+• **Name:** {info.get('Name', 'N/A')}
+• **Phone:** {info.get('Contact No.', 'N/A')}
+• **GPU:** {info.get('GPU Name', gpu_name)}
+
+**Alternative Contacts:**
+If CSC Operator not responding, contact:
+• **Block Single Window Office:** {block_contacts}
+• **Subdivision Single Window Office:** {subdivision_contacts}
+
+**Step 4: Application Confirmation**
+Would you like to apply from here?"""
+            
+            keyboard = [
+                [InlineKeyboardButton("✅ Yes, Apply Now", callback_data="cert_apply_now")],
+                [InlineKeyboardButton("🔙 Back to GPUs", callback_data="certificate_csc")],
+                [InlineKeyboardButton("🔙 Main Menu", callback_data="main_menu")]
+            ]
+        else:
+            text = f"""❌ **CSC Operator Not Found**
+
+**Certificate:** {state.get('certificate_type', 'Unknown')}
+**Block:** {state.get('block', 'N/A')}
+**GPU:** {gpu_name}
+
+No CSC operator found for this GPU. Please try another GPU or contact support."""
+            
+            keyboard = [
+                [InlineKeyboardButton("🔙 Back to GPUs", callback_data="certificate_csc")],
+                [InlineKeyboardButton("🔙 Main Menu", callback_data="main_menu")]
+            ]
+        
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+
+    async def handle_certificate_apply_now(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Start certificate application details collection"""
+        user_id = update.effective_user.id
+        state = self._get_user_state(user_id)
+        
+        print(f"DEBUG: handle_certificate_apply_now called")
+        print(f"DEBUG: User ID: {user_id}")
+        print(f"DEBUG: Current state: {state}")
+        print(f"DEBUG: Expected workflow: certificate_csc_application, Got: {state.get('workflow')}")
+        
+        if state.get("workflow") != "certificate_csc_application":
+            print(f"DEBUG: Invalid workflow state in apply_now - returning early")
+            return
+        
+        # Update state to start collecting details
+        state["step"] = "name"
+        self._set_user_state(user_id, state)
+        
+        text = f"""📝 **Step 5: Basic Details Collection**
+
+**Certificate:** {state.get('certificate_type', 'Unknown')}
+**Block:** {state.get('block', 'N/A')}
+**GPU:** {state.get('gpu', 'N/A')}
+
+**Please share your:**
+
+**Name:**"""
+        
+        keyboard = [[InlineKeyboardButton("🔙 Cancel", callback_data="certificate_csc")]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+
+    async def handle_certificate_application_workflow(self, update: Update, context: ContextTypes.DEFAULT_TYPE, text: str):
+        """Handle certificate application workflow"""
+        user_id = update.effective_user.id
+        state = self._get_user_state(user_id)
+        
+        print(f"DEBUG: handle_certificate_application_workflow called")
+        print(f"DEBUG: User ID: {user_id}")
+        print(f"DEBUG: Current state: {state}")
+        print(f"DEBUG: User input text: {text}")
+        print(f"DEBUG: Expected workflow: certificate_csc_application, Got: {state.get('workflow')}")
+        
+        if state.get("workflow") != "certificate_csc_application":
+            print(f"DEBUG: Invalid workflow state - returning early")
+            return
+        
+        step = state.get("step")
+        cert_type = state.get("certificate_type", "Unknown")
+        print(f"DEBUG: Current step: {step}, Certificate type: {cert_type}")
+        
+        if step == "name":
+            state["name"] = text
+            state["step"] = "father_name"
+            self._set_user_state(user_id, state)
+            
+            await update.message.reply_text("**Father's Name:**", parse_mode='Markdown')
+            
+        elif step == "father_name":
+            state["father_name"] = text
+            state["step"] = "phone"
+            self._set_user_state(user_id, state)
+            
+            await update.message.reply_text("**Phone Number (WhatsApp):**", parse_mode='Markdown')
+            
+        elif step == "phone":
+            state["phone"] = text
+            state["step"] = "village"
+            self._set_user_state(user_id, state)
+            
+            await update.message.reply_text("**Village:**", parse_mode='Markdown')
+            
+        elif step == "village":
+            state["village"] = text
+            self._set_user_state(user_id, state)
+            
+            # Submit certificate application
+            await self.submit_certificate_application(update, context, state)
+
+    async def submit_certificate_application(self, update: Update, context: ContextTypes.DEFAULT_TYPE, state: dict):
+        """Submit certificate application to Google Sheets"""
+        user_id = update.effective_user.id
+        user_name = update.effective_user.first_name or "Unknown"
+        cert_type = state.get("certificate_type", "Unknown")
+        applicant_name = state.get("name", "Unknown")
+        father_name = state.get("father_name", "Unknown")
+        phone = state.get("phone", "Unknown")
+        village = state.get("village", "Unknown")
+        gpu = state.get("gpu", "Unknown")
+        block = state.get("block", "Unknown")
+        
+        # Generate reference number (similar to schemes)
+        import datetime
+        timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+        reference_number = f"CERT{timestamp}{user_id % 1000:03d}"
+        
+        # Log to Google Sheets using new structure
+        success = self._log_to_sheets(
+            user_id=user_id,
+            user_name=user_name,
+            interaction_type="certificate_application",
+            query_text=f"Certificate application: {cert_type}",
+            language="english",
+            bot_response=f"Application submitted for {cert_type} via CSC",
+            certificate_type=cert_type,
+            applicant_name=applicant_name,
+            father_name=father_name,
+            phone=phone,
+            village=village,
+            gpu=gpu,
+            block=block,
+            reference_number=reference_number,
+            application_status="Submitted",
+            submission_date=datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        )
+        
+        if success:
+            text = f"""✅ **Application Submitted Successfully!**
+
+**Certificate:** {cert_type}
+**Name:** {applicant_name}
+**Father's Name:** {father_name}
+**Phone:** {phone}
+**Village:** {village}
+**Block:** {block}
+**GPU:** {gpu}
+
+🆔 **Reference Number:** `{reference_number}`
+
+**📋 How to track your application:**
+• Use the 'Check Status of My Application' option
+• Enter your reference number: `{reference_number}`
+• CSC operator will update the status in our system
+
+**Status:** Application Received
+**Next Step:** CSC Operator will contact you within 24-48 hours"""
+            
+            keyboard = [[InlineKeyboardButton("🔙 Main Menu", callback_data="main_menu")]]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            
+            await update.message.reply_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+        else:
+            text = f"""❌ **Application Submission Failed**
+
+**Reference Number:** {reference_number}
+
+Please try again or contact support. Your reference number has been saved for tracking."""
+            
+            keyboard = [[InlineKeyboardButton("🔙 Main Menu", callback_data="main_menu")]]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            
+            await update.message.reply_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+
+    async def handle_certificate_online_application(self, update: Update, context: ContextTypes.DEFAULT_TYPE, cert_type: str):
+        """Handle certificate online application - redirect to sso.sikkim.gov.in"""
+        text = f"""🌐 **Apply for the Certificates**
+
+**Certificate:** {cert_type}
+
+**To apply for any certificate online:**
+✅ **Visit: sso.sikkim.gov.in**
+
+**Steps to Apply Online:**
+1. Create your account (one-time)
+2. Log in using your mobile number and OTP
+3. Select the certificate you want to apply for
+4. Fill in details and upload required documents
+5. You can track your application status anytime
+
+**Ready to apply?**"""
+        
+        keyboard = [
+            [InlineKeyboardButton("Apply Now", url="https://sso.sikkim.gov.in")],
+            [InlineKeyboardButton("Need Help? Apply via CSC", callback_data=f"cert_csc_{cert_type}")],
+            [InlineKeyboardButton("🔙 Back", callback_data="certificate_csc")],
+            [InlineKeyboardButton("🔙 Main Menu", callback_data="main_menu")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+
+    async def handle_certificate_csc_application(self, update: Update, context: ContextTypes.DEFAULT_TYPE, cert_type: str):
+        """Handle certificate CSC application - start the CSC workflow"""
+        user_id = update.effective_user.id
+        
+        # Set state for certificate CSC application
+        self._set_user_state(user_id, {
+            "workflow": "certificate_csc_application",
+            "certificate_type": cert_type,
+            "step": "block_selection"
+        })
+        
+        # Available blocks for certificate application (from Details for Smart Govt Assistant)
+        available_blocks = [
+            "Yuksam",
+            "Gyalshing", 
+            "Dentam",
+            "Hee Martam",
+            "Arithang Chongrang",
+            "Gyalshing Municipal Council"
+        ]
+        
+        text = f"""🏛️ **CSC Application Flow**
+
+**Certificate:** {cert_type}
+
+**Step 1: Block Selection**
+
+Please choose your block:"""
+        
+        # Create keyboard with blocks
+        keyboard = []
+        for i, block in enumerate(available_blocks):
+            keyboard.append([InlineKeyboardButton(block, callback_data=f"cert_block_{i}")])
+        
+        # Store available blocks in user state
+        state = self._get_user_state(user_id)
+        state["available_blocks"] = available_blocks
+        self._set_user_state(user_id, state)
+        
+        keyboard.append([InlineKeyboardButton("🔙 Back", callback_data="certificate_csc")])
+        keyboard.append([InlineKeyboardButton("🔙 Main Menu", callback_data="main_menu")])
+        
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+
 if __name__ == "__main__":
     # Initialize and run bot
-    bot = SmartGovAssistantBot()
+    bot = SajiloSewakBot()
     bot.run() 
