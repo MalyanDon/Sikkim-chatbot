@@ -1323,6 +1323,10 @@ Please select your preferred language to continue:
                 elif service == "skip_location":
                     # Complete emergency without location
                     await self._complete_emergency_without_location(update, context)
+                elif service.startswith("health_"):
+                    # Handle health emergency location selection
+                    location = service.replace("health_", "")
+                    await self.handle_emergency_health_location(update, context, location)
                 else:
                     await self.handle_emergency_service(update, context, service)
             
@@ -1410,8 +1414,9 @@ Please select your preferred language to continue:
                 await self.handle_certificate_choice(update, context, cert_type)
             
             elif data.startswith("csc_"):
-                district = data.replace("csc_", "")
-                await self.handle_csc_selection(update, context, district)
+                # This is handled by the new CSC functionality in contacts
+                await update.callback_query.answer("Please use the 'Know Key Contact' option for CSC services")
+                return
             
             elif data == "complaint":
                 await self.start_complaint_workflow(update, context)
@@ -1568,10 +1573,11 @@ Please select the certificate you want to apply for:
                 block_index = data.replace("scheme_csc_block_", "")
                 await self.handle_csc_block_selection(update, context, block_index)
             
-            # Handle old callback pattern for backward compatibility
+            # CSC Contacts workflow handlers - MUST BE BEFORE generic csc_ handler
             elif data.startswith("csc_block_"):
+                print(f"🔍 [DEBUG] CSC block callback received: {data}")
                 block_index = data.replace("csc_block_", "")
-                await self.handle_csc_block_selection(update, context, block_index)
+                await self.simple_csc_block_to_gpu(update, context, block_index)
             
             elif data.startswith("scheme_csc_gpu_"):
                 gpu_index = data.replace("scheme_csc_gpu_", "")
@@ -1605,7 +1611,7 @@ Please select the certificate you want to apply for:
                 await self.handle_contacts_menu(update, context)
             
             elif data == "contacts_csc":
-                await self.handle_csc_search(update, context)
+                await self.handle_contacts_csc_menu(update, context)
             
             elif data == "csc_search_retry":
                 # Handle CSC search retry
@@ -1667,6 +1673,28 @@ Please enter your GPU (Gram Panchayat Unit) name to find the CSC operator.
             
             elif data == "contacts_aadhar":
                 await self.handle_aadhar_services(update, context)
+            
+            elif data.startswith("contacts_csc_gpu_"):
+                gpu_index = data.replace("contacts_csc_gpu_", "")
+                await self.handle_csc_contacts_gpu_selection(update, context, gpu_index)
+            
+            elif data.startswith("blo_constituency_"):
+                constituency_index = data.replace("blo_constituency_", "")
+                await self.handle_blo_constituency_selection(update, context, constituency_index)
+            
+            elif data.startswith("blo_booth_"):
+                booth_index = data.replace("blo_booth_", "")
+                await self.handle_blo_booth_selection(update, context, booth_index)
+            
+            elif data.startswith("call_blo_"):
+                phone = data.replace("call_blo_", "")
+                await update.callback_query.answer(f"Calling BLO at {phone}")
+                # In a real implementation, this could initiate a call or show contact info
+            
+            elif data.startswith("call_csc_"):
+                phone = data.replace("call_csc_", "")
+                await update.callback_query.answer(f"Calling CSC Operator at {phone}")
+                # In a real implementation, this could initiate a call or show contact info
             
             elif data == "feedback":
                 await self.start_feedback_workflow(update, context)
@@ -2529,30 +2557,89 @@ Select the field you want to update:"""
 
     # --- Emergency Services ---
     async def handle_emergency_menu(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle emergency services menu - show emergency options"""
+        """Handle emergency services menu - first request location, then show emergency options"""
         user_id = update.effective_user.id if update.effective_user else update.callback_query.from_user.id
         user_lang = self._get_user_language(user_id)
         
-        # Show emergency services menu with call buttons
+        # Set emergency workflow state
+        state = self._get_user_state(user_id)
+        state["workflow"] = "emergency"
+        state["step"] = "location"
+        self._set_user_state(user_id, state)
+        
+        # Request location first
+        location_text = """🚨 **Emergency Services** 🚨
+
+📍 **Location Required for Emergency Response**
+
+To provide you with the most accurate emergency assistance, we need your current location.
+
+**Please share your location:**"""
+        
+        keyboard = [
+            [InlineKeyboardButton("📍 Share My Location", callback_data="emergency_share_location")],
+            [InlineKeyboardButton("✏️ Enter Location Manually", callback_data="emergency_manual_location")],
+            [InlineKeyboardButton("⏭️ Skip Location", callback_data="emergency_skip_location")],
+            [InlineKeyboardButton("🔙 Main Menu", callback_data="main_menu")]
+        ]
+        
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        if update.callback_query:
+            await update.callback_query.answer()
+            await update.callback_query.edit_message_text(location_text, reply_markup=reply_markup, parse_mode='Markdown')
+        else:
+            await update.message.reply_text(location_text, reply_markup=reply_markup, parse_mode='Markdown')
+        
+        # Log to Google Sheets
+        user_name = (update.effective_user.first_name if update.effective_user else update.callback_query.from_user.first_name) or "Unknown"
+        self._log_to_sheets(
+            user_id=user_id,
+            user_name=user_name,
+            interaction_type="emergency",
+            query_text="Emergency services menu accessed",
+            language=user_lang,
+            bot_response="Emergency location request shown",
+            emergency_type="location_request"
+        )
+
+    async def show_emergency_services_menu(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Show emergency services menu after location is collected"""
+        user_id = update.effective_user.id if update.effective_user else update.callback_query.from_user.id
+        user_lang = self._get_user_language(user_id)
+        
+        # Get user state to check if location was collected
+        state = self._get_user_state(user_id)
+        location_info = state.get("location", "Location not provided")
+        
+        # Show comprehensive emergency services menu
         emergency_text = f"""🚨 **Emergency Services** 🚨
 
-Choose the service you need:
+📍 **Your Location:** {location_info}
 
-🚑 **Medical Emergency**
-👮 **Police Emergency** 
-🔥 **Fire Emergency**
-📞 **Suicide Helpline**
-👩 **Women Helpline**
+Please select the type of emergency you need help with:
+
+🔥 **Fire**
+🚑 **Ambulance** 
+🏥 **Health Emergency**
+🚓 **Police Helpline**
+🧠 **Mental Health Helpline**
+🚨 **District Control Room**
+👩‍🦰 **Women/Child Helpline**
+🧭 **Tourism Assistance**
 
 Select an option below:"""
         
         keyboard = [
-            [InlineKeyboardButton("🚑 Ambulance", callback_data="emergency_ambulance")],
-            [InlineKeyboardButton("👮 Police", callback_data="emergency_police")],
             [InlineKeyboardButton("🔥 Fire", callback_data="emergency_fire")],
-            [InlineKeyboardButton("📞 Suicide Helpline", callback_data="emergency_suicide")],
-            [InlineKeyboardButton("👩 Women Helpline", callback_data="emergency_women")],
-            [InlineKeyboardButton(self.responses[user_lang]['back_main_menu'], callback_data="main_menu")]
+            [InlineKeyboardButton("🚑 Ambulance", callback_data="emergency_ambulance")],
+            [InlineKeyboardButton("🏥 Health Emergency", callback_data="emergency_health")],
+            [InlineKeyboardButton("🚓 Police Helpline", callback_data="emergency_police")],
+            [InlineKeyboardButton("🧠 Mental Health Helpline", callback_data="emergency_mental_health")],
+            [InlineKeyboardButton("🚨 District Control Room", callback_data="emergency_control_room")],
+            [InlineKeyboardButton("👩‍🦰 Women/Child Helpline", callback_data="emergency_women_child")],
+            [InlineKeyboardButton("🧭 Tourism Assistance", callback_data="emergency_tourism")],
+            [InlineKeyboardButton("🔙 Main Menu", callback_data="main_menu")]
         ]
         
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -2569,10 +2656,11 @@ Select an option below:"""
             user_id=user_id,
             user_name=user_name,
             interaction_type="emergency",
-            query_text="Emergency services menu accessed",
+            query_text="Emergency services menu shown after location",
             language=user_lang,
             bot_response="Emergency menu shown",
-            emergency_type="menu"
+            emergency_type="menu",
+            location=location_info
         )
 
     async def handle_emergency_direct(self, update: Update, context: ContextTypes.DEFAULT_TYPE, message_text: str):
@@ -2671,7 +2759,7 @@ Select an option below:"""
             await update.message.reply_text(self.responses[user_lang]['error'])
 
     async def handle_emergency_service(self, update: Update, context: ContextTypes.DEFAULT_TYPE, service_type: str):
-        """Handle emergency service selection - provide immediate call buttons"""
+        """Handle comprehensive emergency service selection"""
         user_id = update.effective_user.id
         user_lang = self._get_user_language(user_id)
         
@@ -2680,59 +2768,338 @@ Select an option below:"""
         state["emergency_type"] = service_type
         self._set_user_state(user_id, state)
         
-        # Get the appropriate response text and create call buttons
-        if service_type == "ambulance":
-            response_text = self.responses[user_lang]['emergency_ambulance']
-            keyboard = [
-                [InlineKeyboardButton("📞 Call Ambulance (102)", callback_data="call_102")],
-                [InlineKeyboardButton("📞 Call Ambulance (108)", callback_data="call_108")],
-                [InlineKeyboardButton("📞 Control Room", callback_data="call_03592202033")],
-                [InlineKeyboardButton("📍 Share Location for Dispatch", callback_data="emergency_share_location")],
-                [InlineKeyboardButton("🔙 Back to Emergency Menu", callback_data="emergency")],
-                [InlineKeyboardButton("🏠 Main Menu", callback_data="main_menu")]
-            ]
-        elif service_type == "police":
-            response_text = self.responses[user_lang]['emergency_police']
-            keyboard = [
-                [InlineKeyboardButton("📞 Call Police (100)", callback_data="call_100")],
-                [InlineKeyboardButton("📞 Control Room", callback_data="call_03592202022")],
-                [InlineKeyboardButton("📍 Share Location for Dispatch", callback_data="emergency_share_location")],
-                [InlineKeyboardButton("🔙 Back to Emergency Menu", callback_data="emergency")],
-                [InlineKeyboardButton("🏠 Main Menu", callback_data="main_menu")]
-            ]
-        elif service_type == "fire":
-            response_text = self.responses[user_lang]['emergency_fire']
+        if service_type == "fire":
+            response_text = """🔥 **FIRE EMERGENCY**
+
+**Fire Helpline:** 101
+**Gyalshing Fire Station:** 03595-257372
+
+Call immediately in case of any fire incident. Avoid elevators and stay low under smoke.
+
+**Emergency Instructions:**
+• Call 101 immediately
+• Evacuate the building
+• Use stairs, not elevators
+• Stay low under smoke
+• Meet at designated assembly point"""
+            
             keyboard = [
                 [InlineKeyboardButton("📞 Call Fire (101)", callback_data="call_101")],
-                [InlineKeyboardButton("📞 Control Room", callback_data="call_03592202099")],
-                [InlineKeyboardButton("📍 Share Location for Dispatch", callback_data="emergency_share_location")],
+                [InlineKeyboardButton("📞 Gyalshing Fire Station", callback_data="call_03595257372")],
                 [InlineKeyboardButton("🔙 Back to Emergency Menu", callback_data="emergency")],
                 [InlineKeyboardButton("🏠 Main Menu", callback_data="main_menu")]
             ]
-        elif service_type == "suicide":
-            response_text = self.responses[user_lang]['emergency_suicide']
-            keyboard = [
-                [InlineKeyboardButton("📞 Call Suicide Helpline", callback_data="call_9152987821")],
-                [InlineKeyboardButton("📍 Share Location for Support", callback_data="emergency_share_location")],
-                [InlineKeyboardButton("🔙 Back to Emergency Menu", callback_data="emergency")],
-                [InlineKeyboardButton("🏠 Main Menu", callback_data="main_menu")]
-            ]
-        elif service_type == "women":
-            response_text = self.responses[user_lang]['emergency_women']
-            keyboard = [
-                [InlineKeyboardButton("📞 Call Women Helpline (1091)", callback_data="call_1091")],
-                [InlineKeyboardButton("📞 State Commission", callback_data="call_03592205607")],
-                [InlineKeyboardButton("📍 Share Location for Support", callback_data="emergency_share_location")],
-                [InlineKeyboardButton("🔙 Back to Emergency Menu", callback_data="emergency")],
-                [InlineKeyboardButton("🏠 Main Menu", callback_data="main_menu")]
-            ]
-        else:
-            # Default to ambulance for general emergency
-            response_text = self.responses[user_lang]['emergency_ambulance']
+            
+        elif service_type == "ambulance":
+            response_text = """🚑 **AMBULANCE SERVICES**
+
+**Emergency Ambulance Numbers:** 102, 103, 108, 03595-250823
+
+**District Hospital Ambulance Drivers:**
+• Raj Kr Chettri – 96478-80775
+• Ganesh Subedi – 99326-27198
+• Rajesh Gurung – 97334-73753
+• Bikram Rai – 74785-83708
+
+**PHC Ambulance Services:**
+• **Dentam PHC (102):** Uttam Basnett – 77973-79779
+• **Yuksom PHC (102):** Prem Gurung – 74793-56022
+• **Tashiding PHC:** Chogyal Tshering Bhutia – 95933-76420
+
+**For immediate medical emergency, call 102 or 108**"""
+            
             keyboard = [
                 [InlineKeyboardButton("📞 Call Ambulance (102)", callback_data="call_102")],
                 [InlineKeyboardButton("📞 Call Ambulance (108)", callback_data="call_108")],
-                [InlineKeyboardButton("📍 Share Location for Dispatch", callback_data="emergency_share_location")],
+                [InlineKeyboardButton("📞 District Hospital", callback_data="call_03595250823")],
+                [InlineKeyboardButton("🏥 Health Emergency Details", callback_data="emergency_health")],
+                [InlineKeyboardButton("🔙 Back to Emergency Menu", callback_data="emergency")],
+                [InlineKeyboardButton("🏠 Main Menu", callback_data="main_menu")]
+            ]
+            
+        elif service_type == "health":
+            response_text = """🏥 **HEALTH RELATED SERVICES**
+
+Please select your location to get the right health emergency contact:
+
+**Available Locations:**
+• District Hospital (Gyalshing HQ)
+• Yuksom PHC
+• Dentam PHC
+• Tashiding PHC
+
+Select your location for specific contact details:"""
+            
+            keyboard = [
+                [InlineKeyboardButton("🏥 District Hospital (Gyalshing HQ)", callback_data="emergency_health_district")],
+                [InlineKeyboardButton("🏔️ Yuksom PHC", callback_data="emergency_health_yuksom")],
+                [InlineKeyboardButton("🌾 Dentam PHC", callback_data="emergency_health_dentam")],
+                [InlineKeyboardButton("🌄 Tashiding PHC", callback_data="emergency_health_tashiding")],
+                [InlineKeyboardButton("🔙 Back to Emergency Menu", callback_data="emergency")],
+                [InlineKeyboardButton("🏠 Main Menu", callback_data="main_menu")]
+            ]
+            
+        elif service_type == "police":
+            response_text = """🚓 **POLICE HELPLINE**
+
+**📞 Police Emergency:** 100
+**📞 Police Control Room (Gyalshing):** 03595-251074, 77978-82838
+
+For complaints of theft, assault, threat, missing person, or any criminal activity. Quick dispatch of nearest patrol vehicle.
+
+**Local Police Stations:**
+• Geyzing Police Station: 81458-87528
+• Dentam Police Station: 97759-79366
+• Uttarey Police Station: 79081-18656
+
+Call respective stations for area-based incidents or verification needs."""
+            
+            keyboard = [
+                [InlineKeyboardButton("📞 Call Police (100)", callback_data="call_100")],
+                [InlineKeyboardButton("📞 Control Room", callback_data="call_03595251074")],
+                [InlineKeyboardButton("📞 Geyzing Police Station", callback_data="call_8145887528")],
+                [InlineKeyboardButton("📞 Dentam Police Station", callback_data="call_9775979366")],
+                [InlineKeyboardButton("📞 Uttarey Police Station", callback_data="call_7908118656")],
+                [InlineKeyboardButton("🔙 Back to Emergency Menu", callback_data="emergency")],
+                [InlineKeyboardButton("🏠 Main Menu", callback_data="main_menu")]
+            ]
+            
+        elif service_type == "mental_health":
+            response_text = """🧠 **MENTAL HEALTH HELPLINE**
+
+**📞 Tele-MANAS Toll-Free Helpline:** 14416
+Free, 24x7 government counselling for stress, anxiety, depression, substance use, or suicidal thoughts. Available in 20+ languages.
+
+**📞 Sikkim Suicide Prevention & Mental Health Helpline**
+• 1800-345-3225
+• 03592-20211
+
+Trained counsellors provide confidential emotional support. No registration or ID needed.
+
+**Ideal for students, youth, women, or anyone in emotional distress.**"""
+            
+            keyboard = [
+                [InlineKeyboardButton("📞 Tele-MANAS (14416)", callback_data="call_14416")],
+                [InlineKeyboardButton("📞 Suicide Prevention (1800-345-3225)", callback_data="call_18003453225")],
+                [InlineKeyboardButton("📞 Sikkim Helpline (03592-20211)", callback_data="call_0359220211")],
+                [InlineKeyboardButton("🔙 Back to Emergency Menu", callback_data="emergency")],
+                [InlineKeyboardButton("🏠 Main Menu", callback_data="main_menu")]
+            ]
+            
+        elif service_type == "control_room":
+            response_text = """🚨 **DISTRICT CONTROL ROOM (DISASTER MANAGEMENT)**
+
+**📞 Disaster Reporting – Gyalshing HQ:** 03595-250633
+**📞 Nodal Officer – Ganesh Rai:** 96093-45119
+
+For reporting landslides, blocked roads, floods, house collapses, or requesting evacuation/shelter. Staffed 24x7 during monsoon and alerts.
+
+**Emergency Response Services:**
+• Disaster reporting and coordination
+• Evacuation assistance
+• Shelter arrangements
+• Road clearance coordination
+• Emergency supplies distribution"""
+            
+            keyboard = [
+                [InlineKeyboardButton("📞 Disaster Reporting", callback_data="call_03595250633")],
+                [InlineKeyboardButton("📞 Nodal Officer", callback_data="call_9609345119")],
+                [InlineKeyboardButton("🔙 Back to Emergency Menu", callback_data="emergency")],
+                [InlineKeyboardButton("🏠 Main Menu", callback_data="main_menu")]
+            ]
+            
+        elif service_type == "women_child":
+            response_text = """👩‍🦰 **WOMEN / CHILD HELPLINE**
+
+**📞 Women in Distress Helpline (One Stop Centre):** 181 (24x7)
+**📞 Childline (Emergency for Minors):** 1098
+**📞 Police Emergency (Women & Children):** 100
+
+For reporting domestic violence, child abuse, harassment, abandonment, trafficking, or family disputes.
+
+**Services Available:**
+• 24x7 emergency response
+• Legal assistance
+• Medical support
+• Shelter arrangements
+• Counselling services"""
+            
+            keyboard = [
+                [InlineKeyboardButton("📞 Women Helpline (181)", callback_data="call_181")],
+                [InlineKeyboardButton("📞 Childline (1098)", callback_data="call_1098")],
+                [InlineKeyboardButton("📞 Police Emergency (100)", callback_data="call_100")],
+                [InlineKeyboardButton("🔙 Back to Emergency Menu", callback_data="emergency")],
+                [InlineKeyboardButton("🏠 Main Menu", callback_data="main_menu")]
+            ]
+            
+        elif service_type == "tourism":
+            response_text = """🧭 **TOURISM ASSISTANCE**
+
+**📞 Pelling Tourist Information Centre:** 73187-14900
+
+For help with local travel issues, missing items, safety concerns, medical assistance for tourists, or guidance on trekking/routing.
+
+**Services Available:**
+• Tourist information and guidance
+• Emergency assistance for tourists
+• Lost and found services
+• Safety and security support
+• Medical assistance coordination
+• Trekking and routing guidance"""
+            
+            keyboard = [
+                [InlineKeyboardButton("📞 Tourist Information Centre", callback_data="call_7318714900")],
+                [InlineKeyboardButton("🔙 Back to Emergency Menu", callback_data="emergency")],
+                [InlineKeyboardButton("🏠 Main Menu", callback_data="main_menu")]
+            ]
+            
+        else:
+            # Default to ambulance for general emergency
+            response_text = """🚑 **EMERGENCY SERVICES**
+
+**For immediate medical emergency:**
+• Call 102 or 108 for ambulance
+• Call 100 for police
+• Call 101 for fire
+
+**District Hospital:** 03595-250823
+
+Please select a specific emergency service from the menu above."""
+            
+            keyboard = [
+                [InlineKeyboardButton("📞 Call Ambulance (102)", callback_data="call_102")],
+                [InlineKeyboardButton("📞 Call Police (100)", callback_data="call_100")],
+                [InlineKeyboardButton("📞 Call Fire (101)", callback_data="call_101")],
+                [InlineKeyboardButton("🔙 Back to Emergency Menu", callback_data="emergency")],
+                [InlineKeyboardButton("🏠 Main Menu", callback_data="main_menu")]
+            ]
+        
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await update.callback_query.edit_message_text(
+            response_text,
+            reply_markup=reply_markup,
+            parse_mode='Markdown'
+        )
+
+    async def handle_emergency_health_location(self, update: Update, context: ContextTypes.DEFAULT_TYPE, location: str):
+        """Handle health emergency location selection"""
+        user_id = update.effective_user.id
+        user_lang = self._get_user_language(user_id)
+        
+        if location == "district":
+            response_text = """🏥 **District Hospital (Gyalshing HQ)**
+
+📍 **District Hospital, Gyalshing**
+
+👨‍⚕️ **Chief Medical Officer:** Dr. Namgay Bhutia – 📞 94341-84389
+👨‍⚕️ **District Medical Superintendent:** Dr. Nim Norbu Bhuatia – 📞 95939-86069
+
+🚑 **Ambulance Drivers (HQ)**
+• Raj Kr Chettri – 📞 96478-80775
+• Ganesh Subedi – 📞 99326-27198
+• Rajesh Gurung – 📞 97334-73753
+• Bikram Rai – 📞 74785-83708
+
+📌 Call for urgent medical emergencies, admissions, or ambulance transport."""
+            
+            keyboard = [
+                [InlineKeyboardButton("📞 CMO Office", callback_data="call_9434184389")],
+                [InlineKeyboardButton("📞 DMS Office", callback_data="call_9593986069")],
+                [InlineKeyboardButton("📞 District Hospital", callback_data="call_03595250823")],
+                [InlineKeyboardButton("🔙 Back to Health Emergency", callback_data="emergency_health")],
+                [InlineKeyboardButton("🔙 Back to Emergency Menu", callback_data="emergency")],
+                [InlineKeyboardButton("🏠 Main Menu", callback_data="main_menu")]
+            ]
+            
+        elif location == "yuksom":
+            response_text = """🏔️ **Yuksom PHC**
+
+📍 **Yuksom PHC**
+
+👨‍⚕️ **Medical Officer In-Charge:** Dr. Biswas Basnet – 📞 70296-52289 / 81169-05440
+🚑 **Ambulance Driver (102):** Prem Gurung – 📞 74793-56022
+
+👩‍⚕️ **Health Workers (HWC/SC - Yuksom PHC region):**
+• Nisha Hangma Limboo – Gerethang HWC-SC – 📞 83378-58563
+• Tonzy Hangma Limboo – Thingling HWC-SC – 📞 97330-76496
+• Doma Lepcha – Melli Aching HWC-SC – 📞 76248-84889
+• Mingma Doma Bhutia – Darap HWC-SC – 📞 75850-04972
+• Tenzing Bhutia – Pelling HWC-SC – 📞 76022-39073
+• Wynee Rai – Nambu HWC-SC – 📞 93826-80108
+• Kaveri Rai – Rimbi HWC-SC – 📞 81452-74136
+• Yanki Bhutia – Yuksom HWC-SC – 📞 96470-78918
+
+📌 You may contact your nearest health worker or ambulance driver for any local emergency."""
+            
+            keyboard = [
+                [InlineKeyboardButton("📞 Medical Officer", callback_data="call_7029652289")],
+                [InlineKeyboardButton("📞 Ambulance Driver", callback_data="call_7479356022")],
+                [InlineKeyboardButton("🔙 Back to Health Emergency", callback_data="emergency_health")],
+                [InlineKeyboardButton("🔙 Back to Emergency Menu", callback_data="emergency")],
+                [InlineKeyboardButton("🏠 Main Menu", callback_data="main_menu")]
+            ]
+            
+        elif location == "dentam":
+            response_text = """🌾 **Dentam PHC**
+
+📍 **Dentam PHC**
+
+👨‍⚕️ **Medical Officer In-Charge:** Dr. Ashim Basnett – 📞 74077-77138
+🚑 **Ambulance (102) Driver:** Uttam Basnett – 📞 77973-79779
+
+👩‍⚕️ **Health Workers (HWC/SC - Dentam PHC region):**
+• Sangita Chettri – Yangsum HWC-SC – 📞 95933-78780
+• Chamdra Maya Rai – Bermiok HWC-SC – 📞 74775-24613
+• Dukmit Lepcha – Hee HWC-SC – 📞 77970-03965
+• Manita Subba – Khandu HWC-SC – 📞 76027-61162
+• Palmu Bhutia – Lingchom HWC-SC – 📞 81010-77806
+• Panita Rai – Uttarey HWC-SC – 📞 99162-92835
+
+📌 Dial the ambulance or nearest CHO/MLHP for assistance in the Dentam area."""
+            
+            keyboard = [
+                [InlineKeyboardButton("📞 Medical Officer", callback_data="call_7407777138")],
+                [InlineKeyboardButton("📞 Ambulance Driver", callback_data="call_7797379779")],
+                [InlineKeyboardButton("🔙 Back to Health Emergency", callback_data="emergency_health")],
+                [InlineKeyboardButton("🔙 Back to Emergency Menu", callback_data="emergency")],
+                [InlineKeyboardButton("🏠 Main Menu", callback_data="main_menu")]
+            ]
+            
+        elif location == "tashiding":
+            response_text = """🌄 **Tashiding PHC**
+
+📍 **Tashiding PHC**
+
+👩‍⚕️ **Medical Officer In-Charge:** Dr. Neelam – 📞 81458-17453
+🚑 **Ambulance Driver:** Chogyal Tshering Bhutia – 📞 95933-76420
+
+👩‍⚕️ **Health Workers (HWC/SC - Tashiding area):**
+• Kawshila Subba – Karzee HWC-SC – 📞 97323-14036
+• Mingma Doma Bhutia – Kongri HWC-SC – 📞 96791-94237
+• Dechen Ongmu Bhutia – Gangyap HWC-SC – 📞 74329-94864
+• Pema Choden Lepcha – Legship HWC-SC – 📞 83728-34849
+• Smriti Rai – Sakyong HWC-SC – 📞 77193-17484
+• Wangchuk Bhutia – Naku Chumbung HWC-SC – 📞 62974-22751
+• Pema Choden Bhutia – Naku Chumbung HWC-SC – 📞 79088-30759
+
+📌 For remote areas, directly call the health worker responsible for your HWC or SC."""
+            
+            keyboard = [
+                [InlineKeyboardButton("📞 Medical Officer", callback_data="call_8145817453")],
+                [InlineKeyboardButton("📞 Ambulance Driver", callback_data="call_9593376420")],
+                [InlineKeyboardButton("🔙 Back to Health Emergency", callback_data="emergency_health")],
+                [InlineKeyboardButton("🔙 Back to Emergency Menu", callback_data="emergency")],
+                [InlineKeyboardButton("🏠 Main Menu", callback_data="main_menu")]
+            ]
+            
+        else:
+            response_text = """🏥 **Health Emergency**
+
+Please select a specific health facility location for detailed contact information."""
+            
+            keyboard = [
+                [InlineKeyboardButton("🔙 Back to Health Emergency", callback_data="emergency_health")],
                 [InlineKeyboardButton("🔙 Back to Emergency Menu", callback_data="emergency")],
                 [InlineKeyboardButton("🏠 Main Menu", callback_data="main_menu")]
             ]
@@ -2817,9 +3184,7 @@ Please select an option:
 3. Return to main menu"""
         await update.callback_query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='Markdown')
 
-    async def handle_csc_selection(self, update: Update, context: ContextTypes.DEFAULT_TYPE, district: str):
-        # This will be used for finding nearest CSC
-        await update.callback_query.edit_message_text("CSC selection functionality coming soon!", parse_mode='Markdown')
+    # Removed old handle_csc_selection function - now handled by contacts menu
 
     async def handle_certificate_info(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle certificate services information"""
@@ -3497,8 +3862,28 @@ Please select your block to find the nearest CSC operator:"""
         user_id = update.effective_user.id
         state = self._get_user_state(user_id)
         
-        if state.get("workflow") != "scheme_csc_application":
+        print(f"DEBUG: handle_csc_block_selection called with block_index: {block_index}")
+        print(f"DEBUG: User state: {state}")
+        
+        # Check if this is for scheme application or contacts search
+        workflow = state.get("workflow")
+        print(f"DEBUG: Workflow: {workflow}")
+        
+        if workflow == "scheme_csc_application":
+            print(f"DEBUG: Calling _handle_scheme_csc_block_selection")
+            await self._handle_scheme_csc_block_selection(update, context, block_index)
+        elif workflow == "csc_search":
+            print(f"DEBUG: Calling _handle_contacts_csc_block_selection")
+            await self._handle_contacts_csc_block_selection(update, context, block_index)
+        else:
+            print(f"DEBUG: Invalid workflow: {workflow}")
+            await update.callback_query.answer("Invalid workflow")
             return
+
+    async def _handle_scheme_csc_block_selection(self, update: Update, context: ContextTypes.DEFAULT_TYPE, block_index: str):
+        """Handle block selection for scheme CSC application"""
+        user_id = update.effective_user.id
+        state = self._get_user_state(user_id)
         
         # Get the actual block name from the index
         available_blocks = state.get("available_blocks", [])
@@ -3575,6 +3960,207 @@ Please select your GPU (Gram Panchayat Unit):"""
         # Store GPUs in user state for later reference
         state["available_gpus"] = block_gpus
         self._set_user_state(user_id, state)
+        
+        keyboard.append([InlineKeyboardButton("🔙 Back to Schemes", callback_data="schemes")])
+        
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+
+    async def handle_contacts_csc_block_selection(self, update: Update, context: ContextTypes.DEFAULT_TYPE, block_index: str):
+        """Handle contacts CSC block selection and show GPU selection"""
+        print(f"DEBUG: handle_contacts_csc_block_selection called with block_index: {block_index}")
+        user_id = update.effective_user.id
+        state = self._get_user_state(user_id)
+        print(f"DEBUG: User ID: {user_id}")
+        print(f"DEBUG: Current state: {state}")
+        
+        # Available blocks for CSC search
+        available_blocks = [
+            "Yuksam",
+            "Gyalshing", 
+            "Dentam",
+            "Hee Martam",
+            "Arithang Chongrang",
+            "Gyalshing Municipal Council"
+        ]
+        
+        try:
+            block_index = int(block_index)
+            block_name = available_blocks[block_index]
+        except (ValueError, IndexError):
+            await update.callback_query.answer("Invalid block selection")
+            return
+        
+        # Update state with selected block
+        state["block"] = block_name
+        state["step"] = "gpu_selection"
+        self._set_user_state(user_id, state)
+        
+        # Get GPUs for the selected block from CSC details
+        # Map block names from bot format to CSC details format
+        block_mapping = {
+            'Arithang Chongrang': 'Chongrang',
+            'Dentam': 'Dentam', 
+            'Gyalshing': 'Gyalshing',
+            'Yuksam': 'Yuksam',
+            'Hee Martam': 'Hee Martam',
+            'Gyalshing Municipal Council': 'Gyalshing Municipal Council'
+        }
+        
+        # Get the correct block name for CSC details
+        csc_block_name = block_mapping.get(block_name, block_name)
+        
+        # Get GPUs from CSC details for this block - use case-insensitive matching
+        block_gpus = self.csc_details_df[
+            self.csc_details_df['BLOCK'].str.lower() == csc_block_name.lower()
+        ]['GPU Name'].dropna().unique().tolist()
+        
+        # If no exact match found, try partial matching
+        if not block_gpus:
+            block_gpus = self.csc_details_df[
+                self.csc_details_df['BLOCK'].str.contains(csc_block_name, case=False, na=False, regex=False)
+            ]['GPU Name'].dropna().unique().tolist()
+        
+        # Clean GPU names by removing leading digits and dots
+        cleaned_gpus = []
+        for gpu in block_gpus:
+            # Remove leading digits and dots (e.g., "19. SARDONG LUNGZICK" -> "SARDONG LUNGZICK")
+            cleaned_gpu = re.sub(r'^\d+\.\s*', '', gpu.strip())
+            cleaned_gpus.append(cleaned_gpu)
+        
+        block_gpus = sorted(cleaned_gpus)
+        
+        if not block_gpus:
+            text = f"""❌ **No GPUs Found**
+
+No GPUs found for block: **{block_name}**
+
+Please try a different block or contact support."""
+            keyboard = [
+                [InlineKeyboardButton("🔙 Back to Blocks", callback_data="contacts_csc")],
+                [InlineKeyboardButton("🔙 Back to Contacts", callback_data="contacts")]
+            ]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+            return
+        
+        text = f"""✅ **Know Your CSC Operator**
+
+**Selected Block:** {block_name}
+
+**Step 2: GPU Selection**
+                
+Please select your GPU (Gram Panchayat Unit):"""
+        
+        # Create keyboard with GPUs
+        keyboard = []
+        for i, gpu in enumerate(block_gpus):
+            keyboard.append([InlineKeyboardButton(gpu, callback_data=f"contacts_csc_gpu_{i}")])
+        
+        # Store GPUs in user state for later reference
+        state["available_gpus"] = block_gpus
+        self._set_user_state(user_id, state)
+        
+        keyboard.append([InlineKeyboardButton("🔙 Back to Blocks", callback_data="contacts_csc")])
+        keyboard.append([InlineKeyboardButton("🔙 Back to Contacts", callback_data="contacts")])
+        
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+
+    async def handle_contacts_csc_gpu_selection(self, update: Update, context: ContextTypes.DEFAULT_TYPE, gpu_index: str):
+        """Handle GPU selection for contacts CSC search and show CSC operator details"""
+        user_id = update.effective_user.id
+        state = self._get_user_state(user_id)
+        
+        # Get the actual GPU name from the index
+        available_gpus = state.get("available_gpus", [])
+        print(f"DEBUG: Available GPUs: {available_gpus}")
+        print(f"DEBUG: GPU index: {gpu_index}")
+        
+        try:
+            gpu_index = int(gpu_index)
+            gpu_name = available_gpus[gpu_index]
+            print(f"DEBUG: Selected GPU: {gpu_name}")
+        except (ValueError, IndexError) as e:
+            print(f"DEBUG: Error in GPU selection: {e}")
+            await update.callback_query.answer("Invalid GPU selection")
+            return
+        
+        # Get block name from state
+        block_name = state.get("block", "Unknown")
+        
+        # Get CSC operator details from CSC details dataframe
+        # First, try to find the GPU in the dataframe
+        csc_operator = None
+        
+        # Map block names for CSC details lookup
+        block_mapping = {
+            'Arithang Chongrang': 'Chongrang',
+            'Dentam': 'Dentam', 
+            'Gyalshing': 'Gyalshing',
+            'Yuksam': 'Yuksam',
+            'Hee Martam': 'Hee Martam',
+            'Gyalshing Municipal Council': 'Gyalshing Municipal Council'
+        }
+        
+        csc_block_name = block_mapping.get(block_name, block_name)
+        
+        # Search for the GPU in the CSC details
+        gpu_matches = self.csc_details_df[
+            (self.csc_details_df['BLOCK'].str.lower() == csc_block_name.lower()) &
+            (self.csc_details_df['GPU Name'].str.contains(gpu_name, case=False, na=False, regex=False))
+        ]
+        
+        if not gpu_matches.empty:
+            # Get the first match
+            csc_operator = gpu_matches.iloc[0]
+        
+        # Display CSC operator details
+        if csc_operator is not None:
+            operator_name = csc_operator.get('CSC Operator Name', 'Not Available')
+            operator_phone = csc_operator.get('CSC Operator Phone', 'Not Available')
+            single_window = csc_operator.get('Single Window', 'Not Available')
+            subdivision = csc_operator.get('Subdivision', 'Not Available')
+            
+            text = f"""✅ **CSC Operator Details**
+
+**Block:** {block_name}
+**GPU:** {gpu_name}
+
+👤 **Name:** {operator_name}
+📞 **Phone:** {operator_phone}
+🏢 **Single Window:** {single_window}
+🏛️ **Subdivision:** {subdivision}
+
+**He/She will assist you with online services and certificates.**
+
+**Services Available:**
+• Certificate applications
+• Government scheme applications
+• Document verification
+• Online service assistance
+• Payment processing"""
+            
+            keyboard = [
+                [InlineKeyboardButton("📞 Call CSC Operator", callback_data=f"call_csc_{operator_phone}")],
+                [InlineKeyboardButton("🔙 Back to GPUs", callback_data="contacts_csc")],
+                [InlineKeyboardButton("🔙 Back to Contacts", callback_data="contacts")]
+            ]
+        else:
+            text = f"""❌ **CSC Operator Not Found**
+
+**Block:** {block_name}
+**GPU:** {gpu_name}
+
+Sorry, we couldn't find CSC operator details for this GPU. Please try selecting a different GPU or contact the block office directly."""
+            
+            keyboard = [
+                [InlineKeyboardButton("🔙 Back to GPUs", callback_data="contacts_csc")],
+                [InlineKeyboardButton("🔙 Back to Contacts", callback_data="contacts")]
+            ]
+        
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
         
         keyboard.append([InlineKeyboardButton("🔙 Back to Blocks", callback_data="scheme_csc_back_to_blocks")])
         keyboard.append([InlineKeyboardButton("🔙 Back to Schemes", callback_data="schemes")])
@@ -3862,103 +4448,349 @@ Sorry, there was an error submitting your application. Please try again or conta
         self._clear_user_state(user_id)
 
     async def handle_contacts_menu(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle important contacts menu"""
+        """Handle Know Key Contact menu"""
         user_id = update.effective_user.id
         user_lang = self._get_user_language(user_id)
         
+        contacts_text = """📞 **Know Key Contact**
+
+Select one of the options below to get contact details:
+
+✅ **1. Know Your CSC Operator**
+Details for Smart Govt Assistant
+→ Show BLOCK MENU
+→ Show GPU MENU
+Output: Name – [CSC Operator Name], Phone – [Contact Number]
+He/She will assist you with online services and certificates.
+
+🗳️ **2. Know Your BLO (Booth Level Officer)**
+Details for Smart Govt Assistant
+Find the BLO responsible for your polling booth to help with voter ID, electoral roll queries, etc.
+Show: Select your Assembly Constituency
+Then: Display Polling Booth list from Database
+Output: YOUR BOOTH LEVEL OFFICER DETAILS ARE
+Name – [BLO Name], Phone – [Contact Number]
+Contact for voter-related services, corrections, additions.
+
+🆔 **3. Know Aadhar Operator**
+Get your Aadhaar-related services such as:
+✅ New Aadhaar Enrollment (Age 5+ & Adults)
+✏️ Update Name, Address, DOB, Mobile
+🔄 Biometric Updates (Photo, Fingerprint, Iris)
+🧾 Reprint / Download Aadhaar PDF
+📱 Link Aadhaar with Mobile Number / Bank Account
+
+📍 Aadhaar Kendras and Contacts:
+🏢 Yuksam SDM Office
+👩‍💼 Contact Person: Pema
+📞 Phone: 9564442624
+🏢 Dentam SDM Office
+👨‍💼 Contact Person: Rajen Sharma
+📞 Phone: 9733140036"""
+        
         keyboard = [
-            [InlineKeyboardButton("🏛️ Find CSC Operator", callback_data="contacts_csc")],
-            [InlineKeyboardButton("👤 Find BLO (Booth Level Officer)", callback_data="contacts_blo")],
-            [InlineKeyboardButton("🆔 Aadhar Services", callback_data="contacts_aadhar")],
-            [InlineKeyboardButton(self.responses[user_lang]['back_main_menu'], callback_data="main_menu")]
+            [InlineKeyboardButton("✅ Know Your CSC", callback_data="contacts_csc")],
+            [InlineKeyboardButton("🗳️ Know Your BLO", callback_data="contacts_blo")],
+            [InlineKeyboardButton("🆔 Know Aadhar Operator", callback_data="contacts_aadhar")],
+            [InlineKeyboardButton("🔙 Main Menu", callback_data="main_menu")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
         if update.callback_query:
-            await update.callback_query.edit_message_text(
-                self.responses[user_lang]['contacts_info'],
-                reply_markup=reply_markup,
-                parse_mode='Markdown'
-            )
+            await update.callback_query.edit_message_text(contacts_text, reply_markup=reply_markup, parse_mode='Markdown')
         else:
-            await update.message.reply_text(
-                self.responses[user_lang]['contacts_info'],
-                reply_markup=reply_markup,
-                parse_mode='Markdown'
-            )
+            await update.message.reply_text(contacts_text, reply_markup=reply_markup, parse_mode='Markdown')
 
     async def handle_csc_search(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle enhanced CSC search by GPU, ward, or constituency"""
+        """Handle CSC search - show block menu first"""
         user_id = update.effective_user.id
         user_lang = self._get_user_language(user_id)
         
+        # Set state for CSC search workflow
         self._set_user_state(user_id, {
             "workflow": "csc_search",
-            "step": "gpu_input"
+            "step": "block_selection"
         })
         
-        keyboard = [[InlineKeyboardButton(
-            self.responses[user_lang]['back_main_menu'],
-            callback_data="main_menu"
-        )]]
+        # Available blocks for CSC search
+        available_blocks = [
+            "Yuksam",
+            "Gyalshing", 
+            "Dentam",
+            "Hee Martam",
+            "Arithang Chongrang",
+            "Gyalshing Municipal Council"
+        ]
+        
+        text = """✅ **Know Your CSC Operator**
+
+**Step 1: Block Selection**
+                
+Please choose your block:"""
+        
+        # Create keyboard with blocks
+        keyboard = []
+        for i, block in enumerate(available_blocks):
+            keyboard.append([InlineKeyboardButton(block, callback_data=f"csc_block_{i}")])
+        
+        keyboard.append([InlineKeyboardButton("🔙 Back to Contacts", callback_data="contacts")])
         reply_markup = InlineKeyboardMarkup(keyboard)
         
-        search_prompt = """🔍 **Enhanced CSC Search**
-
-You can search for CSC operators using:
-
-**1. GPU Name** (e.g., "Karzi Mangnam GP")
-**2. Ward Name** (e.g., "Mangder", "Tashiding")
-**3. Constituency Name** (e.g., "KARZI MANGNAM")
-
-Please enter your GPU name, ward name, or constituency name:"""
-        
-        await update.callback_query.edit_message_text(
-            search_prompt,
-            reply_markup=reply_markup,
-            parse_mode='Markdown'
-        )
+        if update.callback_query:
+            await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+        else:
+            await update.message.reply_text(text, reply_markup=reply_markup, parse_mode='Markdown')
 
     async def handle_blo_search(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle BLO search by polling station"""
+        """Handle BLO search - show assembly constituency selection"""
         user_id = update.effective_user.id
         user_lang = self._get_user_language(user_id)
         
+        # Set state for BLO search workflow
         self._set_user_state(user_id, {
             "workflow": "blo_search",
-            "step": "polling_station"
+            "step": "constituency_selection"
         })
         
-        keyboard = [[InlineKeyboardButton(
-            self.responses[user_lang]['back_main_menu'],
-            callback_data="main_menu"
-        )]]
+        # Available assembly constituencies
+        constituencies = [
+            "1-YUKSOM TASHIDING",
+            "02-YANGTHANG",
+            "03-Maneybong Dentam", 
+            "04-Gyalshing Bernyak"
+        ]
+        
+        text = """🗳️ **Know Your BLO (Booth Level Officer)**
+
+**Step 1: Assembly Constituency Selection**
+                
+Please select your Assembly Constituency:"""
+        
+        # Create keyboard with constituencies
+        keyboard = []
+        for i, constituency in enumerate(constituencies):
+            keyboard.append([InlineKeyboardButton(constituency, callback_data=f"blo_constituency_{i}")])
+        
+        keyboard.append([InlineKeyboardButton("🔙 Back to Contacts", callback_data="contacts")])
         reply_markup = InlineKeyboardMarkup(keyboard)
         
-        await update.callback_query.edit_message_text(
-            "Please enter your polling station name to find your BLO:",
-            reply_markup=reply_markup,
-            parse_mode='Markdown'
-        )
+        if update.callback_query:
+            await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+        else:
+            await update.message.reply_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+
+    async def handle_blo_constituency_selection(self, update: Update, context: ContextTypes.DEFAULT_TYPE, constituency_index: str):
+        """Handle BLO constituency selection and show polling booth list"""
+        user_id = update.effective_user.id
+        user_lang = self._get_user_language(user_id)
+        
+        # Available assembly constituencies
+        constituencies = [
+            "1-YUKSOM TASHIDING",
+            "02-YANGTHANG",
+            "03-Maneybong Dentam", 
+            "04-Gyalshing Bernyak"
+        ]
+        
+        try:
+            constituency_index = int(constituency_index)
+            selected_constituency = constituencies[constituency_index]
+        except (ValueError, IndexError):
+            await update.callback_query.answer("Invalid constituency selection")
+            return
+        
+        # Set state for BLO search workflow
+        state = self._get_user_state(user_id)
+        state["selected_constituency"] = selected_constituency
+        state["step"] = "polling_booth_selection"
+        self._set_user_state(user_id, state)
+        
+        # Mock polling booth data - in real implementation, this would come from database
+        polling_booths = {
+            "1-YUKSOM TASHIDING": [
+                "Yuksom Primary School",
+                "Tashiding Monastery",
+                "Pelling Higher Secondary School",
+                "Geyzing Senior Secondary School"
+            ],
+            "02-YANGTHANG": [
+                "Yangthang Primary School",
+                "Dentam Secondary School",
+                "Hee Martam Primary School",
+                "Arithang Chongrang School"
+            ],
+            "03-Maneybong Dentam": [
+                "Maneybong Primary School",
+                "Dentam Higher Secondary",
+                "Bermiok Primary School",
+                "Hee Primary School"
+            ],
+            "04-Gyalshing Bernyak": [
+                "Gyalshing Senior Secondary",
+                "Bernyak Primary School",
+                "Gyalshing Municipal Council",
+                "Gyalshing Police Station"
+            ]
+        }
+        
+        booths = polling_booths.get(selected_constituency, ["No polling booths found"])
+        
+        text = f"""🗳️ **Know Your BLO (Booth Level Officer)**
+
+**Selected Constituency:** {selected_constituency}
+
+**Step 2: Polling Booth Selection**
+                
+Please select your polling booth:"""
+        
+        # Create keyboard with polling booths
+        keyboard = []
+        for i, booth in enumerate(booths):
+            keyboard.append([InlineKeyboardButton(booth, callback_data=f"blo_booth_{i}")])
+        
+        keyboard.append([InlineKeyboardButton("🔙 Back to Constituencies", callback_data="contacts_blo")])
+        keyboard.append([InlineKeyboardButton("🔙 Back to Contacts", callback_data="contacts")])
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        if update.callback_query:
+            await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+        else:
+            await update.message.reply_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+
+    async def handle_blo_booth_selection(self, update: Update, context: ContextTypes.DEFAULT_TYPE, booth_index: str):
+        """Handle BLO polling booth selection and show BLO details"""
+        user_id = update.effective_user.id
+        user_lang = self._get_user_language(user_id)
+        
+        # Get state to retrieve selected constituency
+        state = self._get_user_state(user_id)
+        selected_constituency = state.get("selected_constituency", "Unknown")
+        
+        # Mock BLO data - in real implementation, this would come from database
+        blo_data = {
+            "1-YUKSOM TASHIDING": {
+                "Yuksom Primary School": {"name": "Dorjee Bhutia", "phone": "9876543210"},
+                "Tashiding Monastery": {"name": "Pema Wangchuk", "phone": "9876543211"},
+                "Pelling Higher Secondary School": {"name": "Sonam Lepcha", "phone": "9876543212"},
+                "Geyzing Senior Secondary School": {"name": "Tenzin Bhutia", "phone": "9876543213"}
+            },
+            "02-YANGTHANG": {
+                "Yangthang Primary School": {"name": "Karma Sherpa", "phone": "9876543214"},
+                "Dentam Secondary School": {"name": "Mingma Tamang", "phone": "9876543215"},
+                "Hee Martam Primary School": {"name": "Dawa Bhutia", "phone": "9876543216"},
+                "Arithang Chongrang School": {"name": "Pemba Sherpa", "phone": "9876543217"}
+            },
+            "03-Maneybong Dentam": {
+                "Maneybong Primary School": {"name": "Rinzing Bhutia", "phone": "9876543218"},
+                "Dentam Higher Secondary": {"name": "Tashi Wangdi", "phone": "9876543219"},
+                "Bermiok Primary School": {"name": "Karma Dorjee", "phone": "9876543220"},
+                "Hee Primary School": {"name": "Sonam Gyatso", "phone": "9876543221"}
+            },
+            "04-Gyalshing Bernyak": {
+                "Gyalshing Senior Secondary": {"name": "Pema Dorjee", "phone": "9876543222"},
+                "Bernyak Primary School": {"name": "Tenzin Wangchuk", "phone": "9876543223"},
+                "Gyalshing Municipal Council": {"name": "Karma Tshering", "phone": "9876543224"},
+                "Gyalshing Police Station": {"name": "Dawa Sherpa", "phone": "9876543225"}
+            }
+        }
+        
+        # Get polling booth name from state or use index
+        polling_booths = {
+            "1-YUKSOM TASHIDING": [
+                "Yuksom Primary School",
+                "Tashiding Monastery",
+                "Pelling Higher Secondary School",
+                "Geyzing Senior Secondary School"
+            ],
+            "02-YANGTHANG": [
+                "Yangthang Primary School",
+                "Dentam Secondary School",
+                "Hee Martam Primary School",
+                "Arithang Chongrang School"
+            ],
+            "03-Maneybong Dentam": [
+                "Maneybong Primary School",
+                "Dentam Higher Secondary",
+                "Bermiok Primary School",
+                "Hee Primary School"
+            ],
+            "04-Gyalshing Bernyak": [
+                "Gyalshing Senior Secondary",
+                "Bernyak Primary School",
+                "Gyalshing Municipal Council",
+                "Gyalshing Police Station"
+            ]
+        }
+        
+        try:
+            booth_index = int(booth_index)
+            booths = polling_booths.get(selected_constituency, [])
+            selected_booth = booths[booth_index]
+            
+            # Get BLO details
+            constituency_blo_data = blo_data.get(selected_constituency, {})
+            blo_details = constituency_blo_data.get(selected_booth, {"name": "Not Available", "phone": "Not Available"})
+            
+        except (ValueError, IndexError):
+            await update.callback_query.answer("Invalid booth selection")
+            return
+        
+        # Display BLO details
+        text = f"""📲 **YOUR BOOTH LEVEL OFFICER DETAILS ARE**
+
+**Constituency:** {selected_constituency}
+**Polling Booth:** {selected_booth}
+
+👤 **Name:** {blo_details['name']}
+📞 **Phone:** {blo_details['phone']}
+
+**Contact for voter-related services, corrections, additions.**
+
+**Services Available:**
+• Voter ID card issues
+• Electoral roll corrections
+• New voter registration
+• Address updates
+• Polling booth information"""
+        
+        keyboard = [
+            [InlineKeyboardButton("📞 Call BLO", callback_data=f"call_blo_{blo_details['phone']}")],
+            [InlineKeyboardButton("🔙 Back to Booths", callback_data="blo_constituency_0")],
+            [InlineKeyboardButton("🔙 Back to Contacts", callback_data="contacts")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        if update.callback_query:
+            await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+        else:
+            await update.message.reply_text(text, reply_markup=reply_markup, parse_mode='Markdown')
 
     async def handle_aadhar_services(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle Aadhar services information"""
         user_id = update.effective_user.id
         user_lang = self._get_user_language(user_id)
         
-        aadhar_info = """🆔 **Aadhar Services**
+        aadhar_info = """🆔 **Know Aadhar Operator**
 
-**Available Services:**
-• Aadhar Card Enrollment
-• Aadhar Card Update
-• Address Update
-• Mobile Number Update
-• Biometric Update
-• Aadhar Card Reprint
+Get your Aadhaar-related services such as:
+✅ New Aadhaar Enrollment (Age 5+ & Adults)
+✏️ Update Name, Address, DOB, Mobile
+🔄 Biometric Updates (Photo, Fingerprint, Iris)
+🧾 Reprint / Download Aadhaar PDF
+📱 Link Aadhaar with Mobile Number / Bank Account
+
+📍 **Aadhaar Kendras and Contacts:**
+🏢 Yuksam SDM Office
+👩‍💼 Contact Person: Pema
+📞 Phone: 9564442624
+
+🏢 Dentam SDM Office
+👨‍💼 Contact Person: Rajen Sharma
+📞 Phone: 9733140036
 
 **How to Apply:**
-1. Visit your nearest CSC center
-2. Contact CSC operator for assistance
+1. Visit your nearest Aadhaar Kendra
+2. Contact the operator for assistance
 3. Submit required documents
 4. Pay applicable fees
 
@@ -3966,10 +4798,7 @@ Please enter your GPU name, ward name, or constituency name:"""
 • Proof of Identity
 • Proof of Address
 • Date of Birth Certificate
-• Mobile Number (for OTP)
-
-**Contact:**
-Use the CSC search to find your nearest operator."""
+• Mobile Number (for OTP)"""
         
         keyboard = [
             [InlineKeyboardButton("📞 Find CSC Operator", callback_data="contacts_csc")],
@@ -4583,59 +5412,17 @@ Disaster Management → Check Status"""
         self._clear_user_state(user_id)
 
     async def _complete_emergency_without_location(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Complete emergency report without location"""
+        """Complete emergency report without location and show emergency services menu"""
         user_id = update.effective_user.id
         user_lang = self._get_user_language(user_id)
         
-        # Get emergency data from state
+        # Set location as "Not provided" in state
         state = self._get_user_state(user_id)
-        emergency_type = state.get("emergency_type", "General Emergency")
-        emergency_details = state.get("emergency_details", "No details provided")
+        state["location"] = "Location not provided"
+        self._set_user_state(user_id, state)
         
-        # Generate emergency ID
-        emergency_id = f"EMG{datetime.now().strftime('%Y%m%d%H%M%S')}"
-        
-        # Show success message
-        message = f"""🚨 **Emergency Report Filed Successfully!** 🚨
-
-📝 **Emergency Details**:
-• **Type**: {emergency_type}
-• **Details**: {emergency_details}
-• **Location**: Not provided
-
-🆔 **Emergency ID**: {emergency_id}
-📊 **Status**: Emergency Response Initiated
-⏰ **Reported**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
-
-🚑 **Emergency Services Contacted**:
-• Ambulance: 102/108
-• Police: 100
-• Fire: 101
-
-Your emergency has been reported. Help is on the way!"""
-        
-        await update.message.reply_text(message, parse_mode='Markdown')
-        
-        # Log to Google Sheets
-        user_name = update.effective_user.first_name or "Unknown"
-        self._log_to_sheets(
-            user_id=user_id,
-            user_name=user_name,
-            interaction_type="emergency_report",
-            query_text=f"Emergency: {emergency_type} - {emergency_details}",
-            language=user_lang,
-            bot_response=f"Emergency ID: {emergency_id}",
-            emergency_type=emergency_type,
-            emergency_details=emergency_details,
-            emergency_id=emergency_id
-        )
-        
-        # Clear user state
-        self._clear_user_state(user_id)
-        
-        # Show main menu after a short delay
-        await asyncio.sleep(2)
-        await self.show_main_menu(update, context)
+        # Show emergency services menu
+        await self.show_emergency_services_menu(update, context)
 
     async def _complete_complaint_with_manual_location(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Complete complaint workflow with manual location"""
@@ -5163,6 +5950,399 @@ Please choose your block:"""
         
         keyboard.append([InlineKeyboardButton("🔙 Back", callback_data="certificate_csc")])
         keyboard.append([InlineKeyboardButton("🔙 Main Menu", callback_data="main_menu")])
+        
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+
+    # NEW SIMPLE CSC CONTACTS FUNCTIONS
+    async def handle_contacts_csc_menu(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Simple CSC contacts menu - show block selection"""
+        user_id = update.effective_user.id
+        
+        # Available blocks
+        available_blocks = [
+            "Yuksam",
+            "Gyalshing", 
+            "Dentam",
+            "Hee Martam",
+            "Arithang Chongrang",
+            "Gyalshing Municipal Council"
+        ]
+        
+        # Set state exactly like certificates
+        self._set_user_state(user_id, {
+            "workflow": "certificate_csc_application", 
+            "step": "block_selection",
+            "available_blocks": available_blocks
+        })
+        
+        text = """✅ **Know Your CSC Operator**
+
+**Step 1: Block Selection**
+
+Please choose your block:"""
+        
+        # Create keyboard with blocks
+        keyboard = []
+        for i, block in enumerate(available_blocks):
+            keyboard.append([InlineKeyboardButton(block, callback_data=f"csc_block_{i}")])
+        
+        keyboard.append([InlineKeyboardButton("🔙 Back to Contacts", callback_data="contacts")])
+        keyboard.append([InlineKeyboardButton("🔙 Main Menu", callback_data="main_menu")])
+        
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+
+    async def handle_contacts_csc_block_selection_simple(self, update: Update, context: ContextTypes.DEFAULT_TYPE, block_index: str):
+        """Simple block selection for CSC contacts"""
+        print(f"🔍 [DEBUG] handle_contacts_csc_block_selection_simple called with block_index: {block_index}")
+        
+        user_id = update.effective_user.id
+        state = self._get_user_state(user_id)
+        
+        # Available blocks
+        available_blocks = [
+            "Yuksam",
+            "Gyalshing", 
+            "Dentam",
+            "Hee Martam",
+            "Arithang Chongrang",
+            "Gyalshing Municipal Council"
+        ]
+        
+        try:
+            block_index = int(block_index)
+            block_name = available_blocks[block_index]
+            print(f"🔍 [DEBUG] Selected block: {block_name}")
+        except (ValueError, IndexError):
+            print(f"🔍 [DEBUG] Invalid block_index: {block_index}")
+            await update.callback_query.answer("Invalid block selection")
+            return
+        
+        # Update state
+        state["block"] = block_name
+        state["step"] = "gpu_selection"
+        self._set_user_state(user_id, state)
+        
+        # Map block names
+        block_mapping = {
+            'Arithang Chongrang': 'Chongrang',
+            'Dentam': 'Dentam',
+            'Gyalshing': 'Gyalshing',
+            'Yuksam': 'Yuksam',
+            'Hee Martam': 'Hee Martam',
+            'Gyalshing Municipal Council': 'Gyalshing Municipal Council'
+        }
+        
+        csc_block_name = block_mapping.get(block_name, block_name)
+        print(f"🔍 [DEBUG] Mapped block name: {csc_block_name}")
+        
+        # Get GPUs from CSV
+        block_gpus = self.csc_details_df[
+            self.csc_details_df['BLOCK'].str.lower() == csc_block_name.lower()
+        ]['GPU Name'].dropna().unique().tolist()
+        
+        print(f"🔍 [DEBUG] Found {len(block_gpus)} GPUs with exact match")
+        
+        # If no exact match, try partial matching
+        if not block_gpus:
+            block_gpus = self.csc_details_df[
+                self.csc_details_df['BLOCK'].str.contains(csc_block_name, case=False, na=False, regex=False)
+            ]['GPU Name'].dropna().unique().tolist()
+            print(f"🔍 [DEBUG] Found {len(block_gpus)} GPUs with partial match")
+        
+        # Clean GPU names
+        cleaned_gpus = []
+        for gpu in block_gpus:
+            cleaned_gpu = re.sub(r'^\d+\.\s*', '', gpu.strip())
+            cleaned_gpus.append(cleaned_gpu)
+        
+        block_gpus = sorted(cleaned_gpus)
+        print(f"🔍 [DEBUG] Final GPUs: {block_gpus}")
+        
+        if not block_gpus:
+            print(f"🔍 [DEBUG] No GPUs found for block: {block_name}")
+            text = f"""❌ **No GPUs Found**
+
+No GPUs found for block: **{block_name}**
+
+Please try a different block."""
+            keyboard = [
+                [InlineKeyboardButton("🔙 Back to Blocks", callback_data="contacts_csc")],
+                [InlineKeyboardButton("🔙 Back to Contacts", callback_data="contacts")]
+            ]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+            return
+        
+        text = f"""✅ **Know Your CSC Operator**
+
+**Selected Block:** {block_name}
+
+**Step 2: GPU Selection**
+
+Please select your GPU (Gram Panchayat Unit):"""
+        
+        # Create keyboard with GPUs
+        keyboard = []
+        for i, gpu in enumerate(block_gpus):
+            keyboard.append([InlineKeyboardButton(gpu, callback_data=f"contacts_csc_gpu_{i}")])
+        
+        # Store GPUs in state
+        state["available_gpus"] = block_gpus
+        self._set_user_state(user_id, state)
+        
+        keyboard.append([InlineKeyboardButton("🔙 Back to Blocks", callback_data="contacts_csc")])
+        keyboard.append([InlineKeyboardButton("🔙 Back to Contacts", callback_data="contacts")])
+        
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        print(f"🔍 [DEBUG] Sending GPU selection menu with {len(block_gpus)} GPUs")
+        await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+
+    async def handle_csc_contacts_block_selection(self, update: Update, context: ContextTypes.DEFAULT_TYPE, block_index: str):
+        """Handle CSC contacts block selection - using exact same pattern as certificates"""
+        user_id = update.effective_user.id
+        state = self._get_user_state(user_id)
+        
+        # Available blocks
+        available_blocks = [
+            "Yuksam",
+            "Gyalshing", 
+            "Dentam",
+            "Hee Martam",
+            "Arithang Chongrang",
+            "Gyalshing Municipal Council"
+        ]
+        
+        try:
+            block_index = int(block_index)
+            block_name = available_blocks[block_index]
+        except (ValueError, IndexError):
+            await update.callback_query.answer("Invalid block selection")
+            return
+        
+        # Update state
+        state["block"] = block_name
+        state["step"] = "gpu_selection"
+        self._set_user_state(user_id, state)
+        
+        # Map block names to CSV format
+        block_mapping = {
+            'Arithang Chongrang': 'Chongrang',
+            'Dentam': 'Dentam',
+            'Gyalshing': 'Gyalshing',
+            'Yuksam': 'Yuksam',
+            'Hee Martam': 'Hee Martam',
+            'Gyalshing Municipal Council': 'Gyalshing Municipal Council'
+        }
+        
+        csc_block_name = block_mapping.get(block_name, block_name)
+        
+        # Get GPUs from CSV
+        block_gpus = self.csc_details_df[
+            self.csc_details_df['BLOCK'].str.lower() == csc_block_name.lower()
+        ]['GPU Name'].dropna().unique().tolist()
+        
+        # If no exact match, try partial matching
+        if not block_gpus:
+            block_gpus = self.csc_details_df[
+                self.csc_details_df['BLOCK'].str.contains(csc_block_name, case=False, na=False, regex=False)
+            ]['GPU Name'].dropna().unique().tolist()
+        
+        # Clean GPU names
+        cleaned_gpus = []
+        for gpu in block_gpus:
+            cleaned_gpu = re.sub(r'^\d+\.\s*', '', gpu.strip())
+            cleaned_gpus.append(cleaned_gpu)
+        
+        block_gpus = sorted(cleaned_gpus)
+        
+        if not block_gpus:
+            text = f"""❌ **No GPUs Found**
+
+No GPUs found for block: **{block_name}**
+
+Please try a different block."""
+            keyboard = [
+                [InlineKeyboardButton("🔙 Back to Blocks", callback_data="contacts_csc")],
+                [InlineKeyboardButton("🔙 Back to Contacts", callback_data="contacts")]
+            ]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+            return
+        
+        text = f"""✅ **Know Your CSC Operator**
+
+**Selected Block:** {block_name}
+
+**Step 2: GPU Selection**
+
+Please select your GPU (Gram Panchayat Unit):"""
+        
+        # Create keyboard with GPUs
+        keyboard = []
+        for i, gpu in enumerate(block_gpus):
+            keyboard.append([InlineKeyboardButton(gpu, callback_data=f"contacts_csc_gpu_{i}")])
+        
+        # Store GPUs in state
+        state["available_gpus"] = block_gpus
+        self._set_user_state(user_id, state)
+        
+        keyboard.append([InlineKeyboardButton("🔙 Back to Blocks", callback_data="contacts_csc")])
+        keyboard.append([InlineKeyboardButton("🔙 Back to Contacts", callback_data="contacts")])
+        
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+
+    async def handle_csc_contacts_gpu_selection(self, update: Update, context: ContextTypes.DEFAULT_TYPE, gpu_index: str):
+        """Handle CSC contacts GPU selection - using exact same pattern as certificates"""
+        user_id = update.effective_user.id
+        state = self._get_user_state(user_id)
+        
+        try:
+            gpu_index = int(gpu_index)
+            available_gpus = state.get("available_gpus", [])
+            gpu_name = available_gpus[gpu_index]
+        except (ValueError, IndexError):
+            await update.callback_query.answer("Invalid GPU selection")
+            return
+        
+        # Update state
+        state["gpu"] = gpu_name
+        state["step"] = "show_csc_info"
+        self._set_user_state(user_id, state)
+        
+        # Get CSC details from CSV
+        csc_info = self.csc_details_df[
+            (self.csc_details_df['GPU Name'].str.contains(gpu_name, case=False, na=False, regex=False)) &
+            (self.csc_details_df['BLOCK'].str.contains(state["block"], case=False, na=False, regex=False))
+        ]
+        
+        if csc_info.empty:
+            text = f"""❌ **No CSC Information Found**
+
+No CSC operator information found for:
+- **Block:** {state["block"]}
+- **GPU:** {gpu_name}
+
+Please try a different GPU or block."""
+            keyboard = [
+                [InlineKeyboardButton("🔙 Back to GPUs", callback_data="contacts_csc")],
+                [InlineKeyboardButton("🔙 Back to Contacts", callback_data="contacts")]
+            ]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+            return
+        
+        # Get the first CSC operator info
+        csc_row = csc_info.iloc[0]
+        
+        text = f"""✅ **CSC Operator Information**
+
+**Selected Block:** {state["block"]}
+**Selected GPU:** {gpu_name}
+
+**CSC Operator Details:**
+• **Name:** {csc_row.get('CSC OPERATOR NAME', 'N/A')}
+• **Phone:** {csc_row.get('CSC OPERATOR PHONE', 'N/A')}
+• **GPU:** {csc_row.get('GPU Name', 'N/A')}
+• **Block Single Window:** {csc_row.get('BLOCK SINGLE WINDOW', 'N/A')}
+• **Subdivision Single Window:** {csc_row.get('SUBDIVISION SINGLE WINDOW', 'N/A')}
+
+You can contact this CSC operator for any government services."""
+        
+        keyboard = [
+            [InlineKeyboardButton("🔙 Back to GPUs", callback_data="contacts_csc")],
+            [InlineKeyboardButton("🔙 Back to Contacts", callback_data="contacts")],
+            [InlineKeyboardButton("🔙 Main Menu", callback_data="main_menu")]
+        ]
+        
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+
+    async def simple_csc_block_to_gpu(self, update: Update, context: ContextTypes.DEFAULT_TYPE, block_index: str):
+        """Simple function to map block names to GPUs"""
+        print(f"🔍 [DEBUG] simple_csc_block_to_gpu called with block_index: {block_index}")
+        
+        # Available blocks
+        available_blocks = [
+            "Yuksam",
+            "Gyalshing", 
+            "Dentam",
+            "Hee Martam",
+            "Arithang Chongrang",
+            "Gyalshing Municipal Council"
+        ]
+        
+        try:
+            block_index = int(block_index)
+            block_name = available_blocks[block_index]
+        except (ValueError, IndexError):
+            await update.callback_query.answer("Invalid block selection")
+            return
+        
+        # Map block names to CSV format
+        block_mapping = {
+            'Arithang Chongrang': 'Chongrang',
+            'Dentam': 'Dentam',
+            'Gyalshing': 'Gyalshing',
+            'Yuksam': 'Yuksam',
+            'Hee Martam': 'Hee Martam',
+            'Gyalshing Municipal Council': 'Gyalshing Municipal Council'
+        }
+        
+        csc_block_name = block_mapping.get(block_name, block_name)
+        
+        # Get GPUs from CSV
+        block_gpus = self.csc_details_df[
+            self.csc_details_df['BLOCK'].str.lower() == csc_block_name.lower()
+        ]['GPU Name'].dropna().unique().tolist()
+        
+        # If no exact match, try partial matching
+        if not block_gpus:
+            block_gpus = self.csc_details_df[
+                self.csc_details_df['BLOCK'].str.contains(csc_block_name, case=False, na=False, regex=False)
+            ]['GPU Name'].dropna().unique().tolist()
+        
+        # Clean GPU names
+        cleaned_gpus = []
+        for gpu in block_gpus:
+            cleaned_gpu = re.sub(r'^\d+\.\s*', '', gpu.strip())
+            cleaned_gpus.append(cleaned_gpu)
+        
+        block_gpus = sorted(cleaned_gpus)
+        
+        if not block_gpus:
+            text = f"""❌ **No GPUs Found**
+
+No GPUs found for block: **{block_name}**
+
+Please try a different block."""
+            keyboard = [
+                [InlineKeyboardButton("🔙 Back to Blocks", callback_data="contacts_csc")],
+                [InlineKeyboardButton("🔙 Back to Contacts", callback_data="contacts")]
+            ]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+            return
+        
+        text = f"""✅ **Know Your CSC Operator**
+
+**Selected Block:** {block_name}
+
+**Available GPUs:**
+
+"""
+        
+        for i, gpu in enumerate(block_gpus, 1):
+            text += f"{i}. {gpu}\n"
+        
+        text += f"\n**Total GPUs found:** {len(block_gpus)}"
+        
+        keyboard = [
+            [InlineKeyboardButton("🔙 Back to Blocks", callback_data="contacts_csc")],
+            [InlineKeyboardButton("🔙 Back to Contacts", callback_data="contacts")]
+        ]
         
         reply_markup = InlineKeyboardMarkup(keyboard)
         await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')

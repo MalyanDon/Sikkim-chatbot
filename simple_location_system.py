@@ -190,16 +190,22 @@ class SimpleLocationSystem:
             )
     
     async def _handle_emergency_with_location(self, update: Update, context: ContextTypes.DEFAULT_TYPE, location_data: dict):
-        """Handle emergency services with location - integrate with main bot workflow"""
+        """Handle emergency services with location - show emergency services menu"""
         
         user_id = update.effective_user.id
         lat = location_data['latitude']
         lon = location_data['longitude']
         
-        # Get the stored emergency data from the main bot's state
-        user_state = context.user_data.get('user_state', {})
-        if not user_state:
-            # Fallback to basic message if no state found
+        # Store location in main bot's state
+        if hasattr(self, 'main_bot') and self.main_bot:
+            state = self.main_bot._get_user_state(user_id)
+            state["location"] = f"{lat:.6f}, {lon:.6f}"
+            self.main_bot._set_user_state(user_id, state)
+            
+            # Show emergency services menu
+            await self.main_bot.show_emergency_services_menu(update, context)
+        else:
+            # Fallback if main bot reference not available
             message = f"""🚨 Emergency Services - Location Received 🚨
 
 📍 Your Location: {lat:.6f}, {lon:.6f}
@@ -215,51 +221,9 @@ class SimpleLocationSystem:
 Your location has been logged for emergency response."""
             
             await update.message.reply_text(message)
-            return
         
-        # Extract emergency data from state
-        emergency_data = {
-            'type': user_state.get('emergency_type', 'General Emergency'),
-            'details': user_state.get('emergency_details', 'No details provided'),
-            'location_lat': lat,
-            'location_lon': lon,
-            'timestamp': datetime.now().isoformat()
-        }
-        
-        # Generate emergency ID
-        emergency_id = f"EMG{datetime.now().strftime('%Y%m%d%H%M%S')}"
-        
-        # Show success message with all details
-        message = f"""🚨 Emergency Report Filed Successfully! 🚨
-
-📝 Emergency Details:
-• Type: {emergency_data['type']}
-• Details: {emergency_data['details']}
-• Location: {lat:.6f}, {lon:.6f}
-
-🆔 Emergency ID: {emergency_id}
-📊 Status: Emergency Response Initiated
-⏰ Reported: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
-
-🚑 Emergency Services Contacted:
-• Ambulance: 102/108
-• Police: 100
-• Fire: 101
-
-⚡ Response Time: 10-15 minutes
-
-Your emergency has been reported with location. Help is on the way!"""
-        
-        await update.message.reply_text(message)
-        
-        # Clear the user state to return to main menu
-        context.user_data.pop('user_state', None)
+        # Clear the location request context
         context.user_data.pop('location_request', None)
-        
-        # Show main menu after a short delay
-        await asyncio.sleep(2)
-        # Note: We can't call the main bot's show_main_menu from here
-        # The main bot should handle this in its message handler
     
     async def _handle_complaint_with_location(self, update: Update, context: ContextTypes.DEFAULT_TYPE, location_data: dict):
         """Handle complaint filing with location - integrate with main bot workflow"""
@@ -428,9 +392,20 @@ Thank you for sharing your location! This helps us provide better service."""
         logger.info(f"📍 [CONTINUE] Continuing {interaction_type} without location")
         
         if interaction_type == "emergency":
-            await update.message.reply_text(
-                "🚨 Emergency Services 🚨\n\n🚑 Ambulance: 102\n👮 Police: 100\n🔥 Fire: 101\n🚨 State Emergency: 1070"
-            )
+            # Store location as "Not provided" in main bot's state and show emergency services menu
+            if hasattr(self, 'main_bot') and self.main_bot:
+                user_id = update.effective_user.id
+                state = self.main_bot._get_user_state(user_id)
+                state["location"] = "Location not provided"
+                self.main_bot._set_user_state(user_id, state)
+                
+                # Show emergency services menu
+                await self.main_bot.show_emergency_services_menu(update, context)
+            else:
+                # Fallback if main bot reference not available
+                await update.message.reply_text(
+                    "🚨 Emergency Services 🚨\n\n🚑 Ambulance: 102\n👮 Police: 100\n🔥 Fire: 101\n🚨 State Emergency: 1070"
+                )
         elif interaction_type == "complaint":
             await update.message.reply_text(
                 "📝 File Complaint\n\nPlease describe your complaint in detail:"
