@@ -20,7 +20,7 @@ class SimpleLocationSystem:
     def __init__(self):
         self.location_file = "data/location_data.csv"
         self._create_location_file()
-        logger.info("📍 Simple Location System initialized")
+        logger.info("Simple Location System initialized")
     
     def _create_location_file(self):
         """Create location data file if it doesn't exist"""
@@ -33,14 +33,14 @@ class SimpleLocationSystem:
                     'timestamp', 'user_id', 'user_name', 'latitude', 'longitude', 
                     'interaction_type', 'message_text'
                 ])
-            logger.info(f"📍 Created location file: {self.location_file}")
+            logger.info(f"Created location file: {self.location_file}")
     
     async def request_location(self, update: Update, context: ContextTypes.DEFAULT_TYPE, 
                              interaction_type: str = "general", message_text: str = ""):
         """Request user location with simple keyboard"""
 
         user_id = update.effective_user.id
-        logger.info(f"📍 [REQUEST] Requesting location from user {user_id} for {interaction_type}")
+        logger.info(f"[REQUEST] Requesting location from user {user_id} for {interaction_type}")
         
         # Store context for when location is received
         context.user_data['location_request'] = {
@@ -51,13 +51,13 @@ class SimpleLocationSystem:
         
         # Create simple location keyboard
         keyboard = [
-            [KeyboardButton("📍 Share My Location", request_location=True)],
-            [KeyboardButton("⏭️ Skip Location"), KeyboardButton("❌ Cancel")]
+            [KeyboardButton("Share My Location", request_location=True)],
+            [KeyboardButton("Skip Location"), KeyboardButton("Cancel")]
         ]
         reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, resize_keyboard=True)
         
         # Send request message
-        message = "📍 Please share your location\n\nThis helps us provide better service:"
+        message = "Please share your location\n\nThis helps us provide better service:"
         
         # Handle both callback queries and regular messages
         if hasattr(update, 'callback_query') and update.callback_query:
@@ -72,7 +72,7 @@ class SimpleLocationSystem:
             # For regular messages
             await update.message.reply_text(message, reply_markup=reply_markup)
         
-        logger.info(f"📍 [REQUEST] Location request sent to user {user_id}")
+        logger.info(f"[REQUEST] Location request sent to user {user_id}")
     
     async def handle_location_received(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle when user shares location"""
@@ -81,13 +81,13 @@ class SimpleLocationSystem:
         user_name = update.effective_user.first_name or "Unknown"
         location = update.message.location
         
-        logger.info(f"📍 [RECEIVED] Location received from user {user_id}")
-        logger.info(f"📍 [RECEIVED] Location object: {location}")
+        logger.info(f"[RECEIVED] Location received from user {user_id}")
+        logger.info(f"[RECEIVED] Location object: {location}")
         
         # Validate location
         if not location or location.latitude is None or location.longitude is None:
-            logger.error(f"📍 [ERROR] Invalid location from user {user_id}")
-            await update.message.reply_text("❌ Invalid location received. Please try again.")
+            logger.error(f"[ERROR] Invalid location from user {user_id}")
+            await update.message.reply_text("Invalid location received. Please try again.")
             return
         
         # Get stored context
@@ -110,7 +110,7 @@ class SimpleLocationSystem:
         self._save_location_data(location_data)
         
         # Log success
-        logger.info(f"📍 [SUCCESS] Location saved: {location.latitude:.6f}, {location.longitude:.6f} for user {user_id}")
+        logger.info(f"[SUCCESS] Location saved: {location.latitude:.6f}, {location.longitude:.6f} for user {user_id}")
         
         # Remove keyboard and show success message
         remove_keyboard = ReplyKeyboardRemove()
@@ -120,16 +120,16 @@ class SimpleLocationSystem:
         
         try:
             await update.message.reply_text(
-                f"✅ Location captured successfully!\n\n"
-                f"📍 Coordinates: {location.latitude:.6f}, {location.longitude:.6f}\n"
-                f"📝 Interaction: {safe_interaction_type}",
+                f"Location captured successfully!\n\n"
+                f"Coordinates: {location.latitude:.6f}, {location.longitude:.6f}\n"
+                f"Interaction: {safe_interaction_type}",
                 reply_markup=remove_keyboard
             )
         except Exception as e:
-            logger.error(f"📍 [ERROR] Failed to send location success message: {e}")
+            logger.error(f"[ERROR] Failed to send location success message: {e}")
             # Fallback to simple message
             await update.message.reply_text(
-                "✅ Location captured successfully!",
+                "Location captured successfully!",
                 reply_markup=remove_keyboard
             )
         
@@ -137,13 +137,13 @@ class SimpleLocationSystem:
         try:
             await self._continue_interaction(update, context, location_data)
         except Exception as e:
-            logger.error(f"📍 [ERROR] Failed to continue interaction: {e}")
+            logger.error(f"[ERROR] Failed to continue interaction: {e}")
             await update.message.reply_text("Location saved. How can I help you further?")
         
         # Clear stored context
         context.user_data.pop('location_request', None)
         
-        logger.info(f"📍 [COMPLETE] Location workflow completed for user {user_id}")
+        logger.info(f"[COMPLETE] Location workflow completed for user {user_id}")
     
     def _save_location_data(self, location_data: dict):
         """Save location data to CSV file"""
@@ -159,9 +159,9 @@ class SimpleLocationSystem:
                     location_data['interaction_type'],
                     location_data['message_text']
                 ])
-            logger.info(f"📍 [SAVE] Location data saved to {self.location_file}")
+            logger.info(f"[SAVE] Location data saved to {self.location_file}")
         except Exception as e:
-            logger.error(f"📍 [ERROR] Failed to save location data: {e}")
+            logger.error(f"[ERROR] Failed to save location data: {e}")
     
     async def _continue_interaction(self, update: Update, context: ContextTypes.DEFAULT_TYPE, location_data: dict):
         """Continue with the original interaction after location capture"""
@@ -170,7 +170,7 @@ class SimpleLocationSystem:
         lat = location_data['latitude']
         lon = location_data['longitude']
         
-        logger.info(f"📍 [CONTINUE] Continuing {interaction_type} with location for user {location_data['user_id']}")
+        logger.info(f"[CONTINUE] Continuing {interaction_type} with location for user {location_data['user_id']}")
         
         # Route to appropriate handler based on interaction type
         if interaction_type == "emergency":
@@ -206,17 +206,17 @@ class SimpleLocationSystem:
             await self.main_bot.show_emergency_services_menu(update, context)
         else:
             # Fallback if main bot reference not available
-            message = f"""🚨 Emergency Services - Location Received 🚨
+            message = f"""Emergency Services - Location Received
 
-📍 Your Location: {lat:.6f}, {lon:.6f}
+Your Location: {lat:.6f}, {lon:.6f}
 
-🚑 Nearest Emergency Services:
+Nearest Emergency Services:
 • Ambulance: 102
 • Police: 100
 • Fire: 101
 • State Emergency: 1070
 
-⚡ Response Time: 10-15 minutes
+Response Time: 10-15 minutes
 
 Your location has been logged for emergency response."""
             
@@ -236,11 +236,11 @@ Your location has been logged for emergency response."""
         user_state = context.user_data.get('user_state', {})
         if not user_state:
             # Fallback to basic message if no state found
-            message = f"""📝 Complaint Filed with Location 📝
+            message = f"""Complaint Filed with Location
 
-📍 Your Location: {lat:.6f}, {lon:.6f}
+Your Location: {lat:.6f}, {lon:.6f}
 
-✅ Your complaint has been registered with location data.
+Your complaint has been registered with location data.
 This will help us respond more effectively.
 
 Complaint ID: CMP{datetime.now().strftime('%Y%m%d%H%M%S')}
@@ -264,20 +264,20 @@ Status: Under Review"""
         
         # Save to CSV (this should be handled by the main bot)
         # For now, just log it
-        logger.info(f"📍 [COMPLAINT] Complaint with location saved: {complaint_id}")
+        logger.info(f"[COMPLAINT] Complaint with location saved: {complaint_id}")
         
         # Show success message with all details
-        message = f"""✅ Complaint Filed Successfully! ✅
+        message = f"""Complaint Filed Successfully!
 
-📝 Complaint Details:
+Complaint Details:
 • Name: {complaint_data['name']}
 • Mobile: {complaint_data['mobile']}
 • Description: {complaint_data['description']}
 • Location: {lat:.6f}, {lon:.6f}
 
-🆔 Complaint ID: {complaint_id}
-📊 Status: Under Review
-⏰ Filed: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+Complaint ID: {complaint_id}
+Status: Under Review
+Filed: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 
 Your complaint has been registered with location data. We'll respond within 24-48 hours."""
         
@@ -303,11 +303,11 @@ Your complaint has been registered with location data. We'll respond within 24-4
         user_state = context.user_data.get('user_state', {})
         if not user_state:
             # Fallback to basic message if no state found
-            message = f"""💰 Ex-Gratia Application - Location Received 💰
+            message = f"""Ex-Gratia Application - Location Received
 
-📍 Your Location: {lat:.6f}, {lon:.6f}
+Your Location: {lat:.6f}, {lon:.6f}
 
-✅ Your ex-gratia application has been submitted with location data.
+Your ex-gratia application has been submitted with location data.
 This will help us process your claim faster."""
             
             await update.message.reply_text(message)
@@ -326,7 +326,7 @@ This will help us process your claim faster."""
             await self.main_bot.show_ex_gratia_confirmation(update, context, user_state)
         else:
             # Fallback: show a message asking user to continue
-            message = f"""📍 Location Captured Successfully! 📍
+            message = f"""Location Captured Successfully!
 
 Your location ({lat:.6f}, {lon:.6f}) has been added to your ex-gratia application.
 
@@ -340,11 +340,11 @@ Please continue with your application to submit it to the NC Exgratia API."""
         lat = location_data['latitude']
         lon = location_data['longitude']
         
-        message = f"""🏡 Homestay Search - Location Based 🏡
+        message = f"""Homestay Search - Location Based
 
-📍 Your Location: {lat:.6f}, {lon:.6f}
+Your Location: {lat:.6f}, {lon:.6f}
 
-🔍 Searching for homestays near your location...
+Searching for homestays near your location...
 We'll find the best options based on your coordinates."""
         
         await update.message.reply_text(message)
@@ -355,7 +355,7 @@ We'll find the best options based on your coordinates."""
         lat = location_data['latitude']
         lon = location_data['longitude']
         
-        message = f"""📍 Location Captured Successfully 📍
+        message = f"""Location Captured Successfully
 
 Your location: {lat:.6f}, {lon:.6f}
 
@@ -367,7 +367,7 @@ Thank you for sharing your location! This helps us provide better service."""
         """Handle when user skips location sharing"""
         
         user_id = update.effective_user.id
-        logger.info(f"📍 [SKIP] User {user_id} skipped location sharing")
+        logger.info(f"[SKIP] User {user_id} skipped location sharing")
         
         # Get stored context
         location_context = context.user_data.get('location_request', {})
@@ -376,7 +376,7 @@ Thank you for sharing your location! This helps us provide better service."""
         # Remove keyboard
         remove_keyboard = ReplyKeyboardRemove()
         await update.message.reply_text(
-            "⏭️ Location sharing skipped. Continuing without location data.",
+            "Location sharing skipped. Continuing without location data.",
             reply_markup=remove_keyboard
         )
         
@@ -389,7 +389,7 @@ Thank you for sharing your location! This helps us provide better service."""
     async def _continue_without_location(self, update: Update, context: ContextTypes.DEFAULT_TYPE, interaction_type: str):
         """Continue interaction without location data"""
         
-        logger.info(f"📍 [CONTINUE] Continuing {interaction_type} without location")
+        logger.info(f"[CONTINUE] Continuing {interaction_type} without location")
         
         if interaction_type == "emergency":
             # Store location as "Not provided" in main bot's state and show emergency services menu
@@ -404,19 +404,19 @@ Thank you for sharing your location! This helps us provide better service."""
             else:
                 # Fallback if main bot reference not available
                 await update.message.reply_text(
-                    "🚨 Emergency Services 🚨\n\n🚑 Ambulance: 102\n👮 Police: 100\n🔥 Fire: 101\n🚨 State Emergency: 1070"
+                    "Emergency Services\n\nAmbulance: 102\nPolice: 100\nFire: 101\nState Emergency: 1070"
                 )
         elif interaction_type == "complaint":
             await update.message.reply_text(
-                "📝 File Complaint\n\nPlease describe your complaint in detail:"
+                "File Complaint\n\nPlease describe your complaint in detail:"
             )
         elif interaction_type == "ex_gratia":
             await update.message.reply_text(
-                "💰 Ex-Gratia Application\n\nYour application has been submitted without location data. We'll contact you for further details."
+                "Ex-Gratia Application\n\nYour application has been submitted without location data. We'll contact you for further details."
             )
         elif interaction_type == "homestay":
             await update.message.reply_text(
-                "🏡 Homestay Booking\n\nWhich place would you like to stay in?"
+                "Homestay Booking\n\nWhich place would you like to stay in?"
             )
         else:
             await update.message.reply_text(
@@ -427,12 +427,12 @@ Thank you for sharing your location! This helps us provide better service."""
         """Handle when user cancels location sharing"""
         
         user_id = update.effective_user.id
-        logger.info(f"📍 [CANCEL] User {user_id} cancelled location sharing")
+        logger.info(f"[CANCEL] User {user_id} cancelled location sharing")
         
         # Remove keyboard
         remove_keyboard = ReplyKeyboardRemove()
         await update.message.reply_text(
-            "❌ Location sharing cancelled.",
+            "Location sharing cancelled.",
             reply_markup=remove_keyboard
         )
         
@@ -461,7 +461,7 @@ Thank you for sharing your location! This helps us provide better service."""
             
             return stats
         except Exception as e:
-            logger.error(f"📍 [ERROR] Failed to get location stats: {e}")
+            logger.error(f"[ERROR] Failed to get location stats: {e}")
             return {'error': str(e)}
     
     def should_capture_location(self, message_text: str) -> bool:
@@ -493,4 +493,4 @@ Thank you for sharing your location! This helps us provide better service."""
 if __name__ == "__main__":
     location_system = SimpleLocationSystem()
     stats = location_system.get_location_stats()
-    print(f"📍 Location System Stats: {stats}") 
+    print(f"Location System Stats: {stats}") 

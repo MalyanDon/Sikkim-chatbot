@@ -1413,6 +1413,33 @@ Please select your preferred language to continue:
                 cert_type = data.replace("cert_", "")
                 await self.handle_certificate_choice(update, context, cert_type)
             
+            # CSC Contacts workflow handlers - MUST BE BEFORE generic csc_ handler
+            elif data.startswith("csc_block_"):
+                try:
+                    print(f"🔍 [DEBUG] ENTERING csc_block_ handler with data: {data}")
+                    block_index = data.replace("csc_block_", "")
+                    print(f"🔍 [DEBUG] About to call simple_csc_block_to_gpu with block_index: {block_index}")
+                    await self.simple_csc_block_to_gpu(update, context, block_index)
+                    print(f"🔍 [DEBUG] simple_csc_block_to_gpu completed successfully")
+                except Exception as e:
+                    print(f"🔍 [DEBUG] Exception in csc_block_ handler: {e}")
+                    import traceback
+                    traceback.print_exc()
+                    await update.callback_query.answer("Error occurred. Please try again.")
+            
+            elif data.startswith("csc_gpu_"):
+                try:
+                    print(f"🔍 [DEBUG] ENTERING csc_gpu_ handler with data: {data}")
+                    gpu_index = data.replace("csc_gpu_", "")
+                    print(f"🔍 [DEBUG] About to call handle_csc_gpu_selection with gpu_index: {gpu_index}")
+                    await self.handle_csc_gpu_selection(update, context, gpu_index)
+                    print(f"🔍 [DEBUG] handle_csc_gpu_selection completed successfully")
+                except Exception as e:
+                    print(f"🔍 [DEBUG] Exception in csc_gpu_ handler: {e}")
+                    import traceback
+                    traceback.print_exc()
+                    await update.callback_query.answer("Error occurred. Please try again.")
+            
             elif data.startswith("csc_"):
                 # This is handled by the new CSC functionality in contacts
                 await update.callback_query.answer("Please use the 'Know Key Contact' option for CSC services")
@@ -1573,11 +1600,7 @@ Please select the certificate you want to apply for:
                 block_index = data.replace("scheme_csc_block_", "")
                 await self.handle_csc_block_selection(update, context, block_index)
             
-            # CSC Contacts workflow handlers - MUST BE BEFORE generic csc_ handler
-            elif data.startswith("csc_block_"):
-                print(f"🔍 [DEBUG] CSC block callback received: {data}")
-                block_index = data.replace("csc_block_", "")
-                await self.simple_csc_block_to_gpu(update, context, block_index)
+
             
             elif data.startswith("scheme_csc_gpu_"):
                 gpu_index = data.replace("scheme_csc_gpu_", "")
@@ -6330,18 +6353,100 @@ Please try a different block."""
 
 **Selected Block:** {block_name}
 
-**Available GPUs:**
+**Step 2: GPU Selection**
 
-"""
+Select your GPU to see CSC operator details:
+
+Please choose your GPU:"""
         
-        for i, gpu in enumerate(block_gpus, 1):
-            text += f"{i}. {gpu}\n"
+        # Create keyboard with GPUs as clickable buttons
+        keyboard = []
+        for i, gpu in enumerate(block_gpus):
+            keyboard.append([InlineKeyboardButton(gpu, callback_data=f"csc_gpu_{i}")])
         
-        text += f"\n**Total GPUs found:** {len(block_gpus)}"
+        keyboard.append([InlineKeyboardButton("🔙 Back to Blocks", callback_data="contacts_csc")])
+        keyboard.append([InlineKeyboardButton("🔙 Back to Contacts", callback_data="contacts")])
+        
+        # Store GPUs in user state for GPU selection
+        user_id = update.effective_user.id
+        state = self._get_user_state(user_id)
+        state["available_gpus"] = block_gpus
+        state["block"] = block_name
+        self._set_user_state(user_id, state)
+        
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+
+    async def handle_csc_gpu_selection(self, update: Update, context: ContextTypes.DEFAULT_TYPE, gpu_index: str):
+        """Handle CSC GPU selection and show CSC operator details"""
+        print(f"DEBUG: handle_csc_gpu_selection called with gpu_index: {gpu_index}")
+        user_id = update.effective_user.id
+        state = self._get_user_state(user_id)
+        
+        # Get the actual GPU name from the index
+        available_gpus = state.get("available_gpus", [])
+        print(f"DEBUG: Available GPUs from state: {available_gpus}")
+        print(f"DEBUG: GPU index: {gpu_index}")
+        try:
+            gpu_index = int(gpu_index)
+            gpu_name = available_gpus[gpu_index]
+            print(f"DEBUG: Selected GPU name: {gpu_name}")
+        except (ValueError, IndexError) as e:
+            print(f"DEBUG: Error getting GPU name: {e}")
+            await update.callback_query.answer("Invalid GPU selection")
+            return
+        
+        # Get block name from state
+        block_name = state.get("block", "Unknown")
+        
+        # Get CSC operator details for this GPU
+        print(f"DEBUG: Looking for CSC details for GPU: {gpu_name}")
+        
+        # Find CSC operator details from CSV
+        print(f"DEBUG: Searching CSV for GPU: {gpu_name}")
+        csc_details = self.csc_details_df[
+            (self.csc_details_df['GPU Name'].str.contains(gpu_name, case=False, na=False, regex=False)) |
+            (self.csc_details_df['GPU Name'].str.lower() == gpu_name.lower())
+        ]
+        
+        print(f"DEBUG: Found {len(csc_details)} matching records in CSV")
+        
+        if csc_details.empty:
+            text = f"""❌ **No CSC Details Found**
+
+Sorry, no CSC operator details were found for GPU: **{gpu_name}**
+
+Please try selecting a different GPU or contact support."""
+            
+            keyboard = [
+                [InlineKeyboardButton("🔙 Back to GPUs", callback_data="contacts_csc")],
+                [InlineKeyboardButton("🔙 Back to Contacts", callback_data="contacts")]
+            ]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+            return
+        
+        # Get the first matching CSC operator
+        csc_operator = csc_details.iloc[0]
+        
+        text = f"""✅ **CSC Operator Details**
+
+**Block:** {block_name}
+**GPU:** {gpu_name}
+
+**CSC Operator Information:**
+• **Name:** {csc_operator.get('CSC Operator Name', 'Not Available')}
+• **Phone:** {csc_operator.get('CSC Operator Phone', 'Not Available')}
+• **GPU:** {csc_operator.get('GPU Name', 'Not Available')}
+• **Block Single Window:** {csc_operator.get('Block Single Window', 'Not Available')}
+• **Subdivision Single Window:** {csc_operator.get('Subdivision Single Window', 'Not Available')}
+
+You can contact this CSC operator for assistance with government services."""
         
         keyboard = [
-            [InlineKeyboardButton("🔙 Back to Blocks", callback_data="contacts_csc")],
-            [InlineKeyboardButton("🔙 Back to Contacts", callback_data="contacts")]
+            [InlineKeyboardButton("🔙 Back to GPUs", callback_data="contacts_csc")],
+            [InlineKeyboardButton("🔙 Back to Contacts", callback_data="contacts")],
+            [InlineKeyboardButton("🔙 Main Menu", callback_data="main_menu")]
         ]
         
         reply_markup = InlineKeyboardMarkup(keyboard)
