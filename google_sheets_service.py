@@ -44,9 +44,9 @@ class GoogleSheetsService:
                 self.credentials_file, scopes=self.SCOPES)
             
             self.service = build('sheets', 'v4', credentials=creds)
-            logger.info("✅ Google Sheets API authenticated successfully with service account")
+            logger.info(" Google Sheets API authenticated successfully with service account")
         except Exception as e:
-            logger.error(f"❌ Google Sheets authentication failed: {str(e)}")
+            logger.error(f" Google Sheets authentication failed: {str(e)}")
     
     def create_sheet_if_not_exists(self, sheet_name: str, headers: List[str]) -> bool:
         """Create a new sheet if it doesn't exist"""
@@ -75,14 +75,14 @@ class GoogleSheetsService:
                 
                 # Add headers
                 self.append_row(sheet_name, headers)
-                logger.info(f"✅ Created new sheet: {sheet_name}")
+                logger.info(f" Created new sheet: {sheet_name}")
                 return True
             else:
-                logger.info(f"✅ Sheet already exists: {sheet_name}")
+                logger.info(f" Sheet already exists: {sheet_name}")
                 return True
                 
         except HttpError as error:
-            logger.error(f"❌ Error creating sheet {sheet_name}: {error}")
+            logger.error(f" Error creating sheet {sheet_name}: {error}")
             return False
     
     def append_row(self, sheet_name: str, row_data: List[Any]) -> bool:
@@ -103,18 +103,18 @@ class GoogleSheetsService:
             ).execute()
             
             updated_rows = result.get('updates', {}).get('updatedRows', 0)
-            logger.info(f"✅ Row appended to {sheet_name}: {updated_rows} rows")
+            logger.info(f" Row appended to {sheet_name}: {updated_rows} rows")
             return True
             
         except HttpError as error:
-            logger.error(f"❌ Error appending row to {sheet_name}: {error}")
+            logger.error(f" Error appending row to {sheet_name}: {error}")
             return False
     
     def log_complaint(self, user_id: int, user_name: str, complaint_text: str, 
                      complaint_type: str, language: str, status: str = "New") -> bool:
         """Log a complaint to the complaints sheet"""
         if not self.service:
-            logger.error("❌ Google Sheets service not initialized")
+            logger.error(" Google Sheets service not initialized")
             return False
         
         sheet_name = "Complaints"
@@ -148,7 +148,7 @@ class GoogleSheetsService:
                             certificate_type: str, language: str, result: str) -> bool:
         """Log a certificate query to the certificate queries sheet"""
         if not self.service:
-            logger.error("❌ Google Sheets service not initialized")
+            logger.error(" Google Sheets service not initialized")
             return False
         
         sheet_name = "Certificate_Queries"
@@ -182,7 +182,7 @@ class GoogleSheetsService:
                                  language: str, status: str = "Submitted") -> bool:
         """Log an ex-gratia application to the applications sheet"""
         if not self.service:
-            logger.error("❌ Google Sheets service not initialized")
+            logger.error(" Google Sheets service not initialized")
             return False
         
         sheet_name = "Ex_Gratia_Applications"
@@ -219,7 +219,7 @@ class GoogleSheetsService:
                         status_result: str, language: str) -> bool:
         """Log a status check to the status checks sheet"""
         if not self.service:
-            logger.error("❌ Google Sheets service not initialized")
+            logger.error(" Google Sheets service not initialized")
             return False
         
         sheet_name = "Status_Checks"
@@ -262,14 +262,14 @@ class GoogleSheetsService:
             return result.get('values', [])
             
         except HttpError as error:
-            logger.error(f"❌ Error getting data from {sheet_name}: {error}")
+            logger.error(f" Error getting data from {sheet_name}: {error}")
             return None
     
     def log_homestay_query(self, user_id: int, user_name: str, place: str, 
                           query_text: str, language: str, result: str) -> bool:
         """Log a homestay query to the homestay queries sheet"""
         if not self.service:
-            logger.error("❌ Google Sheets service not initialized")
+            logger.error(" Google Sheets service not initialized")
             return False
         
         sheet_name = "Homestay_Queries"
@@ -303,7 +303,7 @@ class GoogleSheetsService:
                             query_text: str, language: str, result: str) -> bool:
         """Log an emergency service query to the emergency services sheet"""
         if not self.service:
-            logger.error("❌ Google Sheets service not initialized")
+            logger.error(" Google Sheets service not initialized")
             return False
         
         sheet_name = "Emergency_Services"
@@ -337,7 +337,7 @@ class GoogleSheetsService:
                              query_text: str, language: str, result: str) -> bool:
         """Log a cab booking query to the cab booking sheet"""
         if not self.service:
-            logger.error("❌ Google Sheets service not initialized")
+            logger.error(" Google Sheets service not initialized")
             return False
         
         sheet_name = "Cab_Booking_Queries"
@@ -371,7 +371,7 @@ class GoogleSheetsService:
                               query_text: str, language: str, bot_response: str) -> bool:
         """Log general bot interactions"""
         if not self.service:
-            logger.error("❌ Google Sheets service not initialized")
+            logger.error(" Google Sheets service not initialized")
             return False
         
         sheet_name = "General_Interactions"
@@ -408,7 +408,7 @@ class GoogleSheetsService:
                              submission_date: str, language: str = "english") -> bool:
         """Log scheme application details to a dedicated sheet"""
         if not self.service:
-            logger.error("❌ Google Sheets service not initialized")
+            logger.error(" Google Sheets service not initialized")
             return False
         
         sheet_name = "Scheme_Applications"
@@ -454,7 +454,7 @@ class GoogleSheetsService:
                                   submission_date: str, language: str = "english") -> bool:
         """Log certificate application details to a dedicated sheet"""
         if not self.service:
-            logger.error("❌ Google Sheets service not initialized")
+            logger.error(" Google Sheets service not initialized")
             return False
         
         sheet_name = "Certificate_Applications"
@@ -497,7 +497,7 @@ class GoogleSheetsService:
                                status_change: str = None) -> bool:
         """Log CSC operator updates to a dedicated sheet"""
         if not self.service:
-            logger.error("❌ Google Sheets service not initialized")
+            logger.error(" Google Sheets service not initialized")
             return False
         
         sheet_name = "CSC_Operator_Updates"

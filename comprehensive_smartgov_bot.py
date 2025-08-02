@@ -14,6 +14,7 @@ import aiohttp
 import re
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup, Location
 from simple_location_system import SimpleLocationSystem
+from enhanced_conversation_system import EnhancedConversationSystem
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, ContextTypes, filters
 from config import Config
 from datetime import datetime
@@ -65,16 +66,20 @@ class SajiloSewakBot:
         self.api_client = None
         if Config.NC_EXGRATIA_ENABLED:
             self.api_client = NCExgratiaAPI()
-            logger.info("🔗 NC Exgratia API client initialized")
+            logger.info(" NC Exgratia API client initialized")
         else:
-            logger.warning("⚠️ NC Exgratia API integration disabled")
+            logger.warning(" NC Exgratia API integration disabled")
         
-        logger.info("🔒 MULTI-USER SUPPORT: Thread-safe state management initialized")
+        logger.info(" MULTI-USER SUPPORT: Thread-safe state management initialized")
 
         # Initialize location system with main bot reference
         self.location_system = SimpleLocationSystem()
         self.location_system.main_bot = self  # Pass main bot reference
-        logger.info('📍 Location system initialized')
+        logger.info('Location system initialized')
+
+        # Initialize enhanced conversation system
+        self.conversation_system = EnhancedConversationSystem()
+        logger.info('Enhanced conversation system initialized')
 
     def _load_workflow_data(self):
         """Load all required data files from Excel sheet only"""
@@ -91,9 +96,9 @@ class SajiloSewakBot:
             self.sub_division_block_mapping_df = pd.read_csv('data/sub-division_block_mapping.csv')  # Sub-division mapping
             self.sheet12_df = pd.read_csv('data/sheet12.csv')  # Additional data
             
-            logger.info("📚 Data files from Excel sheet loaded successfully")
+            logger.info(" Data files from Excel sheet loaded successfully")
         except Exception as e:
-            logger.error(f"❌ Error loading data files: {str(e)}")
+            logger.error(f"Error loading data files: {str(e)}")
             raise
 
     def _initialize_google_sheets(self):
@@ -104,12 +109,12 @@ class SajiloSewakBot:
                     credentials_file=Config.GOOGLE_SHEETS_CREDENTIALS_FILE,
                     spreadsheet_id=Config.GOOGLE_SHEETS_SPREADSHEET_ID
                 )
-                logger.info("✅ Google Sheets service initialized successfully")
+                logger.info("Google Sheets service initialized successfully")
             else:
                 self.sheets_service = None
-                logger.warning("⚠️ Google Sheets integration disabled or credentials file not configured")
+                logger.warning(" Google Sheets integration disabled or credentials file not configured")
         except Exception as e:
-            logger.error(f"❌ Error initializing Google Sheets service: {str(e)}")
+            logger.error(f"Error initializing Google Sheets service: {str(e)}")
             self.sheets_service = None
 
     def _initialize_responses(self):
@@ -117,16 +122,16 @@ class SajiloSewakBot:
         self.responses = {
             'english': {
                         'welcome': "Welcome to Sajilo Sewak! How can I help you today?",
-        'main_menu': """🏛️ *Welcome to Sajilo Sewak* 🏛️
+        'main_menu': """ *Welcome to Sajilo Sewak* 
 
 Our services include:
 
-1. *Book Homestay* 🏡
+        1. *Book Homestay*
    • Search by tourist destinations
    • View ratings and prices
    • Direct contact with owners
 
-2. *Emergency Services* 🚨
+        2. *Emergency Services*
    • Ambulance (102/108)
    • Police Helpline
    • Suicide Prevention
@@ -135,56 +140,56 @@ Our services include:
    • Fire Emergency
    • Report Disaster
 
-3. *Report a Complaint* 📝
+        3. *Report a Complaint*
    • Register your grievance
    • Get complaint tracking ID
    • 24/7 monitoring
 
-4. *Apply for Certificate* 💻
+4. *Apply for Certificate* 
    • CSC operator assistance
    • Sikkim SSO portal link
    • Track application status
 
-5. *Disaster Management* 🆘
+5. *Disaster Management* 
    • Apply for Ex-gratia
    • Check application status
    • View relief norms
    • Emergency contacts
 
-6. *Government Schemes* 🏛️
+6. *Government Schemes* 
    • Learn about schemes
    • Apply for benefits
    • Track applications
 
-7. *Important Contacts* 📞
+7. *Important Contacts* 
    • Find your CSC
    • Know your BLO
    • Aadhar Services
 
-8. *Give Feedback* 📝
+        8. *Give Feedback*
    • Share your experience
    • Suggest improvements
    • Help us serve better
 
 Please select a service to continue:""",
-                'button_homestay': "🏡 Book Homestay",
-                'button_emergency': "🚨 Emergency Services",
-                'button_complaint': "📝 Report a Complaint",
-                'button_certificate': "💻 Apply for Certificate",
-                'button_disaster': "🆘 Disaster Management",
-                'button_schemes': "🏛️ Government Schemes",
-                'button_contacts': "📞 Important Contacts",
-                'button_feedback': "📝 Give Feedback",
+                'button_homestay': "Book Homestay",
+                'button_emergency': "Emergency Services",
+                'button_complaint': "Report a Complaint",
+                'button_certificate': "Apply for Certificate",
+                'button_disaster': "Disaster Management",
+                'button_schemes': "Government Schemes",
+                'button_contacts': "Important Contacts",
+                'button_feedback': "Give Feedback",
                 'error': "Sorry, I encountered an error. Please try again.",
                 'unknown': "I'm not sure what you're asking for. Here are the available services:",
                 'processing': "Processing your request...",
                 'success': "Your request has been processed successfully.",
                 'cancelled': "Operation cancelled. How else can I help you?",
-                'emergency_ambulance': "🚑 *Ambulance Emergency*\nDial: 102 or 108\nControl Room: 03592-202033",
-                'emergency_police': "👮 *Police Emergency*\nDial: 100\nControl Room: 03592-202022",
-                'emergency_fire': "🚒 *Fire Emergency*\nDial: 101\nControl Room: 03592-202099",
-                'emergency_suicide': "💭 *Suicide Prevention Helpline*\nDial: 9152987821",
-                'emergency_women': "👩 *Women Helpline*\nDial: 1091\nState Commission: 03592-205607",
+                'emergency_ambulance': "*Ambulance Emergency*\nDial: 102 or 108\nControl Room: 03592-202033",
+                'emergency_police': "*Police Emergency*\nDial: 100\nControl Room: 03592-202022",
+                'emergency_fire': "*Fire Emergency*\nDial: 101\nControl Room: 03592-202099",
+                'emergency_suicide': "*Suicide Prevention Helpline*\nDial: 9152987821",
+                'emergency_women': "*Women Helpline*\nDial: 1091\nState Commission: 03592-205607",
                 'ex_gratia_intro': "You may be eligible if you've suffered losses due to:\n• Heavy rainfall, floods, or landslides\n• Earthquakes or other natural calamities\n• Crop damage from hailstorms\n• House damage from natural disasters\n• Loss of livestock\n\nWould you like to proceed with the application?",
                 'ex_gratia_form': "Please enter your full name:",
                 'ex_gratia_father': "What is your father's name?",
@@ -196,18 +201,18 @@ Please select a service to continue:""",
                 'ex_gratia_plot': "What is your Plot Number?",
                 'ex_gratia_damage': "Please provide a detailed description of the damage:",
                 'certificate_info': "You can apply for certificates in two ways:\n\n1. **Apply Online** - Use the Sikkim SSO portal directly\n2. **Apply via CSC** - Get assistance from your nearest Common Service Centre\n\nWhich method would you prefer?",
-                'other_emergency': "🚨 Other Emergency Services",
-                'back_main_menu': "🔙 Back to Main Menu",
-                'language_menu': "🌐 *Language Selection*\n\nPlease select your preferred language:",
-                'language_changed': "✅ Language changed to English successfully!",
-                'language_button_english': "🇺🇸 English",
-                'language_button_hindi': "🇮🇳 हिंदी",
-                'complaint_title': "*Report a Complaint/Grievance* 📝",
+                'other_emergency': "Other Emergency Services",
+                'back_main_menu': "Back to Main Menu",
+                'language_menu': "*Language Selection*\n\nPlease select your preferred language:",
+                'language_changed': "Language changed to English successfully!",
+                'language_button_english': " English",
+                'language_button_hindi': " हिंदी",
+                'complaint_title': "*Report a Complaint/Grievance* ",
                 'complaint_name_prompt': "Please enter your full name:",
                 'complaint_mobile_prompt': "Please enter your mobile number:",
                 'complaint_mobile_error': "Please enter a valid 10-digit mobile number.",
                 'complaint_description_prompt': "Please describe your complaint in detail:",
-                'complaint_success': "✅ *Complaint Registered Successfully*\n\n🆔 Complaint ID: {complaint_id}\n👤 Name: {name}\n📱 Mobile: {mobile}\n🔗 Telegram: @{telegram_username}\n\nYour complaint has been registered and will be processed soon. Please save your Complaint ID for future reference.",
+                'complaint_success': " *Complaint Registered Successfully*\n\n Complaint ID: {complaint_id}\n Name: {name}\n Mobile: {mobile}\n Telegram: @{telegram_username}\n\nYour complaint has been registered and will be processed soon. Please save your Complaint ID for future reference.",
                 'certificate_gpu_prompt': "Please enter your GPU (Gram Panchayat Unit):",
                 'certificate_sso_message': "You can apply directly on the Sikkim SSO Portal: https://sso.sikkim.gov.in",
                 'certificate_gpu_not_found': "Sorry, no CSC operator found for your GPU. Please check the GPU number and try again.",
@@ -215,7 +220,7 @@ Please select a service to continue:""",
                 'certificate_error': "Sorry, there was an error processing your request. Please try again.",
                 
                 # New features responses
-                'scheme_info': """🏛️ **Government Schemes & Applications**
+                'scheme_info': """ **Government Schemes & Applications**
 
 Available schemes include:
 • PM KISAN
@@ -227,7 +232,7 @@ Available schemes include:
 
 Select a scheme to learn more and apply:""",
                 
-                'contacts_info': """📞 **Important Contacts**
+                'contacts_info': """ **Important Contacts**
 
 Choose the type of contact you need:
 • **CSC (Common Service Center)** - Find your nearest CSC operator
@@ -236,7 +241,7 @@ Choose the type of contact you need:
 
 Select an option:""",
                 
-                'feedback_info': """📝 **Give Feedback**
+                'feedback_info': """ **Give Feedback**
 
 We value your feedback to improve our services. Please provide:
 • Your name
@@ -248,28 +253,28 @@ Let's start with your name:""",
                 'feedback_name_prompt': "Please enter your name:",
                 'feedback_phone_prompt': "Please enter your phone number:",
                 'feedback_message_prompt': "Please share your feedback or suggestions:",
-                'feedback_success': """✅ **Feedback Submitted Successfully!**
+                'feedback_success': """ **Feedback Submitted Successfully!**
 
 Thank you for your feedback. We will review it and work on improvements.
 
 Your feedback ID: {feedback_id}""",
-                'emergency_type_prompt': "🚨 *Emergency Services*\n\nPlease select the type of emergency:",
-                'emergency_details_prompt': "🚨 *{service_type} Emergency*\n\nPlease provide details about your emergency situation:",
-                'complaint_location_prompt': "📍 *Location Information*\n\nTo help us respond better, would you like to share your location?",
-                'error_message': "❌ Sorry, something went wrong. Please try again.",
+                'emergency_type_prompt': " *Emergency Services*\n\nPlease select the type of emergency:",
+                'emergency_details_prompt': " *{service_type} Emergency*\n\nPlease provide details about your emergency situation:",
+                'complaint_location_prompt': " *Location Information*\n\nTo help us respond better, would you like to share your location?",
+                'error_message': " Sorry, something went wrong. Please try again.",
             },
             'hindi': {
                 'welcome': "स्मार्टगव सहायक में आपका स्वागत है! मैं आपकी कैसे मदद कर सकता हूं?",
-                'main_menu': """🏛️ *स्मार्टगव सहायक में आपका स्वागत है* 🏛️
+                'main_menu': """ *स्मार्टगव सहायक में आपका स्वागत है* 
 
 हमारी सेवाएं शामिल हैं:
 
-1. *होमस्टे बुक करें* 🏡
+1. *होमस्टे बुक करें* 
    • पर्यटन स्थलों के अनुसार खोजें
    • रेटिंग और कीमतें देखें
    • मालिकों से सीधा संपर्क
 
-2. *आपातकालीन सेवाएं* 🚨
+2. *आपातकालीन सेवाएं* 
    • एम्बुलेंस (102/108)
    • पुलिस हेल्पलाइन
    • आत्महत्या रोकथाम
@@ -278,41 +283,41 @@ Your feedback ID: {feedback_id}""",
    • अग्निशमन आपातकाल
    • आपदा की रिपोर्ट करें
 
-3. *शिकायत दर्ज करें* 📝
+3. *शिकायत दर्ज करें* 
    • अपनी शिकायत पंजीकृत करें
    • शिकायत ट्रैकिंग आईडी प्राप्त करें
    • 24/7 निगरानी
 
-4. *प्रमाणपत्र के लिए आवेदन करें* 💻
+4. *प्रमाणपत्र के लिए आवेदन करें* 
    • CSC ऑपरेटर सहायता
    • सिक्किम SSO पोर्टल लिंक
    • आवेदन स्थिति ट्रैक करें
 
-5. *आपदा प्रबंधन* 🆘
+5. *आपदा प्रबंधन* 
    • एक्स-ग्रेटिया के लिए आवेदन करें
    • आवेदन स्थिति जांचें
    • राहत मानदंड देखें
    • आपातकालीन संपर्क
 
 कृपया जारी रखने के लिए एक सेवा चुनें:""",
-                'button_homestay': "🏡 होमस्टे बुक करें",
-                'button_emergency': "🚨 आपातकालीन सेवाएं",
-                'button_complaint': "📝 शिकायत दर्ज करें",
-                'button_certificate': "💻 प्रमाणपत्र के लिए आवेदन",
-                'button_disaster': "🆘 आपदा प्रबंधन",
-                'button_schemes': "🏛️ सरकारी योजनाएं",
-                'button_contacts': "📞 महत्वपूर्ण संपर्क",
-                'button_feedback': "📝 प्रतिक्रिया दें",
+                'button_homestay': " होमस्टे बुक करें",
+                'button_emergency': " आपातकालीन सेवाएं",
+                'button_complaint': " शिकायत दर्ज करें",
+                'button_certificate': " प्रमाणपत्र के लिए आवेदन",
+                'button_disaster': " आपदा प्रबंधन",
+                'button_schemes': " सरकारी योजनाएं",
+                'button_contacts': " महत्वपूर्ण संपर्क",
+                'button_feedback': " प्रतिक्रिया दें",
                 'error': "क्षमा करें, कोई त्रुटि हुई। कृपया पुनः प्रयास करें।",
                 'unknown': "मुझे समझ नहीं आया। यहाँ उपलब्ध सेवाएं हैं:",
                 'processing': "आपका अनुरोध प्रोसेस किया जा रहा है...",
                 'success': "आपका अनुरोध सफलतापूर्वक प्रोसेस कर दिया गया है।",
                 'cancelled': "प्रक्रिया रद्द कर दी गई। मैं और कैसे मदद कर सकता हूं?",
-                'emergency_ambulance': "🚑 *एम्बुलेंस इमरजेंसी*\nडायल करें: 102 या 108\nकंट्रोल रूम: 03592-202033",
-                'emergency_police': "👮 *पुलिस इमरजेंसी*\nडायल करें: 100\nकंट्रोल रूम: 03592-202022",
-                'emergency_fire': "🚒 *अग्निशमन इमरजेंसी*\nडायल करें: 101\nकंट्रोल रूम: 03592-202099",
-                'emergency_suicide': "💭 *आत्महत्या रोकथाम हेल्पलाइन*\nडायल करें: 9152987821",
-                'emergency_women': "👩 *महिला हेल्पलाइन*\nडायल करें: 1091\nराज्य आयोग: 03592-205607",
+                'emergency_ambulance': " *एम्बुलेंस इमरजेंसी*\nडायल करें: 102 या 108\nकंट्रोल रूम: 03592-202033",
+                'emergency_police': " *पुलिस इमरजेंसी*\nडायल करें: 100\nकंट्रोल रूम: 03592-202022",
+                'emergency_fire': " *अग्निशमन इमरजेंसी*\nडायल करें: 101\nकंट्रोल रूम: 03592-202099",
+                'emergency_suicide': " *आत्महत्या रोकथाम हेल्पलाइन*\nडायल करें: 9152987821",
+                'emergency_women': " *महिला हेल्पलाइन*\nडायल करें: 1091\nराज्य आयोग: 03592-205607",
                 'ex_gratia_intro': "आप पात्र हो सकते हैं यदि आपको निम्नलिखित कारणों से नुकसान हुआ है:\n• भारी बारिश, बाढ़, या भूस्खलन\n• भूकंप या अन्य प्राकृतिक आपदाएं\n• ओलावृष्टि से फसल की क्षति\n• प्राकृतिक आपदाओं से घर की क्षति\n• पशुओं की हानि\n\nक्या आप आवेदन के साथ आगे बढ़ना चाहते हैं?",
                 'ex_gratia_form': "कृपया अपना पूरा नाम दर्ज करें:",
                 'ex_gratia_father': "आपके पिता का नाम क्या है?",
@@ -324,18 +329,18 @@ Your feedback ID: {feedback_id}""",
                 'ex_gratia_plot': "आपका प्लॉट नंबर क्या है?",
                 'ex_gratia_damage': "कृपया क्षति का विस्तृत विवरण प्रदान करें:",
                 'certificate_info': "आप प्रमाणपत्र के लिए दो तरीकों से आवेदन कर सकते हैं:\n\n1. **ऑनलाइन आवेदन** - सिक्किम SSO पोर्टल का सीधा उपयोग करें\n2. **CSC के माध्यम से आवेदन** - अपने निकटतम कॉमन सर्विस सेंटर से सहायता प्राप्त करें\n\nआप कौन सा तरीका पसंद करेंगे?",
-                'other_emergency': "🚨 अन्य आपातकालीन सेवाएं",
-                'back_main_menu': "🔙 मुख्य मेनू पर वापस",
-                'language_menu': "🌐 *भाषा चयन*\n\nकृपया अपनी पसंदीदा भाषा चुनें:",
-                'language_changed': "✅ भाषा सफलतापूर्वक हिंदी में बदल दी गई!",
-                'language_button_english': "🇺🇸 English",
-                'language_button_hindi': "🇮🇳 हिंदी",
-                'complaint_title': "*शिकायत/ग्रिवेंस दर्ज करें* 📝",
+                'other_emergency': " अन्य आपातकालीन सेवाएं",
+                'back_main_menu': " मुख्य मेनू पर वापस",
+                'language_menu': " *भाषा चयन*\n\nकृपया अपनी पसंदीदा भाषा चुनें:",
+                'language_changed': " भाषा सफलतापूर्वक हिंदी में बदल दी गई!",
+                'language_button_english': " English",
+                'language_button_hindi': " हिंदी",
+                'complaint_title': "*शिकायत/ग्रिवेंस दर्ज करें* ",
                 'complaint_name_prompt': "कृपया अपना पूरा नाम दर्ज करें:",
                 'complaint_mobile_prompt': "कृपया अपना मोबाइल नंबर दर्ज करें:",
                 'complaint_mobile_error': "कृपया एक वैध 10-अंकीय मोबाइल नंबर दर्ज करें।",
                 'complaint_description_prompt': "कृपया अपनी शिकायत का विस्तृत विवरण दें:",
-                'complaint_success': "✅ *शिकायत सफलतापूर्वक दर्ज की गई*\n\n🆔 शिकायत आईडी: {complaint_id}\n👤 नाम: {name}\n📱 मोबाइल: {mobile}\n🔗 टेलीग्राम: @{telegram_username}\n\nआपकी शिकायत दर्ज कर दी गई है और जल्द ही प्रोसेस की जाएगी। कृपया भविष्य के संदर्भ के लिए अपनी शिकायत आईडी सहेजें।",
+                'complaint_success': " *शिकायत सफलतापूर्वक दर्ज की गई*\n\n शिकायत आईडी: {complaint_id}\n नाम: {name}\n मोबाइल: {mobile}\n टेलीग्राम: @{telegram_username}\n\nआपकी शिकायत दर्ज कर दी गई है और जल्द ही प्रोसेस की जाएगी। कृपया भविष्य के संदर्भ के लिए अपनी शिकायत आईडी सहेजें।",
                 'certificate_gpu_prompt': "कृपया अपना GPU (ग्राम पंचायत इकाई) दर्ज करें:",
                 'certificate_sso_message': "आप सीधे सिक्किम SSO पोर्टल पर आवेदन कर सकते हैं: https://sso.sikkim.gov.in",
                 'certificate_gpu_not_found': "क्षमा करें, आपके GPU के लिए कोई CSC ऑपरेटर नहीं मिला। कृपया GPU नंबर जांचें और पुनः प्रयास करें।",
@@ -343,7 +348,7 @@ Your feedback ID: {feedback_id}""",
                 'certificate_error': "क्षमा करें, आपके अनुरोध को प्रोसेस करने में त्रुटि हुई। कृपया पुनः प्रयास करें।",
                 
                 # New features responses
-                'scheme_info': """🏛️ **सरकारी योजनाएं और आवेदन**
+                'scheme_info': """ **सरकारी योजनाएं और आवेदन**
 
 उपलब्ध योजनाएं:
 • पीएम किसान
@@ -355,7 +360,7 @@ Your feedback ID: {feedback_id}""",
 
 अधिक जानने और आवेदन करने के लिए योजना चुनें:""",
                 
-                'contacts_info': """📞 **महत्वपूर्ण संपर्क**
+                'contacts_info': """ **महत्वपूर्ण संपर्क**
 
 आपको किस प्रकार का संपर्क चाहिए:
 • **सीएससी (सामान्य सेवा केंद्र)** - अपना निकटतम सीएससी ऑपरेटर खोजें
@@ -364,7 +369,7 @@ Your feedback ID: {feedback_id}""",
 
 एक विकल्प चुनें:""",
                 
-                'feedback_info': """📝 **प्रतिक्रिया दें**
+                'feedback_info': """ **प्रतिक्रिया दें**
 
 हमारी सेवाओं को बेहतर बनाने के लिए आपकी प्रतिक्रिया महत्वपूर्ण है। कृपया प्रदान करें:
 • आपका नाम
@@ -376,28 +381,28 @@ Your feedback ID: {feedback_id}""",
                 'feedback_name_prompt': "कृपया अपना नाम दर्ज करें:",
                 'feedback_phone_prompt': "कृपया अपना फोन नंबर दर्ज करें:",
                 'feedback_message_prompt': "कृपया अपनी प्रतिक्रिया या सुझाव साझा करें:",
-                'feedback_success': """✅ **प्रतिक्रिया सफलतापूर्वक सबमिट की गई!**
+                'feedback_success': """ **प्रतिक्रिया सफलतापूर्वक सबमिट की गई!**
 
 आपकी प्रतिक्रिया के लिए धन्यवाद। हम इसे समीक्षा करेंगे और सुधारों पर काम करेंगे।
 
 आपकी प्रतिक्रिया आईडी: {feedback_id}""",
-                'emergency_type_prompt': "🚨 *Emergency Services*\n\nPlease select the type of emergency:",
-                'emergency_details_prompt': "🚨 *{service_type} Emergency*\n\nPlease provide details about your emergency situation:",
-                'complaint_location_prompt': "📍 *Location Information*\n\nTo help us respond better, would you like to share your location?",
-                'error_message': "❌ Sorry, something went wrong. Please try again.",
+                'emergency_type_prompt': " *Emergency Services*\n\nPlease select the type of emergency:",
+                'emergency_details_prompt': " *{service_type} Emergency*\n\nPlease provide details about your emergency situation:",
+                'complaint_location_prompt': " *Location Information*\n\nTo help us respond better, would you like to share your location?",
+                'error_message': " Sorry, something went wrong. Please try again.",
             },
             'nepali': {
                 'welcome': "स्मार्टगभ सहायकमा स्वागत छ! म तपाईंलाई कसरी मद्दत गर्न सक्छु?",
-                'main_menu': """🏛️ *स्मार्टगभ सहायकमा स्वागत छ* 🏛️
+                'main_menu': """ *स्मार्टगभ सहायकमा स्वागत छ* 
 
 हाम्रो सेवाहरू समावेश छन्:
 
-1. *होमस्टे बुक गर्नुहोस्* 🏡
+1. *होमस्टे बुक गर्नुहोस्* 
    • पर्यटन स्थलहरू अनुसार खोज्नुहोस्
    • रेटिङ र मूल्यहरू हेर्नुहोस्
    • मालिकहरूसँग सिधा सम्पर्क
 
-2. *आकस्मिक सेवाहरू* 🚨
+2. *आकस्मिक सेवाहरू* 
    • एम्बुलेन्स (102/108)
    • प्रहरी हेल्पलाइन
    • आत्महत्या रोकथाम
@@ -406,41 +411,41 @@ Your feedback ID: {feedback_id}""",
    • अग्निशमन आकस्मिक
    • आपदा रिपोर्ट गर्नुहोस्
 
-3. *शिकायत दर्ता गर्नुहोस्* 📝
+3. *शिकायत दर्ता गर्नुहोस्* 
    • आफ्नो शिकायत दर्ता गर्नुहोस्
    • शिकायत ट्र्याकिङ आईडी प्राप्त गर्नुहोस्
    • 24/7 निगरानी
 
-4. *प्रमाणपत्रको लागि आवेदन गर्नुहोस्* 💻
+4. *प्रमाणपत्रको लागि आवेदन गर्नुहोस्* 
    • CSC सञ्चालक सहायता
    • सिक्किम SSO पोर्टल लिङ्क
    • आवेदन स्थिति ट्र्याक गर्नुहोस्
 
-5. *आपदा व्यवस्थापन* 🆘
+5. *आपदा व्यवस्थापन* 
    • एक्स-ग्रेटियाको लागि आवेदन गर्नुहोस्
    • आवेदन स्थिति जाँच गर्नुहोस्
    • राहत मापदण्ड हेर्नुहोस्
    • आकस्मिक सम्पर्कहरू
 
 कृपया जारी राख्न सेवा छान्नुहोस्:""",
-                'button_homestay': "🏡 होमस्टे बुक गर्नुहोस्",
-                'button_emergency': "🚨 आकस्मिक सेवाहरू",
-                'button_complaint': "📝 शिकायत दर्ता गर्नुहोस्",
-                'button_certificate': "💻 प्रमाणपत्रको लागि आवेदन",
-                'button_disaster': "🆘 आपदा व्यवस्थापन",
-                'button_schemes': "🏛️ सरकारी योजनाहरू",
-                'button_contacts': "📞 महत्वपूर्ण सम्पर्कहरू",
-                'button_feedback': "📝 प्रतिक्रिया दिनुहोस्",
+                'button_homestay': " होमस्टे बुक गर्नुहोस्",
+                'button_emergency': " आकस्मिक सेवाहरू",
+                'button_complaint': " शिकायत दर्ता गर्नुहोस्",
+                'button_certificate': " प्रमाणपत्रको लागि आवेदन",
+                'button_disaster': " आपदा व्यवस्थापन",
+                'button_schemes': " सरकारी योजनाहरू",
+                'button_contacts': " महत्वपूर्ण सम्पर्कहरू",
+                'button_feedback': " प्रतिक्रिया दिनुहोस्",
                 'error': "माफ गर्नुहोस्, त्रुटि भयो। कृपया पुन: प्रयास गर्नुहोस्।",
                 'unknown': "मलाई बुझ्न सकिएन। यहाँ उपलब्ध सेवाहरू छन्:",
                 'processing': "तपाईंको अनुरोध प्रशोधन गरिँदैछ...",
                 'success': "तपाईंको अनुरोध सफलतापूर्वक प्रशोधन गरियो।",
                 'cancelled': "प्रक्रिया रद्द गरियो। म अरु कसरी मद्दत गर्न सक्छु?",
-                'emergency_ambulance': "🚑 *एम्बुलेन्स आकस्मिक*\nडायल गर्नुहोस्: 102 वा 108\nकन्ट्रोल रूम: 03592-202033",
-                'emergency_police': "👮 *प्रहरी आकस्मिक*\nडायल गर्नुहोस्: 100\nकन्ट्रोल रूम: 03592-202022",
-                'emergency_fire': "🚒 *अग्निशमन आकस्मिक*\nडायल गर्नुहोस्: 101\nकन्ट्रोल रूम: 03592-202099",
-                'emergency_suicide': "💭 *आत्महत्या रोकथाम हेल्पलाइन*\nडायल गर्नुहोस्: 9152987821",
-                'emergency_women': "👩 *महिला हेल्पलाइन*\nडायल गर्नुहोस्: 1091\nराज्य आयोग: 03592-205607",
+                'emergency_ambulance': " *एम्बुलेन्स आकस्मिक*\nडायल गर्नुहोस्: 102 वा 108\nकन्ट्रोल रूम: 03592-202033",
+                'emergency_police': " *प्रहरी आकस्मिक*\nडायल गर्नुहोस्: 100\nकन्ट्रोल रूम: 03592-202022",
+                'emergency_fire': " *अग्निशमन आकस्मिक*\nडायल गर्नुहोस्: 101\nकन्ट्रोल रूम: 03592-202099",
+                'emergency_suicide': " *आत्महत्या रोकथाम हेल्पलाइन*\nडायल गर्नुहोस्: 9152987821",
+                'emergency_women': " *महिला हेल्पलाइन*\nडायल गर्नुहोस्: 1091\nराज्य आयोग: 03592-205607",
                 'ex_gratia_intro': "तपाईं पात्र हुन सक्नुहुन्छ यदि तपाईंलाई निम्न कारणहरूले क्षति भएको छ:\n• भारी वर्षा, बाढी, वा भूस्खलन\n• भूकम्प वा अन्य प्राकृतिक आपदाहरू\n• असिनाले फसलको क्षति\n• प्राकृतिक आपदाहरूले घरको क्षति\n• पशुहरूको हानि\n\nके तपाईं आवेदनसँग अगाडि बढ्न चाहनुहुन्छ?",
                 'ex_gratia_form': "कृपया आफ्नो पूरा नाम प्रविष्ट गर्नुहोस्:",
                 'ex_gratia_father': "तपाईंको बुबाको नाम के हो?",
@@ -452,18 +457,18 @@ Your feedback ID: {feedback_id}""",
                 'ex_gratia_plot': "तपाईंको प्लट नम्बर के हो?",
                 'ex_gratia_damage': "कृपया क्षतिको विस्तृत विवरण प्रदान गर्नुहोस्:",
                 'certificate_info': "तपाईंले प्रमाणपत्रको लागि दुई तरिकाले आवेदन गर्न सक्नुहुन्छ:\n\n1. **अनलाइन आवेदन** - सिक्किम SSO पोर्टल सिधै प्रयोग गर्नुहोस्\n2. **CSC मार्फत आवेदन** - आफ्नो नजिकैको कमन सर्भिस सेन्टरबाट सहायता लिनुहोस्\n\nतपाईं कुन तरिका रोज्नुहुन्छ?",
-                'other_emergency': "🚨 अन्य आकस्मिक सेवाहरू",
-                'back_main_menu': "🔙 मुख्य मेनुमा फिर्ता",
-                'language_menu': "🌐 *भाषा चयन*\n\nकृपया तपाईंको मनपर्ने भाषा छान्नुहोस्:",
-                'language_changed': "✅ भाषा सफलतापूर्वक नेपालीमा बदलियो!",
-                'language_button_english': "🇺🇸 English",
-                'language_button_hindi': "🇮🇳 हिंदी",
-                'complaint_title': "*शिकायत/ग्रिवेंस दर्ता गर्नुहोस्* 📝",
+                'other_emergency': " अन्य आकस्मिक सेवाहरू",
+                'back_main_menu': " मुख्य मेनुमा फिर्ता",
+                'language_menu': " *भाषा चयन*\n\nकृपया तपाईंको मनपर्ने भाषा छान्नुहोस्:",
+                'language_changed': " भाषा सफलतापूर्वक नेपालीमा बदलियो!",
+                'language_button_english': " English",
+                'language_button_hindi': " हिंदी",
+                'complaint_title': "*शिकायत/ग्रिवेंस दर्ता गर्नुहोस्* ",
                 'complaint_name_prompt': "कृपया आफ्नो पूरा नाम प्रविष्ट गर्नुहोस्:",
                 'complaint_mobile_prompt': "कृपया आफ्नो मोबाइल नम्बर प्रविष्ट गर्नुहोस्:",
                 'complaint_mobile_error': "कृपया एक वैध 10-अंकीय मोबाइल नम्बर प्रविष्ट गर्नुहोस्।",
                 'complaint_description_prompt': "कृपया आफ्नो शिकायतको विस्तृत विवरण दिनुहोस्:",
-                'complaint_success': "✅ *शिकायत सफलतापूर्वक दर्ता गरियो*\n\n🆔 शिकायत आईडी: {complaint_id}\n👤 नाम: {name}\n📱 मोबाइल: {mobile}\n🔗 टेलीग्राम: @{telegram_username}\n\nतपाईंको शिकायत दर्ता गरियो र चाँडै प्रशोधन गरिनेछ। कृपया भविष्यको सन्दर्भको लागि आफ्नो शिकायत आईडी सुरक्षित गर्नुहोस्।",
+                'complaint_success': " *शिकायत सफलतापूर्वक दर्ता गरियो*\n\n शिकायत आईडी: {complaint_id}\n नाम: {name}\n मोबाइल: {mobile}\n टेलीग्राम: @{telegram_username}\n\nतपाईंको शिकायत दर्ता गरियो र चाँडै प्रशोधन गरिनेछ। कृपया भविष्यको सन्दर्भको लागि आफ्नो शिकायत आईडी सुरक्षित गर्नुहोस्।",
                 'certificate_gpu_prompt': "कृपया आफ्नो GPU (ग्राम पंचायत इकाई) प्रविष्ट गर्नुहोस्:",
                 'certificate_sso_message': "तपाईं सिधै सिक्किम SSO पोर्टलमा आवेदन गर्न सक्नुहुन्छ: https://sso.sikkim.gov.in",
                 'certificate_gpu_not_found': "माफ गर्नुहोस्, तपाईंको GPU को लागि कुनै CSC सञ्चालक फेला परेनन्। कृपया GPU नम्बर जाँच गर्नुहोस् र पुन: प्रयास गर्नुहोस्।",
@@ -471,7 +476,7 @@ Your feedback ID: {feedback_id}""",
                 'certificate_error': "माफ गर्नुहोस्, तपाईंको अनुरोध प्रशोधन गर्दा त्रुटि भयो। कृपया पुन: प्रयास गर्नुहोस्।",
                 
                 # New features responses
-                'scheme_info': """🏛️ **सरकारी योजनाहरू र आवेदनहरू**
+                'scheme_info': """ **सरकारी योजनाहरू र आवेदनहरू**
 
 उपलब्ध योजनाहरू:
 • पीएम किसान
@@ -483,7 +488,7 @@ Your feedback ID: {feedback_id}""",
 
 थप जान्न र आवेदन गर्न योजना छान्नुहोस्:""",
                 
-                'contacts_info': """📞 **महत्वपूर्ण सम्पर्कहरू**
+                'contacts_info': """ **महत्वपूर्ण सम्पर्कहरू**
 
 तपाईंलाई कुन प्रकारको सम्पर्क चाहिन्छ:
 • **CSC (साझा सेवा केन्द्र)** - आफ्नो नजिकैको CSC सञ्चालक फेला पार्नुहोस्
@@ -492,7 +497,7 @@ Your feedback ID: {feedback_id}""",
 
 एउटा विकल्प छान्नुहोस्:""",
                 
-                'feedback_info': """📝 **प्रतिक्रिया दिनुहोस्**
+                'feedback_info': """ **प्रतिक्रिया दिनुहोस्**
 
 हाम्रो सेवाहरू सुधार गर्न तपाईंको प्रतिक्रिया महत्वपूर्ण छ। कृपया प्रदान गर्नुहोस्:
 • तपाईंको नाम
@@ -504,15 +509,15 @@ Your feedback ID: {feedback_id}""",
                 'feedback_name_prompt': "कृपया आफ्नो नाम प्रविष्ट गर्नुहोस्:",
                 'feedback_phone_prompt': "कृपया आफ्नो फोन नम्बर प्रविष्ट गर्नुहोस्:",
                 'feedback_message_prompt': "कृपया आफ्नो प्रतिक्रिया वा सुझाव साझा गर्नुहोस्:",
-                'feedback_success': """✅ **प्रतिक्रिया सफलतापूर्वक सबमिट गरियो!**
+                'feedback_success': """ **प्रतिक्रिया सफलतापूर्वक सबमिट गरियो!**
 
 तपाईंको प्रतिक्रियाको लागि धन्यवाद। हामी यसलाई समीक्षा गर्नेछौं र सुधारहरूमा काम गर्नेछौं।
 
 तपाईंको प्रतिक्रिया आईडी: {feedback_id}""",
-                'emergency_type_prompt': "🚨 *Emergency Services*\n\nPlease select the type of emergency:",
-                'emergency_details_prompt': "🚨 *{service_type} Emergency*\n\nPlease provide details about your emergency situation:",
-                'complaint_location_prompt': "📍 *Location Information*\n\nTo help us respond better, would you like to share your location?",
-                'error_message': "❌ Sorry, something went wrong. Please try again.",
+                'emergency_type_prompt': " *Emergency Services*\n\nPlease select the type of emergency:",
+                'emergency_details_prompt': " *{service_type} Emergency*\n\nPlease provide details about your emergency situation:",
+                'complaint_location_prompt': " *Location Information*\n\nTo help us respond better, would you like to share your location?",
+                'error_message': " Sorry, something went wrong. Please try again.",
             }
         }
 
@@ -525,14 +530,14 @@ Your feedback ID: {feedback_id}""",
         """Safely set user state with locking"""
         with self._state_lock:
             self.user_states[user_id] = state
-            logger.info(f"🔒 STATE UPDATE: User {user_id} → {state}")
+            logger.info(f" STATE UPDATE: User {user_id} → {state}")
 
     def _clear_user_state(self, user_id: int):
         """Safely clear user state with locking"""
         with self._state_lock:
             if user_id in self.user_states:
                 del self.user_states[user_id]
-                logger.info(f"🧹 STATE CLEARED: User {user_id}")
+                logger.info(f" STATE CLEARED: User {user_id}")
 
     def _get_user_language(self, user_id: int) -> str:
         """Get user's preferred language"""
@@ -543,7 +548,7 @@ Your feedback ID: {feedback_id}""",
         """Set user's preferred language"""
         with self._state_lock:
             self.user_languages[user_id] = language
-            logger.info(f"🌐 LANGUAGE SET: User {user_id} → {language}")
+            logger.info(f" LANGUAGE SET: User {user_id} → {language}")
 
     async def _ensure_session(self):
         """Ensure aiohttp session exists"""
@@ -583,11 +588,11 @@ Your feedback ID: {feedback_id}""",
             self._set_user_state(user_id, state)
             
             if user_lang == "hindi":
-                message = "स्थान डिस्पैच के लिए आवश्यक है। कृपया अपना वर्तमान स्थान साझा करें 📍"
+                message = "स्थान डिस्पैच के लिए आवश्यक है। कृपया अपना वर्तमान स्थान साझा करें "
             elif user_lang == "nepali":
-                message = "स्थान डिस्पैचको लागि आवश्यक छ। कृपया आफ्नो वर्तमान स्थान साझा गर्नुहोस् 📍"
+                message = "स्थान डिस्पैचको लागि आवश्यक छ। कृपया आफ्नो वर्तमान स्थान साझा गर्नुहोस् "
             else:
-                message = "Location is required for dispatch. Please share your current location 📍"
+                message = "Location is required for dispatch. Please share your current location "
             
             # Request location for emergency
             await self.location_system.request_location(update, context, "emergency")
@@ -701,7 +706,7 @@ Your feedback ID: {feedback_id}""",
             
             return True  # Return True on successful logging
         except Exception as e:
-            logger.error(f"❌ Error logging to Google Sheets: {str(e)}")
+            logger.error(f" Error logging to Google Sheets: {str(e)}")
             return False  # Return False on error
 
     async def detect_language(self, text: str) -> str:
@@ -750,7 +755,7 @@ Your feedback ID: {feedback_id}""",
             
             Respond with EXACTLY one word: english, hindi, or nepali"""
             
-            logger.info(f"🔍 [LLM] Language Detection Prompt: {prompt}")
+            logger.info(f" [LLM] Language Detection Prompt: {prompt}")
             
             # Call Qwen through Ollama
             async with self._session.post(
@@ -768,18 +773,18 @@ Your feedback ID: {feedback_id}""",
                 result = await response.json()
                 detected_lang = result['response'].strip().lower()
                 
-                logger.info(f"🤖 [LLM] Language Detection Response: {detected_lang}")
+                logger.info(f" [LLM] Language Detection Response: {detected_lang}")
                 
                 # Validate response
                 if detected_lang in ['english', 'hindi', 'nepali']:
-                    logger.info(f"✅ Language detected by Qwen: {detected_lang}")
+                    logger.info(f" Language detected by Qwen: {detected_lang}")
                     return detected_lang
                 else:
-                    logger.warning(f"⚠️ Invalid language detection result: {detected_lang}, falling back to English")
+                    logger.warning(f" Invalid language detection result: {detected_lang}, falling back to English")
                     return 'english'
                     
         except Exception as e:
-            logger.error(f"❌ Language detection failed: {str(e)}")
+            logger.error(f" Language detection failed: {str(e)}")
             return 'english'  # Fallback to English on error
 
     async def message_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -790,13 +795,13 @@ Your feedback ID: {feedback_id}""",
         user_id = update.effective_user.id
         
         # Debug logging for all message types
-        logger.info(f"📍 [DEBUG] Message type: {type(update.message)}")
-        logger.info(f"📍 [DEBUG] Has location: {hasattr(update.message, 'location') and update.message.location}")
-        logger.info(f"📍 [DEBUG] Has text: {hasattr(update.message, 'text') and update.message.text}")
+        logger.info(f" [DEBUG] Message type: {type(update.message)}")
+        logger.info(f" [DEBUG] Has location: {hasattr(update.message, 'location') and update.message.location}")
+        logger.info(f" [DEBUG] Has text: {hasattr(update.message, 'text') and update.message.text}")
         
         # Handle location messages FIRST
         if update.message.location:
-            logger.info(f"📍 [MAIN] Location message detected from user {user_id}")
+            logger.info(f" [MAIN] Location message detected from user {user_id}")
             # Pass the user state to the location system
             user_state = self._get_user_state(user_id)
             context.user_data['user_state'] = user_state
@@ -811,10 +816,10 @@ Your feedback ID: {feedback_id}""",
         logger.info(f"[MSG] User {user_id}: {message_text}")
         
         # Handle location-related buttons
-        if message_text == "⏭️ Skip Location":
+        if message_text == "⏭ Skip Location":
             await self.location_system.handle_location_skip(update, context)
             return
-        elif message_text == "❌ Cancel":
+        elif message_text == " Cancel":
             await self.location_system.handle_location_cancel(update, context)
             return
         
@@ -832,7 +837,7 @@ Your feedback ID: {feedback_id}""",
             # For emergency messages, let them go to normal processing for call buttons
             if interaction_type == "emergency":
                 # Let emergency messages go to normal processing for call buttons
-                logger.info(f"📍 [MAIN] Emergency message detected, bypassing location system for call buttons")
+                logger.info(f" [MAIN] Emergency message detected, bypassing location system for call buttons")
             else:
                 # For non-emergency messages, request location as usual
                 user_state = self._get_user_state(user_id)
@@ -965,10 +970,10 @@ Your feedback ID: {feedback_id}""",
                     
                     # Ask if user wants to share location
                     keyboard = [
-                        [InlineKeyboardButton("📍 Share My Location", callback_data="emergency_share_location")],
-                        [InlineKeyboardButton("📝 Enter Location Manually", callback_data="emergency_manual_location")],
-                        [InlineKeyboardButton("⏭️ Skip Location", callback_data="emergency_skip_location")],
-                        [InlineKeyboardButton("🔙 Back to Main Menu", callback_data="main_menu")]
+                        [InlineKeyboardButton(" Share My Location", callback_data="emergency_share_location")],
+                        [InlineKeyboardButton(" Enter Location Manually", callback_data="emergency_manual_location")],
+                        [InlineKeyboardButton("⏭ Skip Location", callback_data="emergency_skip_location")],
+                        [InlineKeyboardButton(" Back to Main Menu", callback_data="main_menu")]
                     ]
                     reply_markup = InlineKeyboardMarkup(keyboard)
                     
@@ -996,34 +1001,66 @@ Your feedback ID: {feedback_id}""",
                 intent = await self.get_intent_from_llm(message_text, user_lang)
                 logger.info(f"[INTENT] Detected intent: {intent}")
                 
+                # Generate human-like response using enhanced conversation system
+                try:
+                    user_name = update.effective_user.first_name or "Unknown"
+                    logger.info(f" [CONVERSATION] Generating human-like response for user {user_id} ({user_name})")
+                    logger.info(f" [CONVERSATION] Message: '{message_text}' | Intent: {intent} | Language: {user_lang}")
+                    
+                    human_response = await self.conversation_system.process_user_message(
+                        user_id, message_text, intent, user_lang, 
+                        context={"user_name": user_name}
+                    )
+                    
+                    logger.info(f" [CONVERSATION] Bot Response: '{human_response[:100]}{'...' if len(human_response) > 100 else ''}'")
+                    
+                    # Send the human-like response first
+                    await update.message.reply_text(human_response)
+                    
+                except Exception as e:
+                    logger.error(f"[CONVERSATION] Error generating human-like response: {e}")
+                    # Fallback to original behavior
+                
                 # Route based on intent
                 if intent == "greeting":
+                    logger.info(f" [INTENT] Handling greeting for user {user_id}")
                     await self.handle_greeting(update, context)
                 elif intent == "ex_gratia":
+                    logger.info(f" [INTENT] Handling ex-gratia for user {user_id}")
                     await self.handle_ex_gratia(update, context)
                 elif intent == "check_status":
+                    logger.info(f" [INTENT] Handling status check for user {user_id}")
                     await self.handle_check_status(update, context)
                 elif intent == "relief_norms":
+                    logger.info(f" [INTENT] Handling relief norms for user {user_id}")
                     await self.handle_relief_norms(update, context)
                 elif intent == "emergency":
+                    logger.info(f" [INTENT] Handling emergency for user {user_id}")
                     # Direct emergency response - don't show menu
                     await self.handle_emergency_direct(update, context, message_text)
                 elif intent == "tourism":
+                    logger.info(f" [INTENT] Handling tourism for user {user_id}")
                     await self.handle_tourism_menu(update, context)
                 elif intent == "complaint":
+                    logger.info(f" [INTENT] Handling complaint for user {user_id}")
                     await self.start_complaint_workflow(update, context)
                 elif intent == "certificate":
+                    logger.info(f" [INTENT] Handling certificate for user {user_id}")
                     # Route to certificate workflow instead of just showing info
                     await self.handle_certificate_info(update, context)
                 elif intent == "csc":
+                    logger.info(f" [INTENT] Handling CSC intent for user {user_id}")
                     await self.handle_csc_menu(update, context)
                 elif intent == "scheme":
+                    logger.info(f" [INTENT] Handling scheme for user {user_id}")
                     await self.handle_scheme_menu(update, context)
                 elif intent == "cancel":
+                    logger.info(f" [INTENT] Handling cancel for user {user_id}")
                     # Clear state and show main menu
                     self._clear_user_state(user_id)
                     await self.show_main_menu(update, context)
                 else:
+                    logger.info(f" [INTENT] Unknown intent '{intent}' for user {user_id}, showing main menu")
                     # Unknown intent, show main menu
                     await self.start(update, context)
                 
@@ -1039,7 +1076,7 @@ Your feedback ID: {feedback_id}""",
                 )
             
         except Exception as e:
-            logger.error(f"❌ Error in message handler: {str(e)}")
+            logger.error(f" Error in message handler: {str(e)}")
             user_lang = self._get_user_language(update.effective_user.id) if update.effective_user else 'english'
             await update.message.reply_text(
                 self.responses[user_lang]['error_message'],
@@ -1087,7 +1124,7 @@ Your feedback ID: {feedback_id}""",
         keyboard = [
             [InlineKeyboardButton(self.responses['english']['language_button_english'], callback_data="lang_english")],
             [InlineKeyboardButton(self.responses['english']['language_button_hindi'], callback_data="lang_hindi")],
-            [InlineKeyboardButton("🇳🇵 नेपाली (Nepali)", callback_data="lang_nepali")],
+            [InlineKeyboardButton(" नेपाली (Nepali)", callback_data="lang_nepali")],
             [InlineKeyboardButton(self.responses['english']['back_main_menu'], callback_data="main_menu")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -1149,7 +1186,7 @@ Language: {lang}
 
 Respond with ONLY one of the intent names listed above, nothing else."""
 
-            logger.info(f"🎯 [LLM] Intent Classification Prompt: {prompt}")
+            logger.info(f" [LLM] Intent Classification Prompt: {prompt}")
 
             async with self._session.post(
                 Config.OLLAMA_API_URL,
@@ -1165,7 +1202,7 @@ Respond with ONLY one of the intent names listed above, nothing else."""
             ) as response:
                 result = await response.json()
                 intent = result['response'].strip().lower()
-                logger.info(f"🎯 [LLM] Intent Classification Response: {intent}")
+                logger.info(f" [LLM] Intent Classification Response: {intent}")
                 
                 # Validate intent
                 valid_intents = ['greeting', 'ex_gratia', 'check_status', 'relief_norms', 'emergency', 'tourism', 'complaint', 'certificate', 'csc', 'scheme', 'cancel']
@@ -1186,7 +1223,7 @@ Respond with ONLY one of the intent names listed above, nothing else."""
         # Clear any existing state
         self._clear_user_state(user_id)
         
-        greeting_text = """👋 *Welcome to Sajilo Sewak!*
+        greeting_text = """ *Welcome to Sajilo Sewak!*
 
 नमस्ते! / नमस्कार! / Hello!
 
@@ -1197,9 +1234,9 @@ Please select your preferred language to continue:
 कृपया तपाईंको मनपर्ने भाषा छान्नुहोस्:"""
 
         keyboard = [
-            [InlineKeyboardButton("🇮🇳 हिंदी (Hindi)", callback_data='lang_hindi')],
-            [InlineKeyboardButton("🇳🇵 नेपाली (Nepali)", callback_data='lang_nepali')],
-            [InlineKeyboardButton("🇬🇧 English", callback_data='lang_english')]
+            [InlineKeyboardButton(" हिंदी (Hindi)", callback_data='lang_hindi')],
+            [InlineKeyboardButton(" नेपाली (Nepali)", callback_data='lang_nepali')],
+            [InlineKeyboardButton(" English", callback_data='lang_english')]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
@@ -1290,13 +1327,13 @@ Please select your preferred language to continue:
                     # Set the appropriate label and prompt
                     if relationship == "son":
                         user_state["data"]["relationship_label"] = "Father's Name"
-                        prompt = "👨 Please enter your Father's Name:"
+                        prompt = " Please enter your Father's Name:"
                     elif relationship == "daughter":
                         user_state["data"]["relationship_label"] = "Father's Name"
-                        prompt = "👨 Please enter your Father's Name:"
+                        prompt = " Please enter your Father's Name:"
                     elif relationship == "wife":
                         user_state["data"]["relationship_label"] = "Husband's Name"
-                        prompt = "👨 Please enter your Husband's Name:"
+                        prompt = " Please enter your Husband's Name:"
                     
                     user_state["step"] = "father_name"
                     self._set_user_state(user_id, user_state)
@@ -1319,7 +1356,7 @@ Please select your preferred language to continue:
                     state = self._get_user_state(user_id)
                     state["step"] = "manual_location"
                     self._set_user_state(user_id, state)
-                    await query.edit_message_text("📍 Please enter your location (e.g., Gangtok, Lachen, Namchi):")
+                    await query.edit_message_text(" Please enter your location (e.g., Gangtok, Lachen, Namchi):")
                 elif service == "skip_location":
                     # Complete emergency without location
                     await self._complete_emergency_without_location(update, context)
@@ -1336,23 +1373,23 @@ Please select your preferred language to continue:
                 user_lang = self._get_user_language(user_id)
                 
                 # Create a message with the phone number for easy copying
-                call_message = f"""📞 **Emergency Call Information**
+                call_message = f""" **Emergency Call Information**
 
-🔢 **Phone Number**: `{phone_number}`
+ **Phone Number**: `{phone_number}`
 
-📱 **To call this number**:
+ **To call this number**:
 1. Copy the number above
 2. Open your phone app
 3. Paste and dial the number
 
-🚨 **Emergency Response**: Help is on the way!
+ **Emergency Response**: Help is on the way!
 
-⚠️ **Important**: Stay calm and provide clear information about your emergency."""
+ **Important**: Stay calm and provide clear information about your emergency."""
                 
                 # Create keyboard with copy button and back options
                 keyboard = [
-                    [InlineKeyboardButton("🔙 Back to Emergency", callback_data="emergency")],
-                    [InlineKeyboardButton("🏠 Main Menu", callback_data="main_menu")]
+                    [InlineKeyboardButton(" Back to Emergency", callback_data="emergency")],
+                    [InlineKeyboardButton(" Main Menu", callback_data="main_menu")]
                 ]
                 reply_markup = InlineKeyboardMarkup(keyboard)
                 
@@ -1416,26 +1453,26 @@ Please select your preferred language to continue:
             # CSC Contacts workflow handlers - MUST BE BEFORE generic csc_ handler
             elif data.startswith("csc_block_"):
                 try:
-                    print(f"🔍 [DEBUG] ENTERING csc_block_ handler with data: {data}")
+                    print(f" [DEBUG] ENTERING csc_block_ handler with data: {data}")
                     block_index = data.replace("csc_block_", "")
-                    print(f"🔍 [DEBUG] About to call simple_csc_block_to_gpu with block_index: {block_index}")
+                    print(f" [DEBUG] About to call simple_csc_block_to_gpu with block_index: {block_index}")
                     await self.simple_csc_block_to_gpu(update, context, block_index)
-                    print(f"🔍 [DEBUG] simple_csc_block_to_gpu completed successfully")
+                    print(f" [DEBUG] simple_csc_block_to_gpu completed successfully")
                 except Exception as e:
-                    print(f"🔍 [DEBUG] Exception in csc_block_ handler: {e}")
+                    print(f" [DEBUG] Exception in csc_block_ handler: {e}")
                     import traceback
                     traceback.print_exc()
                     await update.callback_query.answer("Error occurred. Please try again.")
             
             elif data.startswith("csc_gpu_"):
                 try:
-                    print(f"🔍 [DEBUG] ENTERING csc_gpu_ handler with data: {data}")
+                    print(f" [DEBUG] ENTERING csc_gpu_ handler with data: {data}")
                     gpu_index = data.replace("csc_gpu_", "")
-                    print(f"🔍 [DEBUG] About to call handle_csc_gpu_selection with gpu_index: {gpu_index}")
+                    print(f" [DEBUG] About to call handle_csc_gpu_selection with gpu_index: {gpu_index}")
                     await self.handle_csc_gpu_selection(update, context, gpu_index)
-                    print(f"🔍 [DEBUG] handle_csc_gpu_selection completed successfully")
+                    print(f" [DEBUG] handle_csc_gpu_selection completed successfully")
                 except Exception as e:
-                    print(f"🔍 [DEBUG] Exception in csc_gpu_ handler: {e}")
+                    print(f" [DEBUG] Exception in csc_gpu_ handler: {e}")
                     import traceback
                     traceback.print_exc()
                     await update.callback_query.answer("Error occurred. Please try again.")
@@ -1462,7 +1499,7 @@ Please select your preferred language to continue:
                         user_lang = self._get_user_language(user_id)
                         text = f"{self.responses[user_lang]['complaint_title']}\n\n{self.responses[user_lang]['complaint_name_prompt']}"
                         
-                        keyboard = [[InlineKeyboardButton("🔙 Cancel", callback_data="main_menu")]]
+                        keyboard = [[InlineKeyboardButton(" Cancel", callback_data="main_menu")]]
                         reply_markup = InlineKeyboardMarkup(keyboard)
                         
                         await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
@@ -1477,7 +1514,7 @@ Please select your preferred language to continue:
                     state = self._get_user_state(user_id)
                     state["step"] = "manual_location"
                     self._set_user_state(user_id, state)
-                    await query.edit_message_text("📍 Please enter your location (e.g., Gangtok, Lachen, Namchi):")
+                    await query.edit_message_text(" Please enter your location (e.g., Gangtok, Lachen, Namchi):")
                 elif complaint_type == "skip_location":
                     # Complete complaint without location
                     await self._complete_complaint_without_location(update, context)
@@ -1487,7 +1524,7 @@ Please select your preferred language to continue:
                 user_id = update.effective_user.id
                 user_lang = self._get_user_language(user_id)
                 
-                text = f"""📋 **Select Certificate Type**
+                text = f""" **Select Certificate Type**
 
 Please select the certificate you want to apply for:
 
@@ -1496,13 +1533,13 @@ Please select the certificate you want to apply for:
 **Apply through your nearest CSC (Common Service Centre).**"""
 
                 keyboard = [
-                    [InlineKeyboardButton("🏛️ SC Certificate", callback_data="cert_type_sc")],
-                    [InlineKeyboardButton("🏛️ ST Certificate", callback_data="cert_type_st")],
-                    [InlineKeyboardButton("🏛️ OBC Certificate", callback_data="cert_type_obc")],
-                    [InlineKeyboardButton("💰 Income Certificate", callback_data="cert_type_income")],
-                    [InlineKeyboardButton("💼 Employment Card", callback_data="cert_type_employment")],
-                    [InlineKeyboardButton("🏛️ Primitive Tribe Certificate", callback_data="cert_type_primitive")],
-                    [InlineKeyboardButton("🔙 Back", callback_data="certificate_info")]
+                    [InlineKeyboardButton(" SC Certificate", callback_data="cert_type_sc")],
+                    [InlineKeyboardButton(" ST Certificate", callback_data="cert_type_st")],
+                    [InlineKeyboardButton(" OBC Certificate", callback_data="cert_type_obc")],
+                    [InlineKeyboardButton(" Income Certificate", callback_data="cert_type_income")],
+                    [InlineKeyboardButton(" Employment Card", callback_data="cert_type_employment")],
+                    [InlineKeyboardButton(" Primitive Tribe Certificate", callback_data="cert_type_primitive")],
+                    [InlineKeyboardButton(" Back", callback_data="certificate_info")]
                 ]
                 reply_markup = InlineKeyboardMarkup(keyboard)
                 
@@ -1515,7 +1552,7 @@ Please select the certificate you want to apply for:
                 sso_message = self.responses[user_lang]['certificate_sso_message']
                 back_button = self.responses[user_lang]['back_main_menu']
                 await query.edit_message_text(
-                    f"{sso_message}\n\n🔙 {back_button}", 
+                    f"{sso_message}\n\n {back_button}", 
                     reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(back_button, callback_data="main_menu")]]),
                     parse_mode='Markdown'
                 )
@@ -1645,7 +1682,7 @@ Please select the certificate you want to apply for:
                 # Get the last search term if available
                 last_search = state.get("last_search", "")
                 
-                retry_message = f"""🔄 **CSC Search - Try Again**
+                retry_message = f""" **CSC Search - Try Again**
 
 Please enter your GPU name, ward name, or constituency name to search for CSC operators.
 
@@ -1657,7 +1694,7 @@ Please enter your GPU name, ward name, or constituency name to search for CSC op
 {f"**Last search:** {last_search}" if last_search else ""}"""
                 
                 keyboard = [
-                    [InlineKeyboardButton("🔙 Back to Contacts", callback_data="contacts")],
+                    [InlineKeyboardButton(" Back to Contacts", callback_data="contacts")],
                     [InlineKeyboardButton(self.responses[user_lang]['back_main_menu'], callback_data="main_menu")]
                 ]
                 reply_markup = InlineKeyboardMarkup(keyboard)
@@ -1673,7 +1710,7 @@ Please enter your GPU name, ward name, or constituency name to search for CSC op
                 # Get the last GPU if available
                 last_gpu = state.get("last_gpu", "")
                 
-                retry_message = f"""🔄 **Certificate Search - Try Again**
+                retry_message = f""" **Certificate Search - Try Again**
 
 Please enter your GPU (Gram Panchayat Unit) name to find the CSC operator.
 
@@ -1685,7 +1722,7 @@ Please enter your GPU (Gram Panchayat Unit) name to find the CSC operator.
 {f"**Last search:** {last_gpu}" if last_gpu else ""}"""
                 
                 keyboard = [
-                    [InlineKeyboardButton("🔙 Back to Main Menu", callback_data="main_menu")]
+                    [InlineKeyboardButton(" Back to Main Menu", callback_data="main_menu")]
                 ]
                 reply_markup = InlineKeyboardMarkup(keyboard)
                 
@@ -1738,14 +1775,14 @@ Please enter your GPU (Gram Panchayat Unit) name to find the CSC operator.
     async def handle_disaster_menu(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle disaster management menu"""
         keyboard = [
-            [InlineKeyboardButton("📝 Apply for Ex-gratia", callback_data="ex_gratia")],
-            [InlineKeyboardButton("🔍 Check Application Status", callback_data="check_status")],
-            [InlineKeyboardButton("ℹ️ View Relief Norms", callback_data="relief_norms")],
-            [InlineKeyboardButton("🔙 Back to Main Menu", callback_data="main_menu")]
+            [InlineKeyboardButton(" Apply for Ex-gratia", callback_data="ex_gratia")],
+            [InlineKeyboardButton(" Check Application Status", callback_data="check_status")],
+            [InlineKeyboardButton("ℹ View Relief Norms", callback_data="relief_norms")],
+            [InlineKeyboardButton(" Back to Main Menu", callback_data="main_menu")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
-        text = """*Disaster Management Services* 🆘
+        text = """*Disaster Management Services* 
 
 Please select an option:
 
@@ -1772,7 +1809,7 @@ Please select an option:
         user_id = update.effective_user.id
         self._set_user_state(user_id, {"workflow": "check_status"})
         
-        text = """*Check Application Status* 🔍
+        text = """*Check Application Status* 
 
 Please enter your NC Exgratia Application Reference Number.
 
@@ -1786,7 +1823,7 @@ Please enter your NC Exgratia Application Reference Number.
 
 **Note:** This will check the real-time status from the NIC server."""
 
-        keyboard = [[InlineKeyboardButton("🔙 Cancel", callback_data="disaster")]]
+        keyboard = [[InlineKeyboardButton(" Cancel", callback_data="disaster")]]
         reply_markup = InlineKeyboardMarkup(keyboard)
         await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
 
@@ -1814,7 +1851,7 @@ Please enter your NC Exgratia Application Reference Number.
             # Get the Google Sheets service
             service = self.sheets_service
             if not service:
-                await update.message.reply_text("❌ **Error:** Unable to access application database. Please try again later.", parse_mode='Markdown')
+                await update.message.reply_text(" **Error:** Unable to access application database. Please try again later.", parse_mode='Markdown')
                 return
             
             # Search for the application in Google Sheets
@@ -1847,15 +1884,15 @@ Please enter your NC Exgratia Application Reference Number.
                 
                 # Create status message
                 status_emoji = {
-                    "Submitted": "📝",
-                    "Under Review": "🔍",
-                    "Approved": "✅",
-                    "Rejected": "❌",
+                    "Submitted": "",
+                    "Under Review": "",
+                    "Approved": "",
+                    "Rejected": "",
                     "In Progress": "⏳",
-                    "Completed": "🎉"
-                }.get(status, "📋")
+                    "Completed": ""
+                }.get(status, "")
                 
-                text = f"""📋 **Application Status**
+                text = f""" **Application Status**
 
 **Reference Number:** `{reference_number}`
 **Scheme:** {scheme_name}
@@ -1875,8 +1912,8 @@ Please enter your NC Exgratia Application Reference Number.
 **Need Help?** Contact your CSC operator using the 'Important Contacts' section."""
                 
                 keyboard = [
-                    [InlineKeyboardButton("🔙 Back to Main Menu", callback_data="main_menu")],
-                    [InlineKeyboardButton("📞 Contact CSC", callback_data="contacts")]
+                    [InlineKeyboardButton(" Back to Main Menu", callback_data="main_menu")],
+                    [InlineKeyboardButton(" Contact CSC", callback_data="contacts")]
                 ]
                 reply_markup = InlineKeyboardMarkup(keyboard)
                 
@@ -1884,7 +1921,7 @@ Please enter your NC Exgratia Application Reference Number.
                 
             else:
                 # Application not found
-                text = f"""❌ **Application Not Found**
+                text = f""" **Application Not Found**
 
 **Reference Number:** `{reference_number}`
 
@@ -1901,8 +1938,8 @@ Sorry, we couldn't find an application with this reference number.
 • Contact support if the issue persists"""
                 
                 keyboard = [
-                    [InlineKeyboardButton("🔄 Try Again", callback_data="check_status")],
-                    [InlineKeyboardButton("🔙 Back to Main Menu", callback_data="main_menu")]
+                    [InlineKeyboardButton(" Try Again", callback_data="check_status")],
+                    [InlineKeyboardButton(" Back to Main Menu", callback_data="main_menu")]
                 ]
                 reply_markup = InlineKeyboardMarkup(keyboard)
                 
@@ -1910,7 +1947,7 @@ Sorry, we couldn't find an application with this reference number.
                 
         except Exception as e:
             logger.error(f"Error checking scheme application status: {str(e)}")
-            await update.message.reply_text("❌ **Error:** Unable to check application status. Please try again later.", parse_mode='Markdown')
+            await update.message.reply_text(" **Error:** Unable to check application status. Please try again later.", parse_mode='Markdown')
     
     async def check_certificate_application_status(self, update: Update, context: ContextTypes.DEFAULT_TYPE, reference_number: str):
         """Check certificate application status from Google Sheets"""
@@ -1918,7 +1955,7 @@ Sorry, we couldn't find an application with this reference number.
             # Get Google Sheets service
             service = self.sheets_service.service
             if not service:
-                await update.message.reply_text("❌ **Error:** Google Sheets service not available.", parse_mode='Markdown')
+                await update.message.reply_text(" **Error:** Google Sheets service not available.", parse_mode='Markdown')
                 return
             
             # Search for the application in Google Sheets
@@ -1932,7 +1969,7 @@ Sorry, we couldn't find an application with this reference number.
             
             values = result.get('values', [])
             if not values:
-                await update.message.reply_text("❌ **Error:** No certificate applications found.", parse_mode='Markdown')
+                await update.message.reply_text(" **Error:** No certificate applications found.", parse_mode='Markdown')
                 return
             
             # Search for the reference number
@@ -1953,7 +1990,7 @@ Sorry, we couldn't find an application with this reference number.
                 submission_date = application_data[12] if len(application_data) > 12 else "Unknown"  # Column M
                 
                 # Create status message
-                text = f"""📋 **Certificate Application Status**
+                text = f""" **Certificate Application Status**
 
 **Reference Number:** `{reference_number}`
 **Certificate Type:** {certificate_type}
@@ -1962,23 +1999,23 @@ Sorry, we couldn't find an application with this reference number.
 **Block:** {block}
 **GPU:** {gpu}
 
-**📊 Current Status:** {status}
-**📅 Submitted On:** {submission_date}
+** Current Status:** {status}
+** Submitted On:** {submission_date}
 
-**📞 Next Steps:**
+** Next Steps:**
 • CSC operator will contact you within 24-48 hours
 • Keep your reference number safe for tracking
 • Contact your block office if no response within 48 hours
 
-**🔄 Status Updates:**
+** Status Updates:**
 CSC operators update status in our system. Check back later for updates."""
                 
-                keyboard = [[InlineKeyboardButton("🔙 Main Menu", callback_data="main_menu")]]
+                keyboard = [[InlineKeyboardButton(" Main Menu", callback_data="main_menu")]]
                 reply_markup = InlineKeyboardMarkup(keyboard)
                 
                 await update.message.reply_text(text, reply_markup=reply_markup, parse_mode='Markdown')
             else:
-                text = f"""❌ **Application Not Found**
+                text = f""" **Application Not Found**
 
 **Reference Number:** `{reference_number}`
 
@@ -1989,30 +2026,30 @@ This reference number was not found in our certificate applications database.
 • Application was submitted recently (may take a few minutes to appear)
 • Application was submitted through a different channel
 
-**💡 What to do:**
+** What to do:**
 • Double-check your reference number
 • Try again in a few minutes
 • Contact support if the issue persists"""
                 
-                keyboard = [[InlineKeyboardButton("🔙 Main Menu", callback_data="main_menu")]]
+                keyboard = [[InlineKeyboardButton(" Main Menu", callback_data="main_menu")]]
                 reply_markup = InlineKeyboardMarkup(keyboard)
                 
                 await update.message.reply_text(text, reply_markup=reply_markup, parse_mode='Markdown')
                 
         except Exception as e:
             logger.error(f"Error checking certificate application status: {str(e)}")
-            await update.message.reply_text("❌ **Error:** Unable to check application status. Please try again later.", parse_mode='Markdown')
+            await update.message.reply_text(" **Error:** Unable to check application status. Please try again later.", parse_mode='Markdown')
 
     async def handle_ex_gratia(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle ex-gratia application"""
         user_id = update.effective_user.id
         user_lang = self._get_user_language(user_id)
         
-        text = f"*Ex-Gratia Assistance* 📝\n\n{self.responses[user_lang]['ex_gratia_intro']}"
+        text = f"*Ex-Gratia Assistance* \n\n{self.responses[user_lang]['ex_gratia_intro']}"
 
         keyboard = [
-            [InlineKeyboardButton("✅ Yes, Continue", callback_data="ex_gratia_start")],
-            [InlineKeyboardButton("❌ No, Go Back", callback_data="disaster")]
+            [InlineKeyboardButton(" Yes, Continue", callback_data="ex_gratia_start")],
+            [InlineKeyboardButton(" No, Go Back", callback_data="disaster")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
@@ -2029,9 +2066,9 @@ This reference number was not found in our certificate applications database.
         user_lang = self._get_user_language(user_id)
         self._set_user_state(user_id, {"workflow": "ex_gratia", "step": "name"})
         
-        text = f"*Ex-Gratia Application Form* 📝\n\n{self.responses[user_lang]['ex_gratia_form']}"
+        text = f"*Ex-Gratia Application Form* \n\n{self.responses[user_lang]['ex_gratia_form']}"
         
-        keyboard = [[InlineKeyboardButton("🔙 Cancel", callback_data="disaster")]]
+        keyboard = [[InlineKeyboardButton(" Cancel", callback_data="disaster")]]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
         # Handle both regular messages and callbacks
@@ -2072,25 +2109,25 @@ This reference number was not found in our certificate applications database.
             
             # Show relationship options
             keyboard = [
-                [InlineKeyboardButton("👨 Son of (S/O)", callback_data="relationship_son")],
-                [InlineKeyboardButton("👧 Daughter of (D/O)", callback_data="relationship_daughter")],
-                [InlineKeyboardButton("👰 Wife of (W/O)", callback_data="relationship_wife")]
+                [InlineKeyboardButton(" Son of (S/O)", callback_data="relationship_son")],
+                [InlineKeyboardButton(" Daughter of (D/O)", callback_data="relationship_daughter")],
+                [InlineKeyboardButton(" Wife of (W/O)", callback_data="relationship_wife")]
             ]
             reply_markup = InlineKeyboardMarkup(keyboard)
-            await update.message.reply_text("👨‍👩‍👧‍👦 Please select your relationship:", reply_markup=reply_markup, parse_mode='Markdown')
+            await update.message.reply_text("‍‍‍ Please select your relationship:", reply_markup=reply_markup, parse_mode='Markdown')
 
         elif step == "relationship":
             # Store the relationship type
             data["relationship"] = text
             if text == "son":
                 data["relationship_label"] = "Father's Name"
-                prompt = "👨 Please enter your Father's Name:"
+                prompt = " Please enter your Father's Name:"
             elif text == "daughter":
                 data["relationship_label"] = "Father's Name"
-                prompt = "👨 Please enter your Father's Name:"
+                prompt = " Please enter your Father's Name:"
             elif text == "wife":
                 data["relationship_label"] = "Husband's Name"
-                prompt = "👨 Please enter your Husband's Name:"
+                prompt = " Please enter your Husband's Name:"
             
             state["step"] = "father_name"
             state["data"] = data
@@ -2120,12 +2157,12 @@ This reference number was not found in our certificate applications database.
             state["step"] = "voter_id"
             state["data"] = data
             self._set_user_state(user_id, state)
-            await update.message.reply_text("🆔 Please enter your Voter ID number:", parse_mode='Markdown')
+            await update.message.reply_text(" Please enter your Voter ID number:", parse_mode='Markdown')
 
         elif step == "voter_id":
             # Validate voter ID - minimum 5 characters
             if len(text.strip()) < 5:
-                await update.message.reply_text("❌ Voter ID must be at least 5 characters long. Please enter a valid Voter ID:", parse_mode='Markdown')
+                await update.message.reply_text(" Voter ID must be at least 5 characters long. Please enter a valid Voter ID:", parse_mode='Markdown')
                 return
             
             data["voter_id"] = text
@@ -2157,7 +2194,7 @@ This reference number was not found in our certificate applications database.
                 [InlineKeyboardButton("Soreng", callback_data="district_soreng")]
             ]
             reply_markup = InlineKeyboardMarkup(keyboard)
-            await update.message.reply_text("🏛️ Please select your district:", reply_markup=reply_markup, parse_mode='Markdown')
+            await update.message.reply_text(" Please select your district:", reply_markup=reply_markup, parse_mode='Markdown')
 
         elif step == "district":
             data["district"] = text
@@ -2178,7 +2215,7 @@ This reference number was not found in our certificate applications database.
             state["step"] = "nc_datetime"
             state["data"] = data
             self._set_user_state(user_id, state)
-            await update.message.reply_text("📅 When did the natural calamity occur? (DD/MM/YYYY HH:MM)\n\nExample: 15/10/2023 14:30", parse_mode='Markdown')
+            await update.message.reply_text(" When did the natural calamity occur? (DD/MM/YYYY HH:MM)\n\nExample: 15/10/2023 14:30", parse_mode='Markdown')
 
         elif step == "nc_datetime":
             # Parse the datetime input
@@ -2202,7 +2239,7 @@ This reference number was not found in our certificate applications database.
                 await self.show_damage_type_options(update, context)
                 
             except ValueError:
-                await update.message.reply_text("❌ Please enter the date and time in the correct format.\n\nExample: 15/10/2023 14:30", parse_mode='Markdown')
+                await update.message.reply_text(" Please enter the date and time in the correct format.\n\nExample: 15/10/2023 14:30", parse_mode='Markdown')
                 return
 
         elif step == "damage_type":
@@ -2227,10 +2264,10 @@ This reference number was not found in our certificate applications database.
 
     async def show_damage_type_options(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         keyboard = [
-            [InlineKeyboardButton("🏠 House Damage (₹4,000 - ₹25,000)", callback_data='damage_type_house')],
-            [InlineKeyboardButton("🌾 Crop Loss (₹4,000 - ₹15,000)", callback_data='damage_type_crop')],
-            [InlineKeyboardButton("🐄 Livestock Loss (₹2,000 - ₹15,000)", callback_data='damage_type_livestock')],
-            [InlineKeyboardButton("🏞️ Land Damage (₹4,000 - ₹20,000)", callback_data='damage_type_land')]
+            [InlineKeyboardButton(" House Damage (₹4,000 - ₹25,000)", callback_data='damage_type_house')],
+            [InlineKeyboardButton(" Crop Loss (₹4,000 - ₹15,000)", callback_data='damage_type_crop')],
+            [InlineKeyboardButton(" Livestock Loss (₹2,000 - ₹15,000)", callback_data='damage_type_livestock')],
+            [InlineKeyboardButton(" Land Damage (₹4,000 - ₹20,000)", callback_data='damage_type_land')]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
@@ -2247,10 +2284,10 @@ This reference number was not found in our certificate applications database.
         data = state.get("data", {})
         
         damage_types = {
-            'house': '🏠 House Damage',
-            'crop': '🌾 Crop Loss',
-            'livestock': '🐄 Livestock Loss',
-            'land': '🏞️ Land Damage'
+            'house': ' House Damage',
+            'crop': ' Crop Loss',
+            'livestock': ' Livestock Loss',
+            'land': ' Land Damage'
         }
         
         data['damage_type'] = damage_types[damage_type]
@@ -2286,46 +2323,46 @@ Please provide detailed description of the damage:
         relationship_info = ""
         if data.get('relationship'):
             if data['relationship'] == 'son':
-                relationship_info = f"👨 **Son of**: {data.get('father_name', 'N/A')}"
+                relationship_info = f" **Son of**: {data.get('father_name', 'N/A')}"
             elif data['relationship'] == 'daughter':
-                relationship_info = f"👧 **Daughter of**: {data.get('father_name', 'N/A')}"
+                relationship_info = f" **Daughter of**: {data.get('father_name', 'N/A')}"
             elif data['relationship'] == 'wife':
-                relationship_info = f"👰 **Wife of**: {data.get('father_name', 'N/A')}"
+                relationship_info = f" **Wife of**: {data.get('father_name', 'N/A')}"
         else:
-            relationship_info = f"👨‍👦 **Father's Name**: {data.get('father_name', 'N/A')}"
+            relationship_info = f"‍ **Father's Name**: {data.get('father_name', 'N/A')}"
 
-        summary = f"""*Please Review Your NC Exgratia Application* 📋
+        summary = f"""*Please Review Your NC Exgratia Application* 
 
 *Personal Details:*
-👤 **Name**: {data.get('name', 'N/A')}
+ **Name**: {data.get('name', 'N/A')}
 {relationship_info}
-🆔 **Voter ID**: {data.get('voter_id', 'N/A')}
-📱 **Contact**: {data.get('contact', 'N/A')}
+ **Voter ID**: {data.get('voter_id', 'N/A')}
+ **Contact**: {data.get('contact', 'N/A')}
 
 *Address Details:*
-📍 **Village**: {data.get('village', 'N/A')}
-🏘️ **Ward**: {data.get('ward', 'N/A')}
-🏛️ **GPU**: {data.get('gpu', 'N/A')}
-🏛️ **District**: {data.get('district', 'N/A')}
+ **Village**: {data.get('village', 'N/A')}
+ **Ward**: {data.get('ward', 'N/A')}
+ **GPU**: {data.get('gpu', 'N/A')}
+ **District**: {data.get('district', 'N/A')}
 
 *Land Details:*
-📄 **Khatiyan Number**: {data.get('khatiyan_no', 'N/A')}
-🗺️ **Plot Number**: {data.get('plot_no', 'N/A')}
+ **Khatiyan Number**: {data.get('khatiyan_no', 'N/A')}
+ **Plot Number**: {data.get('plot_no', 'N/A')}
 
 *Incident Details:*
-📅 **Date & Time**: {datetime_display}
-🏷️ **Damage Type**: {data.get('damage_type', 'N/A')}
-📝 **Description**: {data.get('damage_description', 'N/A')}
+ **Date & Time**: {datetime_display}
+ **Damage Type**: {data.get('damage_type', 'N/A')}
+ **Description**: {data.get('damage_description', 'N/A')}
 
 *Location:*
-📍 **Coordinates**: {location_display}
+ **Coordinates**: {location_display}
 
 Please verify all details carefully. Would you like to:"""
         
         keyboard = [
-            [InlineKeyboardButton("✅ Submit to NC Exgratia API", callback_data='ex_gratia_submit')],
-            [InlineKeyboardButton("✏️ Edit Details", callback_data='ex_gratia_edit')],
-            [InlineKeyboardButton("❌ Cancel", callback_data='ex_gratia_cancel')]
+            [InlineKeyboardButton(" Submit to NC Exgratia API", callback_data='ex_gratia_submit')],
+            [InlineKeyboardButton(" Edit Details", callback_data='ex_gratia_edit')],
+            [InlineKeyboardButton(" Cancel", callback_data='ex_gratia_cancel')]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
@@ -2345,7 +2382,7 @@ Please verify all details carefully. Would you like to:"""
         try:
             # Check if API client is available
             if not self.api_client:
-                error_msg = "❌ NC Exgratia API is not configured. Please contact support."
+                error_msg = " NC Exgratia API is not configured. Please contact support."
                 if update.callback_query:
                     await update.callback_query.edit_message_text(error_msg, parse_mode='Markdown')
                 else:
@@ -2353,7 +2390,7 @@ Please verify all details carefully. Would you like to:"""
                 return
 
             # Show processing message
-            processing_msg = "🔄 Submitting your application to NC Exgratia API...\n\nPlease wait while we process your request."
+            processing_msg = " Submitting your application to NC Exgratia API...\n\nPlease wait while we process your request."
             if update.callback_query:
                 await update.callback_query.edit_message_text(processing_msg, parse_mode='Markdown')
             else:
@@ -2393,12 +2430,12 @@ Please verify all details carefully. Would you like to:"""
                 df.to_csv('data/exgratia_applications.csv', mode='a', header=False, index=False)
                 
                 # Success confirmation message
-                confirmation = f"""✅ *NC Exgratia Application Submitted Successfully!*
+                confirmation = f""" *NC Exgratia Application Submitted Successfully!*
 
-🆔 **Reference Number**: `{reference_number}`
-👤 **Applicant**: {data.get('name')}
-📅 **Submitted**: {now.strftime('%d/%m/%Y %H:%M')}
-📊 **Status**: {api_status}
+ **Reference Number**: `{reference_number}`
+ **Applicant**: {data.get('name')}
+ **Submitted**: {now.strftime('%d/%m/%Y %H:%M')}
+ **Status**: {api_status}
 
 *Important Information:*
 • Save this reference number: `{reference_number}`
@@ -2410,11 +2447,11 @@ Please verify all details carefully. Would you like to:"""
 2. You'll receive updates via SMS
 3. Processing time: 7-10 working days
 
-Thank you for using NC Exgratia service! 🏛️"""
+Thank you for using NC Exgratia service! """
 
                 keyboard = [
-                    [InlineKeyboardButton("🔍 Check Status", callback_data=f"check_status_{reference_number}")],
-                    [InlineKeyboardButton("🔙 Back to Disaster Management", callback_data="disaster")]
+                    [InlineKeyboardButton(" Check Status", callback_data=f"check_status_{reference_number}")],
+                    [InlineKeyboardButton(" Back to Disaster Management", callback_data="disaster")]
                 ]
                 reply_markup = InlineKeyboardMarkup(keyboard)
                 
@@ -2452,11 +2489,11 @@ Thank you for using NC Exgratia service! 🏛️"""
                 error_details = api_result.get("details", "Unknown error")
                 error_type = api_result.get("error", "Unknown error")
                 retry_attempts = api_result.get("retry_attempts", 0)
-                logger.error(f"❌ NC Exgratia API submission failed: {error_details}")
+                logger.error(f" NC Exgratia API submission failed: {error_details}")
                 
                 # Check if this is a server-wide outage
                 if "NIC API Server Outage" in error_type:
-                    error_msg = f"""🚨 *NIC API Server Outage Detected*
+                    error_msg = f""" *NIC API Server Outage Detected*
 
 The NIC API server is currently experiencing a major outage.
 
@@ -2471,19 +2508,19 @@ The NIC API server is currently experiencing a major outage.
 3. **Alternative**: Visit your nearest CSC center for manual submission
 
 *Your data is safe:*
-✅ All your information has been saved locally
-✅ You can retry when the server is back online
+ All your information has been saved locally
+ You can retry when the server is back online
 
 *Support Contact:*
-📞 {Config.SUPPORT_PHONE}
-🏛️ Visit nearest CSC center
+ {Config.SUPPORT_PHONE}
+ Visit nearest CSC center
 
 *Status:*
-🔴 NIC API Server: **DOWN**
-⚠️ All ex-gratia submissions: **TEMPORARILY UNAVAILABLE**"""
+ NIC API Server: **DOWN**
+ All ex-gratia submissions: **TEMPORARILY UNAVAILABLE**"""
                 # Check if this is a PK district specific issue
                 elif "PK District API Issue" in error_type:
-                    error_msg = f"""⚠️ *PK District API Issue Detected*
+                    error_msg = f""" *PK District API Issue Detected*
 
 The NIC API is currently experiencing issues with PK district submissions.
 
@@ -2498,14 +2535,14 @@ The NIC API is currently experiencing issues with PK district submissions.
 3. **Alternative**: Visit your nearest CSC center for manual submission
 
 *Your data is safe:*
-✅ All your information has been saved locally
-✅ You can retry when the API is working again
+ All your information has been saved locally
+ You can retry when the API is working again
 
 *Support Contact:*
-📞 {Config.SUPPORT_PHONE}
-🏛️ Visit nearest CSC center"""
+ {Config.SUPPORT_PHONE}
+ Visit nearest CSC center"""
                 else:
-                    error_msg = f"""❌ *Application Submission Failed*
+                    error_msg = f""" *Application Submission Failed*
 
 The NC Exgratia API returned an error. Please try again later.
 
@@ -2519,7 +2556,7 @@ The NC Exgratia API returned an error. Please try again later.
 
 Your data has been saved locally and will be retried."""
                 
-                keyboard = [[InlineKeyboardButton("🔄 Try Again", callback_data='ex_gratia_submit')]]
+                keyboard = [[InlineKeyboardButton(" Try Again", callback_data='ex_gratia_submit')]]
                 reply_markup = InlineKeyboardMarkup(keyboard)
                 
                 if update.callback_query:
@@ -2531,8 +2568,8 @@ Your data has been saved locally and will be retried."""
             self._clear_user_state(user_id)
             
         except Exception as e:
-            logger.error(f"❌ Error submitting application: {str(e)}")
-            error_msg = f"""❌ *Application Submission Error*
+            logger.error(f" Error submitting application: {str(e)}")
+            error_msg = f""" *Application Submission Error*
 
 An unexpected error occurred. Please try again.
 
@@ -2541,7 +2578,7 @@ An unexpected error occurred. Please try again.
 
 Contact support: {Config.SUPPORT_PHONE}"""
             
-            keyboard = [[InlineKeyboardButton("🔄 Try Again", callback_data='ex_gratia_submit')]]
+            keyboard = [[InlineKeyboardButton(" Try Again", callback_data='ex_gratia_submit')]]
             reply_markup = InlineKeyboardMarkup(keyboard)
             
             if update.callback_query:
@@ -2558,21 +2595,21 @@ Contact support: {Config.SUPPORT_PHONE}"""
     async def handle_ex_gratia_edit(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle editing of ex-gratia application details"""
         keyboard = [
-            [InlineKeyboardButton("👤 Name", callback_data="edit_name")],
-            [InlineKeyboardButton("👨‍👦 Father's Name", callback_data="edit_father")],
-            [InlineKeyboardButton("📍 Village", callback_data="edit_village")],
-            [InlineKeyboardButton("📱 Contact", callback_data="edit_contact")],
-            [InlineKeyboardButton("🏘️ Ward", callback_data="edit_ward")],
-            [InlineKeyboardButton("🏛️ GPU", callback_data="edit_gpu")],
-            [InlineKeyboardButton("📄 Khatiyan Number", callback_data="edit_khatiyan")],
-            [InlineKeyboardButton("🗺️ Plot Number", callback_data="edit_plot")],
-            [InlineKeyboardButton("📝 Damage Description", callback_data="edit_damage")],
-            [InlineKeyboardButton("✅ Done Editing", callback_data="edit_done")],
-            [InlineKeyboardButton("❌ Cancel", callback_data="ex_gratia_cancel")]
+            [InlineKeyboardButton(" Name", callback_data="edit_name")],
+            [InlineKeyboardButton("‍ Father's Name", callback_data="edit_father")],
+            [InlineKeyboardButton(" Village", callback_data="edit_village")],
+            [InlineKeyboardButton(" Contact", callback_data="edit_contact")],
+            [InlineKeyboardButton(" Ward", callback_data="edit_ward")],
+            [InlineKeyboardButton(" GPU", callback_data="edit_gpu")],
+            [InlineKeyboardButton(" Khatiyan Number", callback_data="edit_khatiyan")],
+            [InlineKeyboardButton(" Plot Number", callback_data="edit_plot")],
+            [InlineKeyboardButton(" Damage Description", callback_data="edit_damage")],
+            [InlineKeyboardButton(" Done Editing", callback_data="edit_done")],
+            [InlineKeyboardButton(" Cancel", callback_data="ex_gratia_cancel")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
-        text = """*Which information would you like to edit?* ✏️
+        text = """*Which information would you like to edit?* 
 
 Select the field you want to update:"""
         
@@ -2591,19 +2628,19 @@ Select the field you want to update:"""
         self._set_user_state(user_id, state)
         
         # Request location first
-        location_text = """🚨 **Emergency Services** 🚨
+        location_text = """ **Emergency Services** 
 
-📍 **Location Required for Emergency Response**
+ **Location Required for Emergency Response**
 
 To provide you with the most accurate emergency assistance, we need your current location.
 
 **Please share your location:**"""
         
         keyboard = [
-            [InlineKeyboardButton("📍 Share My Location", callback_data="emergency_share_location")],
-            [InlineKeyboardButton("✏️ Enter Location Manually", callback_data="emergency_manual_location")],
-            [InlineKeyboardButton("⏭️ Skip Location", callback_data="emergency_skip_location")],
-            [InlineKeyboardButton("🔙 Main Menu", callback_data="main_menu")]
+            [InlineKeyboardButton(" Share My Location", callback_data="emergency_share_location")],
+            [InlineKeyboardButton(" Enter Location Manually", callback_data="emergency_manual_location")],
+            [InlineKeyboardButton("⏭ Skip Location", callback_data="emergency_skip_location")],
+            [InlineKeyboardButton(" Main Menu", callback_data="main_menu")]
         ]
         
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -2636,33 +2673,33 @@ To provide you with the most accurate emergency assistance, we need your current
         location_info = state.get("location", "Location not provided")
         
         # Show comprehensive emergency services menu
-        emergency_text = f"""🚨 **Emergency Services** 🚨
+        emergency_text = f""" **Emergency Services** 
 
-📍 **Your Location:** {location_info}
+ **Your Location:** {location_info}
 
 Please select the type of emergency you need help with:
 
-🔥 **Fire**
-🚑 **Ambulance** 
-🏥 **Health Emergency**
-🚓 **Police Helpline**
-🧠 **Mental Health Helpline**
-🚨 **District Control Room**
-👩‍🦰 **Women/Child Helpline**
-🧭 **Tourism Assistance**
+ **Fire**
+ **Ambulance** 
+ **Health Emergency**
+ **Police Helpline**
+ **Mental Health Helpline**
+ **District Control Room**
+‍ **Women/Child Helpline**
+ **Tourism Assistance**
 
 Select an option below:"""
         
         keyboard = [
-            [InlineKeyboardButton("🔥 Fire", callback_data="emergency_fire")],
-            [InlineKeyboardButton("🚑 Ambulance", callback_data="emergency_ambulance")],
-            [InlineKeyboardButton("🏥 Health Emergency", callback_data="emergency_health")],
-            [InlineKeyboardButton("🚓 Police Helpline", callback_data="emergency_police")],
-            [InlineKeyboardButton("🧠 Mental Health Helpline", callback_data="emergency_mental_health")],
-            [InlineKeyboardButton("🚨 District Control Room", callback_data="emergency_control_room")],
-            [InlineKeyboardButton("👩‍🦰 Women/Child Helpline", callback_data="emergency_women_child")],
-            [InlineKeyboardButton("🧭 Tourism Assistance", callback_data="emergency_tourism")],
-            [InlineKeyboardButton("🔙 Main Menu", callback_data="main_menu")]
+            [InlineKeyboardButton(" Fire", callback_data="emergency_fire")],
+            [InlineKeyboardButton(" Ambulance", callback_data="emergency_ambulance")],
+            [InlineKeyboardButton(" Health Emergency", callback_data="emergency_health")],
+            [InlineKeyboardButton(" Police Helpline", callback_data="emergency_police")],
+            [InlineKeyboardButton(" Mental Health Helpline", callback_data="emergency_mental_health")],
+            [InlineKeyboardButton(" District Control Room", callback_data="emergency_control_room")],
+            [InlineKeyboardButton("‍ Women/Child Helpline", callback_data="emergency_women_child")],
+            [InlineKeyboardButton(" Tourism Assistance", callback_data="emergency_tourism")],
+            [InlineKeyboardButton(" Main Menu", callback_data="main_menu")]
         ]
         
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -2699,10 +2736,10 @@ Select an option below:"""
                 response_text = self.responses[user_lang]['emergency_ambulance']
                 # Create clickable call buttons for ambulance
                 keyboard = [
-                    [InlineKeyboardButton("📞 Call Ambulance (102)", callback_data="call_102")],
-                    [InlineKeyboardButton("📞 Call Ambulance (108)", callback_data="call_108")],
-                    [InlineKeyboardButton("📞 Control Room", callback_data="call_03592202033")],
-                    [InlineKeyboardButton("📍 Share Location for Dispatch", callback_data="emergency_share_location")],
+                    [InlineKeyboardButton(" Call Ambulance (102)", callback_data="call_102")],
+                    [InlineKeyboardButton(" Call Ambulance (108)", callback_data="call_108")],
+                    [InlineKeyboardButton(" Control Room", callback_data="call_03592202033")],
+                    [InlineKeyboardButton(" Share Location for Dispatch", callback_data="emergency_share_location")],
                     [InlineKeyboardButton(self.responses[user_lang]['other_emergency'], callback_data="emergency")],
                     [InlineKeyboardButton(self.responses[user_lang]['back_main_menu'], callback_data="main_menu")]
                 ]
@@ -2711,9 +2748,9 @@ Select an option below:"""
                 response_text = self.responses[user_lang]['emergency_police']
                 # Create clickable call buttons for police
                 keyboard = [
-                    [InlineKeyboardButton("📞 Call Police (100)", callback_data="call_100")],
-                    [InlineKeyboardButton("📞 Control Room", callback_data="call_03592202022")],
-                    [InlineKeyboardButton("📍 Share Location for Dispatch", callback_data="emergency_share_location")],
+                    [InlineKeyboardButton(" Call Police (100)", callback_data="call_100")],
+                    [InlineKeyboardButton(" Control Room", callback_data="call_03592202022")],
+                    [InlineKeyboardButton(" Share Location for Dispatch", callback_data="emergency_share_location")],
                     [InlineKeyboardButton(self.responses[user_lang]['other_emergency'], callback_data="emergency")],
                     [InlineKeyboardButton(self.responses[user_lang]['back_main_menu'], callback_data="main_menu")]
                 ]
@@ -2722,9 +2759,9 @@ Select an option below:"""
                 response_text = self.responses[user_lang]['emergency_fire']
                 # Create clickable call buttons for fire
                 keyboard = [
-                    [InlineKeyboardButton("📞 Call Fire (101)", callback_data="call_101")],
-                    [InlineKeyboardButton("📞 Control Room", callback_data="call_03592202099")],
-                    [InlineKeyboardButton("📍 Share Location for Dispatch", callback_data="emergency_share_location")],
+                    [InlineKeyboardButton(" Call Fire (101)", callback_data="call_101")],
+                    [InlineKeyboardButton(" Control Room", callback_data="call_03592202099")],
+                    [InlineKeyboardButton(" Share Location for Dispatch", callback_data="emergency_share_location")],
                     [InlineKeyboardButton(self.responses[user_lang]['other_emergency'], callback_data="emergency")],
                     [InlineKeyboardButton(self.responses[user_lang]['back_main_menu'], callback_data="main_menu")]
                 ]
@@ -2733,8 +2770,8 @@ Select an option below:"""
                 response_text = self.responses[user_lang]['emergency_suicide']
                 # Create clickable call buttons for suicide helpline
                 keyboard = [
-                    [InlineKeyboardButton("📞 Call Suicide Helpline", callback_data="call_9152987821")],
-                    [InlineKeyboardButton("📍 Share Location for Support", callback_data="emergency_share_location")],
+                    [InlineKeyboardButton(" Call Suicide Helpline", callback_data="call_9152987821")],
+                    [InlineKeyboardButton(" Share Location for Support", callback_data="emergency_share_location")],
                     [InlineKeyboardButton(self.responses[user_lang]['other_emergency'], callback_data="emergency")],
                     [InlineKeyboardButton(self.responses[user_lang]['back_main_menu'], callback_data="main_menu")]
                 ]
@@ -2743,9 +2780,9 @@ Select an option below:"""
                 response_text = self.responses[user_lang]['emergency_women']
                 # Create clickable call buttons for women helpline
                 keyboard = [
-                    [InlineKeyboardButton("📞 Call Women Helpline (1091)", callback_data="call_1091")],
-                    [InlineKeyboardButton("📞 State Commission", callback_data="call_03592205607")],
-                    [InlineKeyboardButton("📍 Share Location for Support", callback_data="emergency_share_location")],
+                    [InlineKeyboardButton(" Call Women Helpline (1091)", callback_data="call_1091")],
+                    [InlineKeyboardButton(" State Commission", callback_data="call_03592205607")],
+                    [InlineKeyboardButton(" Share Location for Support", callback_data="emergency_share_location")],
                     [InlineKeyboardButton(self.responses[user_lang]['other_emergency'], callback_data="emergency")],
                     [InlineKeyboardButton(self.responses[user_lang]['back_main_menu'], callback_data="main_menu")]
                 ]
@@ -2754,9 +2791,9 @@ Select an option below:"""
                 service_type = 'ambulance'
                 response_text = self.responses[user_lang]['emergency_ambulance']
                 keyboard = [
-                    [InlineKeyboardButton("📞 Call Ambulance (102)", callback_data="call_102")],
-                    [InlineKeyboardButton("📞 Call Ambulance (108)", callback_data="call_108")],
-                    [InlineKeyboardButton("📍 Share Location for Dispatch", callback_data="emergency_share_location")],
+                    [InlineKeyboardButton(" Call Ambulance (102)", callback_data="call_102")],
+                    [InlineKeyboardButton(" Call Ambulance (108)", callback_data="call_108")],
+                    [InlineKeyboardButton(" Share Location for Dispatch", callback_data="emergency_share_location")],
                     [InlineKeyboardButton(self.responses[user_lang]['other_emergency'], callback_data="emergency")],
                     [InlineKeyboardButton(self.responses[user_lang]['back_main_menu'], callback_data="main_menu")]
                 ]
@@ -2792,7 +2829,7 @@ Select an option below:"""
         self._set_user_state(user_id, state)
         
         if service_type == "fire":
-            response_text = """🔥 **FIRE EMERGENCY**
+            response_text = """ **FIRE EMERGENCY**
 
 **Fire Helpline:** 101
 **Gyalshing Fire Station:** 03595-257372
@@ -2807,14 +2844,14 @@ Call immediately in case of any fire incident. Avoid elevators and stay low unde
 • Meet at designated assembly point"""
             
             keyboard = [
-                [InlineKeyboardButton("📞 Call Fire (101)", callback_data="call_101")],
-                [InlineKeyboardButton("📞 Gyalshing Fire Station", callback_data="call_03595257372")],
-                [InlineKeyboardButton("🔙 Back to Emergency Menu", callback_data="emergency")],
-                [InlineKeyboardButton("🏠 Main Menu", callback_data="main_menu")]
+                [InlineKeyboardButton(" Call Fire (101)", callback_data="call_101")],
+                [InlineKeyboardButton(" Gyalshing Fire Station", callback_data="call_03595257372")],
+                [InlineKeyboardButton(" Back to Emergency Menu", callback_data="emergency")],
+                [InlineKeyboardButton(" Main Menu", callback_data="main_menu")]
             ]
             
         elif service_type == "ambulance":
-            response_text = """🚑 **AMBULANCE SERVICES**
+            response_text = """ **AMBULANCE SERVICES**
 
 **Emergency Ambulance Numbers:** 102, 103, 108, 03595-250823
 
@@ -2832,16 +2869,16 @@ Call immediately in case of any fire incident. Avoid elevators and stay low unde
 **For immediate medical emergency, call 102 or 108**"""
             
             keyboard = [
-                [InlineKeyboardButton("📞 Call Ambulance (102)", callback_data="call_102")],
-                [InlineKeyboardButton("📞 Call Ambulance (108)", callback_data="call_108")],
-                [InlineKeyboardButton("📞 District Hospital", callback_data="call_03595250823")],
-                [InlineKeyboardButton("🏥 Health Emergency Details", callback_data="emergency_health")],
-                [InlineKeyboardButton("🔙 Back to Emergency Menu", callback_data="emergency")],
-                [InlineKeyboardButton("🏠 Main Menu", callback_data="main_menu")]
+                [InlineKeyboardButton(" Call Ambulance (102)", callback_data="call_102")],
+                [InlineKeyboardButton(" Call Ambulance (108)", callback_data="call_108")],
+                [InlineKeyboardButton(" District Hospital", callback_data="call_03595250823")],
+                [InlineKeyboardButton(" Health Emergency Details", callback_data="emergency_health")],
+                [InlineKeyboardButton(" Back to Emergency Menu", callback_data="emergency")],
+                [InlineKeyboardButton(" Main Menu", callback_data="main_menu")]
             ]
             
         elif service_type == "health":
-            response_text = """🏥 **HEALTH RELATED SERVICES**
+            response_text = """ **HEALTH RELATED SERVICES**
 
 Please select your location to get the right health emergency contact:
 
@@ -2854,19 +2891,19 @@ Please select your location to get the right health emergency contact:
 Select your location for specific contact details:"""
             
             keyboard = [
-                [InlineKeyboardButton("🏥 District Hospital (Gyalshing HQ)", callback_data="emergency_health_district")],
-                [InlineKeyboardButton("🏔️ Yuksom PHC", callback_data="emergency_health_yuksom")],
-                [InlineKeyboardButton("🌾 Dentam PHC", callback_data="emergency_health_dentam")],
-                [InlineKeyboardButton("🌄 Tashiding PHC", callback_data="emergency_health_tashiding")],
-                [InlineKeyboardButton("🔙 Back to Emergency Menu", callback_data="emergency")],
-                [InlineKeyboardButton("🏠 Main Menu", callback_data="main_menu")]
+                [InlineKeyboardButton(" District Hospital (Gyalshing HQ)", callback_data="emergency_health_district")],
+                [InlineKeyboardButton(" Yuksom PHC", callback_data="emergency_health_yuksom")],
+                [InlineKeyboardButton(" Dentam PHC", callback_data="emergency_health_dentam")],
+                [InlineKeyboardButton(" Tashiding PHC", callback_data="emergency_health_tashiding")],
+                [InlineKeyboardButton(" Back to Emergency Menu", callback_data="emergency")],
+                [InlineKeyboardButton(" Main Menu", callback_data="main_menu")]
             ]
             
         elif service_type == "police":
-            response_text = """🚓 **POLICE HELPLINE**
+            response_text = """ **POLICE HELPLINE**
 
-**📞 Police Emergency:** 100
-**📞 Police Control Room (Gyalshing):** 03595-251074, 77978-82838
+** Police Emergency:** 100
+** Police Control Room (Gyalshing):** 03595-251074, 77978-82838
 
 For complaints of theft, assault, threat, missing person, or any criminal activity. Quick dispatch of nearest patrol vehicle.
 
@@ -2878,22 +2915,22 @@ For complaints of theft, assault, threat, missing person, or any criminal activi
 Call respective stations for area-based incidents or verification needs."""
             
             keyboard = [
-                [InlineKeyboardButton("📞 Call Police (100)", callback_data="call_100")],
-                [InlineKeyboardButton("📞 Control Room", callback_data="call_03595251074")],
-                [InlineKeyboardButton("📞 Geyzing Police Station", callback_data="call_8145887528")],
-                [InlineKeyboardButton("📞 Dentam Police Station", callback_data="call_9775979366")],
-                [InlineKeyboardButton("📞 Uttarey Police Station", callback_data="call_7908118656")],
-                [InlineKeyboardButton("🔙 Back to Emergency Menu", callback_data="emergency")],
-                [InlineKeyboardButton("🏠 Main Menu", callback_data="main_menu")]
+                [InlineKeyboardButton(" Call Police (100)", callback_data="call_100")],
+                [InlineKeyboardButton(" Control Room", callback_data="call_03595251074")],
+                [InlineKeyboardButton(" Geyzing Police Station", callback_data="call_8145887528")],
+                [InlineKeyboardButton(" Dentam Police Station", callback_data="call_9775979366")],
+                [InlineKeyboardButton(" Uttarey Police Station", callback_data="call_7908118656")],
+                [InlineKeyboardButton(" Back to Emergency Menu", callback_data="emergency")],
+                [InlineKeyboardButton(" Main Menu", callback_data="main_menu")]
             ]
             
         elif service_type == "mental_health":
-            response_text = """🧠 **MENTAL HEALTH HELPLINE**
+            response_text = """ **MENTAL HEALTH HELPLINE**
 
-**📞 Tele-MANAS Toll-Free Helpline:** 14416
+** Tele-MANAS Toll-Free Helpline:** 14416
 Free, 24x7 government counselling for stress, anxiety, depression, substance use, or suicidal thoughts. Available in 20+ languages.
 
-**📞 Sikkim Suicide Prevention & Mental Health Helpline**
+** Sikkim Suicide Prevention & Mental Health Helpline**
 • 1800-345-3225
 • 03592-20211
 
@@ -2902,18 +2939,18 @@ Trained counsellors provide confidential emotional support. No registration or I
 **Ideal for students, youth, women, or anyone in emotional distress.**"""
             
             keyboard = [
-                [InlineKeyboardButton("📞 Tele-MANAS (14416)", callback_data="call_14416")],
-                [InlineKeyboardButton("📞 Suicide Prevention (1800-345-3225)", callback_data="call_18003453225")],
-                [InlineKeyboardButton("📞 Sikkim Helpline (03592-20211)", callback_data="call_0359220211")],
-                [InlineKeyboardButton("🔙 Back to Emergency Menu", callback_data="emergency")],
-                [InlineKeyboardButton("🏠 Main Menu", callback_data="main_menu")]
+                [InlineKeyboardButton(" Tele-MANAS (14416)", callback_data="call_14416")],
+                [InlineKeyboardButton(" Suicide Prevention (1800-345-3225)", callback_data="call_18003453225")],
+                [InlineKeyboardButton(" Sikkim Helpline (03592-20211)", callback_data="call_0359220211")],
+                [InlineKeyboardButton(" Back to Emergency Menu", callback_data="emergency")],
+                [InlineKeyboardButton(" Main Menu", callback_data="main_menu")]
             ]
             
         elif service_type == "control_room":
-            response_text = """🚨 **DISTRICT CONTROL ROOM (DISASTER MANAGEMENT)**
+            response_text = """ **DISTRICT CONTROL ROOM (DISASTER MANAGEMENT)**
 
-**📞 Disaster Reporting – Gyalshing HQ:** 03595-250633
-**📞 Nodal Officer – Ganesh Rai:** 96093-45119
+** Disaster Reporting – Gyalshing HQ:** 03595-250633
+** Nodal Officer – Ganesh Rai:** 96093-45119
 
 For reporting landslides, blocked roads, floods, house collapses, or requesting evacuation/shelter. Staffed 24x7 during monsoon and alerts.
 
@@ -2925,18 +2962,18 @@ For reporting landslides, blocked roads, floods, house collapses, or requesting 
 • Emergency supplies distribution"""
             
             keyboard = [
-                [InlineKeyboardButton("📞 Disaster Reporting", callback_data="call_03595250633")],
-                [InlineKeyboardButton("📞 Nodal Officer", callback_data="call_9609345119")],
-                [InlineKeyboardButton("🔙 Back to Emergency Menu", callback_data="emergency")],
-                [InlineKeyboardButton("🏠 Main Menu", callback_data="main_menu")]
+                [InlineKeyboardButton(" Disaster Reporting", callback_data="call_03595250633")],
+                [InlineKeyboardButton(" Nodal Officer", callback_data="call_9609345119")],
+                [InlineKeyboardButton(" Back to Emergency Menu", callback_data="emergency")],
+                [InlineKeyboardButton(" Main Menu", callback_data="main_menu")]
             ]
             
         elif service_type == "women_child":
-            response_text = """👩‍🦰 **WOMEN / CHILD HELPLINE**
+            response_text = """‍ **WOMEN / CHILD HELPLINE**
 
-**📞 Women in Distress Helpline (One Stop Centre):** 181 (24x7)
-**📞 Childline (Emergency for Minors):** 1098
-**📞 Police Emergency (Women & Children):** 100
+** Women in Distress Helpline (One Stop Centre):** 181 (24x7)
+** Childline (Emergency for Minors):** 1098
+** Police Emergency (Women & Children):** 100
 
 For reporting domestic violence, child abuse, harassment, abandonment, trafficking, or family disputes.
 
@@ -2948,17 +2985,17 @@ For reporting domestic violence, child abuse, harassment, abandonment, trafficki
 • Counselling services"""
             
             keyboard = [
-                [InlineKeyboardButton("📞 Women Helpline (181)", callback_data="call_181")],
-                [InlineKeyboardButton("📞 Childline (1098)", callback_data="call_1098")],
-                [InlineKeyboardButton("📞 Police Emergency (100)", callback_data="call_100")],
-                [InlineKeyboardButton("🔙 Back to Emergency Menu", callback_data="emergency")],
-                [InlineKeyboardButton("🏠 Main Menu", callback_data="main_menu")]
+                [InlineKeyboardButton(" Women Helpline (181)", callback_data="call_181")],
+                [InlineKeyboardButton(" Childline (1098)", callback_data="call_1098")],
+                [InlineKeyboardButton(" Police Emergency (100)", callback_data="call_100")],
+                [InlineKeyboardButton(" Back to Emergency Menu", callback_data="emergency")],
+                [InlineKeyboardButton(" Main Menu", callback_data="main_menu")]
             ]
             
         elif service_type == "tourism":
-            response_text = """🧭 **TOURISM ASSISTANCE**
+            response_text = """ **TOURISM ASSISTANCE**
 
-**📞 Pelling Tourist Information Centre:** 73187-14900
+** Pelling Tourist Information Centre:** 73187-14900
 
 For help with local travel issues, missing items, safety concerns, medical assistance for tourists, or guidance on trekking/routing.
 
@@ -2971,14 +3008,14 @@ For help with local travel issues, missing items, safety concerns, medical assis
 • Trekking and routing guidance"""
             
             keyboard = [
-                [InlineKeyboardButton("📞 Tourist Information Centre", callback_data="call_7318714900")],
-                [InlineKeyboardButton("🔙 Back to Emergency Menu", callback_data="emergency")],
-                [InlineKeyboardButton("🏠 Main Menu", callback_data="main_menu")]
+                [InlineKeyboardButton(" Tourist Information Centre", callback_data="call_7318714900")],
+                [InlineKeyboardButton(" Back to Emergency Menu", callback_data="emergency")],
+                [InlineKeyboardButton(" Main Menu", callback_data="main_menu")]
             ]
             
         else:
             # Default to ambulance for general emergency
-            response_text = """🚑 **EMERGENCY SERVICES**
+            response_text = """ **EMERGENCY SERVICES**
 
 **For immediate medical emergency:**
 • Call 102 or 108 for ambulance
@@ -2990,11 +3027,11 @@ For help with local travel issues, missing items, safety concerns, medical assis
 Please select a specific emergency service from the menu above."""
             
             keyboard = [
-                [InlineKeyboardButton("📞 Call Ambulance (102)", callback_data="call_102")],
-                [InlineKeyboardButton("📞 Call Police (100)", callback_data="call_100")],
-                [InlineKeyboardButton("📞 Call Fire (101)", callback_data="call_101")],
-                [InlineKeyboardButton("🔙 Back to Emergency Menu", callback_data="emergency")],
-                [InlineKeyboardButton("🏠 Main Menu", callback_data="main_menu")]
+                [InlineKeyboardButton(" Call Ambulance (102)", callback_data="call_102")],
+                [InlineKeyboardButton(" Call Police (100)", callback_data="call_100")],
+                [InlineKeyboardButton(" Call Fire (101)", callback_data="call_101")],
+                [InlineKeyboardButton(" Back to Emergency Menu", callback_data="emergency")],
+                [InlineKeyboardButton(" Main Menu", callback_data="main_menu")]
             ]
         
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -3011,120 +3048,120 @@ Please select a specific emergency service from the menu above."""
         user_lang = self._get_user_language(user_id)
         
         if location == "district":
-            response_text = """🏥 **District Hospital (Gyalshing HQ)**
+            response_text = """ **District Hospital (Gyalshing HQ)**
 
-📍 **District Hospital, Gyalshing**
+ **District Hospital, Gyalshing**
 
-👨‍⚕️ **Chief Medical Officer:** Dr. Namgay Bhutia – 📞 94341-84389
-👨‍⚕️ **District Medical Superintendent:** Dr. Nim Norbu Bhuatia – 📞 95939-86069
+‍ **Chief Medical Officer:** Dr. Namgay Bhutia –  94341-84389
+‍ **District Medical Superintendent:** Dr. Nim Norbu Bhuatia –  95939-86069
 
-🚑 **Ambulance Drivers (HQ)**
-• Raj Kr Chettri – 📞 96478-80775
-• Ganesh Subedi – 📞 99326-27198
-• Rajesh Gurung – 📞 97334-73753
-• Bikram Rai – 📞 74785-83708
+ **Ambulance Drivers (HQ)**
+• Raj Kr Chettri –  96478-80775
+• Ganesh Subedi –  99326-27198
+• Rajesh Gurung –  97334-73753
+• Bikram Rai –  74785-83708
 
-📌 Call for urgent medical emergencies, admissions, or ambulance transport."""
+ Call for urgent medical emergencies, admissions, or ambulance transport."""
             
             keyboard = [
-                [InlineKeyboardButton("📞 CMO Office", callback_data="call_9434184389")],
-                [InlineKeyboardButton("📞 DMS Office", callback_data="call_9593986069")],
-                [InlineKeyboardButton("📞 District Hospital", callback_data="call_03595250823")],
-                [InlineKeyboardButton("🔙 Back to Health Emergency", callback_data="emergency_health")],
-                [InlineKeyboardButton("🔙 Back to Emergency Menu", callback_data="emergency")],
-                [InlineKeyboardButton("🏠 Main Menu", callback_data="main_menu")]
+                [InlineKeyboardButton(" CMO Office", callback_data="call_9434184389")],
+                [InlineKeyboardButton(" DMS Office", callback_data="call_9593986069")],
+                [InlineKeyboardButton(" District Hospital", callback_data="call_03595250823")],
+                [InlineKeyboardButton(" Back to Health Emergency", callback_data="emergency_health")],
+                [InlineKeyboardButton(" Back to Emergency Menu", callback_data="emergency")],
+                [InlineKeyboardButton(" Main Menu", callback_data="main_menu")]
             ]
             
         elif location == "yuksom":
-            response_text = """🏔️ **Yuksom PHC**
+            response_text = """ **Yuksom PHC**
 
-📍 **Yuksom PHC**
+ **Yuksom PHC**
 
-👨‍⚕️ **Medical Officer In-Charge:** Dr. Biswas Basnet – 📞 70296-52289 / 81169-05440
-🚑 **Ambulance Driver (102):** Prem Gurung – 📞 74793-56022
+‍ **Medical Officer In-Charge:** Dr. Biswas Basnet –  70296-52289 / 81169-05440
+ **Ambulance Driver (102):** Prem Gurung –  74793-56022
 
-👩‍⚕️ **Health Workers (HWC/SC - Yuksom PHC region):**
-• Nisha Hangma Limboo – Gerethang HWC-SC – 📞 83378-58563
-• Tonzy Hangma Limboo – Thingling HWC-SC – 📞 97330-76496
-• Doma Lepcha – Melli Aching HWC-SC – 📞 76248-84889
-• Mingma Doma Bhutia – Darap HWC-SC – 📞 75850-04972
-• Tenzing Bhutia – Pelling HWC-SC – 📞 76022-39073
-• Wynee Rai – Nambu HWC-SC – 📞 93826-80108
-• Kaveri Rai – Rimbi HWC-SC – 📞 81452-74136
-• Yanki Bhutia – Yuksom HWC-SC – 📞 96470-78918
+‍ **Health Workers (HWC/SC - Yuksom PHC region):**
+• Nisha Hangma Limboo – Gerethang HWC-SC –  83378-58563
+• Tonzy Hangma Limboo – Thingling HWC-SC –  97330-76496
+• Doma Lepcha – Melli Aching HWC-SC –  76248-84889
+• Mingma Doma Bhutia – Darap HWC-SC –  75850-04972
+• Tenzing Bhutia – Pelling HWC-SC –  76022-39073
+• Wynee Rai – Nambu HWC-SC –  93826-80108
+• Kaveri Rai – Rimbi HWC-SC –  81452-74136
+• Yanki Bhutia – Yuksom HWC-SC –  96470-78918
 
-📌 You may contact your nearest health worker or ambulance driver for any local emergency."""
+ You may contact your nearest health worker or ambulance driver for any local emergency."""
             
             keyboard = [
-                [InlineKeyboardButton("📞 Medical Officer", callback_data="call_7029652289")],
-                [InlineKeyboardButton("📞 Ambulance Driver", callback_data="call_7479356022")],
-                [InlineKeyboardButton("🔙 Back to Health Emergency", callback_data="emergency_health")],
-                [InlineKeyboardButton("🔙 Back to Emergency Menu", callback_data="emergency")],
-                [InlineKeyboardButton("🏠 Main Menu", callback_data="main_menu")]
+                [InlineKeyboardButton(" Medical Officer", callback_data="call_7029652289")],
+                [InlineKeyboardButton(" Ambulance Driver", callback_data="call_7479356022")],
+                [InlineKeyboardButton(" Back to Health Emergency", callback_data="emergency_health")],
+                [InlineKeyboardButton(" Back to Emergency Menu", callback_data="emergency")],
+                [InlineKeyboardButton(" Main Menu", callback_data="main_menu")]
             ]
             
         elif location == "dentam":
-            response_text = """🌾 **Dentam PHC**
+            response_text = """ **Dentam PHC**
 
-📍 **Dentam PHC**
+ **Dentam PHC**
 
-👨‍⚕️ **Medical Officer In-Charge:** Dr. Ashim Basnett – 📞 74077-77138
-🚑 **Ambulance (102) Driver:** Uttam Basnett – 📞 77973-79779
+‍ **Medical Officer In-Charge:** Dr. Ashim Basnett –  74077-77138
+ **Ambulance (102) Driver:** Uttam Basnett –  77973-79779
 
-👩‍⚕️ **Health Workers (HWC/SC - Dentam PHC region):**
-• Sangita Chettri – Yangsum HWC-SC – 📞 95933-78780
-• Chamdra Maya Rai – Bermiok HWC-SC – 📞 74775-24613
-• Dukmit Lepcha – Hee HWC-SC – 📞 77970-03965
-• Manita Subba – Khandu HWC-SC – 📞 76027-61162
-• Palmu Bhutia – Lingchom HWC-SC – 📞 81010-77806
-• Panita Rai – Uttarey HWC-SC – 📞 99162-92835
+‍ **Health Workers (HWC/SC - Dentam PHC region):**
+• Sangita Chettri – Yangsum HWC-SC –  95933-78780
+• Chamdra Maya Rai – Bermiok HWC-SC –  74775-24613
+• Dukmit Lepcha – Hee HWC-SC –  77970-03965
+• Manita Subba – Khandu HWC-SC –  76027-61162
+• Palmu Bhutia – Lingchom HWC-SC –  81010-77806
+• Panita Rai – Uttarey HWC-SC –  99162-92835
 
-📌 Dial the ambulance or nearest CHO/MLHP for assistance in the Dentam area."""
+ Dial the ambulance or nearest CHO/MLHP for assistance in the Dentam area."""
             
             keyboard = [
-                [InlineKeyboardButton("📞 Medical Officer", callback_data="call_7407777138")],
-                [InlineKeyboardButton("📞 Ambulance Driver", callback_data="call_7797379779")],
-                [InlineKeyboardButton("🔙 Back to Health Emergency", callback_data="emergency_health")],
-                [InlineKeyboardButton("🔙 Back to Emergency Menu", callback_data="emergency")],
-                [InlineKeyboardButton("🏠 Main Menu", callback_data="main_menu")]
+                [InlineKeyboardButton(" Medical Officer", callback_data="call_7407777138")],
+                [InlineKeyboardButton(" Ambulance Driver", callback_data="call_7797379779")],
+                [InlineKeyboardButton(" Back to Health Emergency", callback_data="emergency_health")],
+                [InlineKeyboardButton(" Back to Emergency Menu", callback_data="emergency")],
+                [InlineKeyboardButton(" Main Menu", callback_data="main_menu")]
             ]
             
         elif location == "tashiding":
-            response_text = """🌄 **Tashiding PHC**
+            response_text = """ **Tashiding PHC**
 
-📍 **Tashiding PHC**
+ **Tashiding PHC**
 
-👩‍⚕️ **Medical Officer In-Charge:** Dr. Neelam – 📞 81458-17453
-🚑 **Ambulance Driver:** Chogyal Tshering Bhutia – 📞 95933-76420
+‍ **Medical Officer In-Charge:** Dr. Neelam –  81458-17453
+ **Ambulance Driver:** Chogyal Tshering Bhutia –  95933-76420
 
-👩‍⚕️ **Health Workers (HWC/SC - Tashiding area):**
-• Kawshila Subba – Karzee HWC-SC – 📞 97323-14036
-• Mingma Doma Bhutia – Kongri HWC-SC – 📞 96791-94237
-• Dechen Ongmu Bhutia – Gangyap HWC-SC – 📞 74329-94864
-• Pema Choden Lepcha – Legship HWC-SC – 📞 83728-34849
-• Smriti Rai – Sakyong HWC-SC – 📞 77193-17484
-• Wangchuk Bhutia – Naku Chumbung HWC-SC – 📞 62974-22751
-• Pema Choden Bhutia – Naku Chumbung HWC-SC – 📞 79088-30759
+‍ **Health Workers (HWC/SC - Tashiding area):**
+• Kawshila Subba – Karzee HWC-SC –  97323-14036
+• Mingma Doma Bhutia – Kongri HWC-SC –  96791-94237
+• Dechen Ongmu Bhutia – Gangyap HWC-SC –  74329-94864
+• Pema Choden Lepcha – Legship HWC-SC –  83728-34849
+• Smriti Rai – Sakyong HWC-SC –  77193-17484
+• Wangchuk Bhutia – Naku Chumbung HWC-SC –  62974-22751
+• Pema Choden Bhutia – Naku Chumbung HWC-SC –  79088-30759
 
-📌 For remote areas, directly call the health worker responsible for your HWC or SC."""
+ For remote areas, directly call the health worker responsible for your HWC or SC."""
             
             keyboard = [
-                [InlineKeyboardButton("📞 Medical Officer", callback_data="call_8145817453")],
-                [InlineKeyboardButton("📞 Ambulance Driver", callback_data="call_9593376420")],
-                [InlineKeyboardButton("🔙 Back to Health Emergency", callback_data="emergency_health")],
-                [InlineKeyboardButton("🔙 Back to Emergency Menu", callback_data="emergency")],
-                [InlineKeyboardButton("🏠 Main Menu", callback_data="main_menu")]
+                [InlineKeyboardButton(" Medical Officer", callback_data="call_8145817453")],
+                [InlineKeyboardButton(" Ambulance Driver", callback_data="call_9593376420")],
+                [InlineKeyboardButton(" Back to Health Emergency", callback_data="emergency_health")],
+                [InlineKeyboardButton(" Back to Emergency Menu", callback_data="emergency")],
+                [InlineKeyboardButton(" Main Menu", callback_data="main_menu")]
             ]
             
         else:
-            response_text = """🏥 **Health Emergency**
+            response_text = """ **Health Emergency**
 
 Please select a specific health facility location for detailed contact information."""
             
             keyboard = [
-                [InlineKeyboardButton("🔙 Back to Health Emergency", callback_data="emergency_health")],
-                [InlineKeyboardButton("🔙 Back to Emergency Menu", callback_data="emergency")],
-                [InlineKeyboardButton("🏠 Main Menu", callback_data="main_menu")]
+                [InlineKeyboardButton(" Back to Health Emergency", callback_data="emergency_health")],
+                [InlineKeyboardButton(" Back to Emergency Menu", callback_data="emergency")],
+                [InlineKeyboardButton(" Main Menu", callback_data="main_menu")]
             ]
         
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -3141,11 +3178,11 @@ Please select a specific health facility location for detailed contact informati
         places = self.home_stay_df['Place'].unique()
         keyboard = []
         for place in places:
-            keyboard.append([InlineKeyboardButton(f"🏡 {place}", callback_data=f"place_{place}")])
-        keyboard.append([InlineKeyboardButton("🔙 Back to Main Menu", callback_data="main_menu")])
+            keyboard.append([InlineKeyboardButton(f" {place}", callback_data=f"place_{place}")])
+        keyboard.append([InlineKeyboardButton(" Back to Main Menu", callback_data="main_menu")])
         reply_markup = InlineKeyboardMarkup(keyboard)
         
-        text = """*Book a Homestay* 🏡
+        text = """*Book a Homestay* 
 
 Please select your destination:"""
         
@@ -3161,19 +3198,19 @@ Please select your destination:"""
         
         place_homestays = self.home_stay_df[self.home_stay_df['Place'] == place]
         
-        text = f"*Available Homestays in {place}* 🏡\n\n"
+        text = f"*Available Homestays in {place}* \n\n"
         for _, row in place_homestays.iterrows():
             text += f"*{row['HomestayName']}*\n"
-            text += f"📍 Address: {row['Address']}\n"
-            text += f"💰 Price: {row['PricePerNight']}\n"
-            text += f"📞 Contact: {row['ContactNumber']}\n"
+            text += f" Address: {row['Address']}\n"
+            text += f" Price: {row['PricePerNight']}\n"
+            text += f" Contact: {row['ContactNumber']}\n"
             if pd.notna(row['Info']) and row['Info']:
-                text += f"ℹ️ Info: {row['Info']}\n"
+                text += f"ℹ Info: {row['Info']}\n"
             text += "\n"
         
         keyboard = [
-            [InlineKeyboardButton("🔍 Search Another Place", callback_data="tourism")],
-            [InlineKeyboardButton("🔙 Back to Main Menu", callback_data="main_menu")]
+            [InlineKeyboardButton(" Search Another Place", callback_data="tourism")],
+            [InlineKeyboardButton(" Back to Main Menu", callback_data="main_menu")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
@@ -3199,7 +3236,7 @@ Please select your destination:"""
             [InlineKeyboardButton("Apply for Certificate", callback_data='certificate')],
             [InlineKeyboardButton("Back to Main Menu", callback_data='main_menu')]
         ]
-        text = """*Common Service Centers (CSC)* 💻
+        text = """*Common Service Centers (CSC)* 
 
 Please select an option:
 1. Find nearest CSC
@@ -3214,12 +3251,12 @@ Please select an option:
         user_id = update.effective_user.id
         user_lang = self._get_user_language(user_id)
         
-        text = f"*Apply for Certificate through Sikkim SSO* 💻\n\n{self.responses[user_lang]['certificate_info']}"
+        text = f"*Apply for Certificate through Sikkim SSO* \n\n{self.responses[user_lang]['certificate_info']}"
 
         keyboard = [
-            [InlineKeyboardButton("✅ Yes, Connect with CSC", callback_data="certificate_csc")],
-            [InlineKeyboardButton("🌐 No, I'll use SSO Portal", callback_data="certificate_sso")],
-            [InlineKeyboardButton("🔙 Back to Main Menu", callback_data="main_menu")]
+            [InlineKeyboardButton(" Yes, Connect with CSC", callback_data="certificate_csc")],
+            [InlineKeyboardButton(" No, I'll use SSO Portal", callback_data="certificate_sso")],
+            [InlineKeyboardButton(" Back to Main Menu", callback_data="main_menu")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
@@ -3257,11 +3294,11 @@ Please select an option:
         
         # Show emergency type options
         keyboard = [
-            [InlineKeyboardButton("🚑 Ambulance", callback_data="emergency_ambulance")],
-            [InlineKeyboardButton("👮 Police", callback_data="emergency_police")],
-            [InlineKeyboardButton("🔥 Fire", callback_data="emergency_fire")],
-            [InlineKeyboardButton("🚨 General Emergency", callback_data="emergency_general")],
-            [InlineKeyboardButton("🔙 Back to Main Menu", callback_data="main_menu")]
+            [InlineKeyboardButton(" Ambulance", callback_data="emergency_ambulance")],
+            [InlineKeyboardButton(" Police", callback_data="emergency_police")],
+            [InlineKeyboardButton(" Fire", callback_data="emergency_fire")],
+            [InlineKeyboardButton(" General Emergency", callback_data="emergency_general")],
+            [InlineKeyboardButton(" Back to Main Menu", callback_data="main_menu")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
@@ -3342,10 +3379,10 @@ Please select an option:
             
             # Ask if user wants to share location
             keyboard = [
-                [InlineKeyboardButton("📍 Share My Location", callback_data="complaint_share_location")],
-                [InlineKeyboardButton("📝 Enter Location Manually", callback_data="complaint_manual_location")],
-                [InlineKeyboardButton("⏭️ Skip Location", callback_data="complaint_skip_location")],
-                [InlineKeyboardButton("🔙 Back to Main Menu", callback_data="main_menu")]
+                [InlineKeyboardButton(" Share My Location", callback_data="complaint_share_location")],
+                [InlineKeyboardButton(" Enter Location Manually", callback_data="complaint_manual_location")],
+                [InlineKeyboardButton("⏭ Skip Location", callback_data="complaint_skip_location")],
+                [InlineKeyboardButton(" Back to Main Menu", callback_data="main_menu")]
             ]
             reply_markup = InlineKeyboardMarkup(keyboard)
             
@@ -3369,17 +3406,17 @@ Please select an option:
         user_id = update.effective_user.id
         user_lang = self._get_user_language(user_id)
         
-        text = """🛠️ **MAIN MENU – "Scheme – Know & Apply"**
+        text = """ **MAIN MENU – "Scheme – Know & Apply"**
 
-👉 Please select your category:"""
+ Please select your category:"""
 
         keyboard = [
-            [InlineKeyboardButton("👨‍🌾 I am a Farmer", callback_data="scheme_category_farmer")],
-            [InlineKeyboardButton("🎓 I am a Student", callback_data="scheme_category_student")],
-            [InlineKeyboardButton("👩‍💼 I am Youth / Entrepreneur / SHG", callback_data="scheme_category_youth")],
-            [InlineKeyboardButton("🏥 Health Related", callback_data="scheme_category_health")],
-            [InlineKeyboardButton("📦 Other Schemes via CSC", callback_data="scheme_category_other")],
-            [InlineKeyboardButton("🔙 Back to Main Menu", callback_data="main_menu")]
+            [InlineKeyboardButton("‍ I am a Farmer", callback_data="scheme_category_farmer")],
+            [InlineKeyboardButton(" I am a Student", callback_data="scheme_category_student")],
+            [InlineKeyboardButton("‍ I am Youth / Entrepreneur / SHG", callback_data="scheme_category_youth")],
+            [InlineKeyboardButton(" Health Related", callback_data="scheme_category_health")],
+            [InlineKeyboardButton(" Other Schemes via CSC", callback_data="scheme_category_other")],
+            [InlineKeyboardButton(" Back to Main Menu", callback_data="main_menu")]
         ]
         
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -3392,14 +3429,14 @@ Please select an option:
     # Scheme Category Handlers
     async def handle_scheme_category_farmer(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle farmer schemes category"""
-        text = """👨‍🌾 **I am a Farmer**
+        text = """‍ **I am a Farmer**
 
 Please select a scheme:"""
 
         keyboard = [
             [InlineKeyboardButton("PM-KISAN", callback_data="scheme_pmkisan")],
             [InlineKeyboardButton("PM Fasal Bima Yojana", callback_data="scheme_pmfasal")],
-            [InlineKeyboardButton("🔙 Back to Categories", callback_data="schemes")]
+            [InlineKeyboardButton(" Back to Categories", callback_data="schemes")]
         ]
         
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -3407,14 +3444,14 @@ Please select a scheme:"""
 
     async def handle_scheme_category_student(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle student schemes category"""
-        text = """🎓 **I am a Student**
+        text = """ **I am a Student**
 
 Please select a scheme:"""
 
         keyboard = [
             [InlineKeyboardButton("Scholarships", callback_data="scheme_scholarships")],
             [InlineKeyboardButton("Sikkim Mentor", callback_data="scheme_sikkim_mentor")],
-            [InlineKeyboardButton("🔙 Back to Categories", callback_data="schemes")]
+            [InlineKeyboardButton(" Back to Categories", callback_data="schemes")]
         ]
         
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -3422,7 +3459,7 @@ Please select a scheme:"""
 
     async def handle_scheme_category_youth(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle youth/entrepreneur schemes category"""
-        text = """👩‍💼 **I am Youth / Entrepreneur / SHG**
+        text = """‍ **I am Youth / Entrepreneur / SHG**
 
 Please select a scheme:"""
 
@@ -3431,7 +3468,7 @@ Please select a scheme:"""
             [InlineKeyboardButton("PMEGP", callback_data="scheme_pmegp")],
             [InlineKeyboardButton("PM FME", callback_data="scheme_pmfme")],
             [InlineKeyboardButton("Mentorship", callback_data="scheme_mentorship")],
-            [InlineKeyboardButton("🔙 Back to Categories", callback_data="schemes")]
+            [InlineKeyboardButton(" Back to Categories", callback_data="schemes")]
         ]
         
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -3439,13 +3476,13 @@ Please select a scheme:"""
 
     async def handle_scheme_category_health(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle health schemes category"""
-        text = """🏥 **Health Related Schemes**
+        text = """ **Health Related Schemes**
 
 Please select a scheme:"""
 
         keyboard = [
             [InlineKeyboardButton("Ayushman Bharat", callback_data="scheme_ayushman")],
-            [InlineKeyboardButton("🔙 Back to Categories", callback_data="schemes")]
+            [InlineKeyboardButton(" Back to Categories", callback_data="schemes")]
         ]
         
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -3453,51 +3490,51 @@ Please select a scheme:"""
 
     async def handle_scheme_category_other(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle other schemes via CSC category"""
-        text = """📦 **Other Useful Public Services (Available at CSC / GPK)**
+        text = """ **Other Useful Public Services (Available at CSC / GPK)**
 
 You can get help from your local CSC operator or apply online.
 
-**🧰 Work & Identity**
+** Work & Identity**
 • PM Vishwakarma – Support for traditional artisans
 • e-Shram Registration – National database for unorganised workers
 • Kisan Credit Card – Easy credit for farmers
 
-**🚗 Transport**
+** Transport**
 • Token Tax, HPT, HPA
 • DL Renewal, DOB Correction
 • Duplicate RC, Change of Address
 • Learner's Licence, Permanent Licence
 
-**🛡️ Insurance**
+** Insurance**
 • LIC Premium Payment
 • Health Insurance (incl. Ayushman Bharat)
 • Cattle Insurance
 • Motor Insurance
 • Life Insurance
 
-**💼 Pension & Proof**
+** Pension & Proof**
 • Jeevan Pramaan – Life certificate for pensioners
 • National Pension Scheme (NPS)
 
-**📱 Utility & Travel**
+** Utility & Travel**
 • Bill Payments (Electricity, DTH, Mobile Recharge)
 • Flight & Train Tickets – IRCTC, airline booking support
 • PAN Card / Passport Application
 
-**💰 Finance & Tax**
+** Finance & Tax**
 • GST Filing / ITR Filing
 • Digipay / Micro ATM Services
 
-**📚 Education & Scholarships**
+** Education & Scholarships**
 • NIOS/BOSSE Open Schooling Registration
 • Olympiad / National Scholarships Biometric Authentication
 
 ⏩ **Where to Apply?**
-✅ Visit nearest CSC (Common Service Centre) or GPK (Gram Panchayat Kendra)"""
+ Visit nearest CSC (Common Service Centre) or GPK (Gram Panchayat Kendra)"""
 
         keyboard = [
-            [InlineKeyboardButton("📞 Contact your CSC Operator", callback_data="contacts_csc")],
-            [InlineKeyboardButton("🔙 Back to Categories", callback_data="schemes")]
+            [InlineKeyboardButton(" Contact your CSC Operator", callback_data="contacts_csc")],
+            [InlineKeyboardButton(" Back to Categories", callback_data="schemes")]
         ]
         
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -3506,22 +3543,22 @@ You can get help from your local CSC operator or apply online.
     # Individual Scheme Handlers
     async def handle_scheme_pmkisan(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle PM-KISAN scheme"""
-        text = """📄 **About PM-KISAN**
+        text = """ **About PM-KISAN**
 Get ₹6,000 per year (₹2,000 every 4 months) directly into your bank account.
 
-📝 **How to Apply**
+ **How to Apply**
 Apply online at https://pmkisan.gov.in
 OR visit your nearest CSC (Common Service Centre)
 
-📞 **Contact**
+ **Contact**
 Agriculture Department or your local CSC Operator
 
 Would you like to:"""
 
         keyboard = [
-            [InlineKeyboardButton("🌐 Apply Online", url="https://pmkisan.gov.in")],
-            [InlineKeyboardButton("📞 Apply via CSC", callback_data="scheme_apply_csc_pmkisan")],
-            [InlineKeyboardButton("🔙 Back to Farmer Schemes", callback_data="scheme_category_farmer")]
+            [InlineKeyboardButton(" Apply Online", url="https://pmkisan.gov.in")],
+            [InlineKeyboardButton(" Apply via CSC", callback_data="scheme_apply_csc_pmkisan")],
+            [InlineKeyboardButton(" Back to Farmer Schemes", callback_data="scheme_category_farmer")]
         ]
         
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -3529,22 +3566,22 @@ Would you like to:"""
 
     async def handle_scheme_pmfasal(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle PM Fasal Bima Yojana scheme"""
-        text = """📄 **About PM Fasal Bima Yojana**
+        text = """ **About PM Fasal Bima Yojana**
 Get insurance cover for crop damage due to natural calamities.
 
-📝 **How to Apply**
+ **How to Apply**
 Apply at https://pmfby.gov.in
 OR visit nearest CSC
 
-📞 **Contact**
+ **Contact**
 Agriculture Department / CSC Operator
 
 Would you like to:"""
 
         keyboard = [
-            [InlineKeyboardButton("🌐 Apply Online", url="https://pmfby.gov.in")],
-            [InlineKeyboardButton("📞 Apply via CSC", callback_data="scheme_apply_csc_pmfasal")],
-            [InlineKeyboardButton("🔙 Back to Farmer Schemes", callback_data="scheme_category_farmer")]
+            [InlineKeyboardButton(" Apply Online", url="https://pmfby.gov.in")],
+            [InlineKeyboardButton(" Apply via CSC", callback_data="scheme_apply_csc_pmfasal")],
+            [InlineKeyboardButton(" Back to Farmer Schemes", callback_data="scheme_category_farmer")]
         ]
         
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -3552,10 +3589,10 @@ Would you like to:"""
 
     async def handle_scheme_scholarships(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle scholarships scheme"""
-        text = """🎓 **Scholarships**
+        text = """ **Scholarships**
 
-1️⃣ **CENTRAL GOVERNMENT SCHOLARSHIPS**
-✅ Apply at: https://scholarships.gov.in
+1⃣ **CENTRAL GOVERNMENT SCHOLARSHIPS**
+ Apply at: https://scholarships.gov.in
 
 **A. Pre-Matric Scholarships**
 Target: SC/ST/OBC/Minority students studying in Class 1–10
@@ -3580,8 +3617,8 @@ Includes tuition, boarding, laptop, etc.
 Target: Class 8 students with 55%+ marks
 Benefit: ₹12,000 per year from Class 9 to 12
 
-2️⃣ **SIKKIM STATE SCHOLARSHIPS**
-✅ Apply at: https://scholarships.sikkim.gov.in
+2⃣ **SIKKIM STATE SCHOLARSHIPS**
+ Apply at: https://scholarships.sikkim.gov.in
 
 **A. Post-Matric State Scholarship (Sikkim Subject/COI holders)**
 Eligibility: SC/ST/OBC/MBC/EWS students
@@ -3605,10 +3642,10 @@ Benefit: ₹10,000–₹25,000/year
 **Contact:** Education Department, Or CSC Operator to Apply"""
 
         keyboard = [
-            [InlineKeyboardButton("🌐 Central Scholarships", url="https://scholarships.gov.in")],
-            [InlineKeyboardButton("🌐 State Scholarships", url="https://scholarships.sikkim.gov.in")],
-            [InlineKeyboardButton("📞 Apply via CSC", callback_data="scheme_apply_csc_scholarships")],
-            [InlineKeyboardButton("🔙 Back to Student Schemes", callback_data="scheme_category_student")]
+            [InlineKeyboardButton(" Central Scholarships", url="https://scholarships.gov.in")],
+            [InlineKeyboardButton(" State Scholarships", url="https://scholarships.sikkim.gov.in")],
+            [InlineKeyboardButton(" Apply via CSC", callback_data="scheme_apply_csc_scholarships")],
+            [InlineKeyboardButton(" Back to Student Schemes", callback_data="scheme_category_student")]
         ]
         
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -3616,7 +3653,7 @@ Benefit: ₹10,000–₹25,000/year
 
     async def handle_scheme_sikkim_mentor(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle Sikkim Mentor scheme"""
-        text = """🧑‍🏫 **Sikkim Mentor**
+        text = """‍ **Sikkim Mentor**
 
 **What it is:**
 Sikkim Mentor is a free mentorship platform that connects students, job seekers, and entrepreneurs with experienced professionals from fields like civil services, education, business, mental health, sports, and more.
@@ -3637,8 +3674,8 @@ Sikkim Mentor is a free mentorship platform that connects students, job seekers,
 3. Log in and connect with mentors based on your goals."""
 
         keyboard = [
-            [InlineKeyboardButton("🌐 Visit Website", url="https://sikkimmentor.com")],
-            [InlineKeyboardButton("🔙 Back to Student Schemes", callback_data="scheme_category_student")]
+            [InlineKeyboardButton(" Visit Website", url="https://sikkimmentor.com")],
+            [InlineKeyboardButton(" Back to Student Schemes", callback_data="scheme_category_student")]
         ]
         
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -3646,7 +3683,7 @@ Sikkim Mentor is a free mentorship platform that connects students, job seekers,
 
     async def handle_scheme_sikkim_youth(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle Sikkim Skilled Youth Startup Yojana"""
-        text = """🧑‍💼 **Sikkim Skilled Youth Startup Yojana**
+        text = """‍ **Sikkim Skilled Youth Startup Yojana**
 
 **About the Scheme**
 • Launched in 2020 by Sikkim's Department of Commerce & Industries
@@ -3683,9 +3720,9 @@ Small businesses like dairy, poultry, food processing, tourism, IT, retail, serv
 **Want to Apply?**"""
 
         keyboard = [
-            [InlineKeyboardButton("🌐 Apply Online", callback_data="scheme_apply_online_sikkim_youth")],
-            [InlineKeyboardButton("📞 Apply via CSC", callback_data="scheme_apply_csc_sikkim_youth")],
-            [InlineKeyboardButton("🔙 Back to Youth Schemes", callback_data="scheme_category_youth")]
+            [InlineKeyboardButton(" Apply Online", callback_data="scheme_apply_online_sikkim_youth")],
+            [InlineKeyboardButton(" Apply via CSC", callback_data="scheme_apply_csc_sikkim_youth")],
+            [InlineKeyboardButton(" Back to Youth Schemes", callback_data="scheme_category_youth")]
         ]
         
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -3693,7 +3730,7 @@ Small businesses like dairy, poultry, food processing, tourism, IT, retail, serv
 
     async def handle_scheme_pmegp(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle PMEGP scheme"""
-        text = """🏭 **PMEGP (Prime Minister's Employment Generation Programme)**
+        text = """ **PMEGP (Prime Minister's Employment Generation Programme)**
 
 **What it is:**
 A central government credit-linked subsidy to help youth and artisans start micro-enterprises in urban & rural areas via KVIC and banks.
@@ -3717,9 +3754,9 @@ Individuals, SHGs, societies, trusts starting new enterprises (not previously av
 **Want to Apply?**"""
 
         keyboard = [
-            [InlineKeyboardButton("🌐 Apply Online", callback_data="scheme_apply_online_pmegp")],
-            [InlineKeyboardButton("📞 Apply via CSC", callback_data="scheme_apply_csc_pmegp")],
-            [InlineKeyboardButton("🔙 Back to Youth Schemes", callback_data="scheme_category_youth")]
+            [InlineKeyboardButton(" Apply Online", callback_data="scheme_apply_online_pmegp")],
+            [InlineKeyboardButton(" Apply via CSC", callback_data="scheme_apply_csc_pmegp")],
+            [InlineKeyboardButton(" Back to Youth Schemes", callback_data="scheme_category_youth")]
         ]
         
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -3727,7 +3764,7 @@ Individuals, SHGs, societies, trusts starting new enterprises (not previously av
 
     async def handle_scheme_pmfme(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle PM FME scheme"""
-        text = """🌾 **PM FME – Pradhan Mantri Formalisation of Micro Food Processing Enterprises**
+        text = """ **PM FME – Pradhan Mantri Formalisation of Micro Food Processing Enterprises**
 
 **What it is**
 A Government of India initiative to modernize small food processing units, integrating unorganized enterprises into the formal market and boosting capacity with training and support.
@@ -3743,7 +3780,7 @@ A Government of India initiative to modernize small food processing units, integ
 • Must register and upgrade existing / new units
 • Scheme period: 2020–2025, ₹10,000 cr funding
 
-**📝 How to Apply**
+** How to Apply**
 1. Visit https://pmfme.mofpi.gov.in
 2. Register and log in
 3. Complete the online application
@@ -3756,9 +3793,9 @@ A Government of India initiative to modernize small food processing units, integ
 **Want to Apply?**"""
 
         keyboard = [
-            [InlineKeyboardButton("🌐 Apply Online", url="https://pmfme.mofpi.gov.in")],
-            [InlineKeyboardButton("📞 Apply via CSC", callback_data="scheme_apply_csc_pmfme")],
-            [InlineKeyboardButton("🔙 Back to Youth Schemes", callback_data="scheme_category_youth")]
+            [InlineKeyboardButton(" Apply Online", url="https://pmfme.mofpi.gov.in")],
+            [InlineKeyboardButton(" Apply via CSC", callback_data="scheme_apply_csc_pmfme")],
+            [InlineKeyboardButton(" Back to Youth Schemes", callback_data="scheme_category_youth")]
         ]
         
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -3766,27 +3803,27 @@ A Government of India initiative to modernize small food processing units, integ
 
     async def handle_scheme_ayushman(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle Ayushman Bharat scheme"""
-        text = """🏥 **Ayushman Bharat Card (PM-JAY Card)**
+        text = """ **Ayushman Bharat Card (PM-JAY Card)**
 
 The Ayushman Bharat card gives eligible families access to free health insurance up to ₹5 lakh per year for secondary and tertiary care at empanelled hospitals.
 
-✅ **Key Benefits:**
+ **Key Benefits:**
 • Cashless treatment at government & private hospitals
 • Covers surgery, ICU, diagnostics, medicines
 • No age or family size limit
 • Portable across India
 
-🧾 **Eligibility:**
+ **Eligibility:**
 • Families listed in SECC 2011 database
 • Also includes construction workers, street vendors, domestic workers, etc.
 
-🛠️ **How to Get Your Ayushman Card:**
+ **How to Get Your Ayushman Card:**
 1. Visit: https://pmjay.gov.in
 2. Check eligibility using mobile/Aadhaar
 3. Visit nearest CSC or empanelled hospital to register and generate your card
 4. Carry Aadhaar and ration card while visiting
 
-📍 **Where to Apply in Gyalshing District?**
+ **Where to Apply in Gyalshing District?**
 • District Hospital – Gyalshing
 • Yuksom PHC
 • Dentam PHC
@@ -3798,9 +3835,9 @@ For help, call Ayushman Helpline: 14555.
 **Want to Apply?**"""
 
         keyboard = [
-            [InlineKeyboardButton("🌐 Apply Online", url="https://pmjay.gov.in")],
-            [InlineKeyboardButton("📞 Apply via CSC", callback_data="scheme_apply_csc_ayushman")],
-            [InlineKeyboardButton("🔙 Back to Health Schemes", callback_data="scheme_category_health")]
+            [InlineKeyboardButton(" Apply Online", url="https://pmjay.gov.in")],
+            [InlineKeyboardButton(" Apply via CSC", callback_data="scheme_apply_csc_ayushman")],
+            [InlineKeyboardButton(" Back to Health Schemes", callback_data="scheme_category_health")]
         ]
         
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -3818,7 +3855,7 @@ For help, call Ayushman Helpline: 14555.
         
         url = scheme_urls.get(scheme_name, "https://sikkim.gov.in")
         
-        text = f"""🌐 **Apply Online - {scheme_name}**
+        text = f""" **Apply Online - {scheme_name}**
 
 You can apply online for this scheme by visiting the official website.
 
@@ -3835,9 +3872,9 @@ You can apply online for this scheme by visiting the official website.
 **Alternative:** You can also visit your nearest CSC for assistance with online application."""
 
         keyboard = [
-            [InlineKeyboardButton("🌐 Visit Website", url=url)],
-            [InlineKeyboardButton("📞 Apply via CSC", callback_data="contacts_csc")],
-            [InlineKeyboardButton("🔙 Back to Schemes", callback_data="schemes")]
+            [InlineKeyboardButton(" Visit Website", url=url)],
+            [InlineKeyboardButton(" Apply via CSC", callback_data="contacts_csc")],
+            [InlineKeyboardButton(" Back to Schemes", callback_data="schemes")]
         ]
         
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -3858,7 +3895,7 @@ You can apply online for this scheme by visiting the official website.
         # Get unique blocks from the data
         blocks = sorted(self.sub_division_block_mapping_df['NAME OF BLOCK / Officer Incharge'].dropna().unique().tolist())
         
-        text = f"""📋 **{scheme_name} - Apply via CSC**
+        text = f""" **{scheme_name} - Apply via CSC**
 
 Please select your block to find the nearest CSC operator:"""
         
@@ -3873,7 +3910,7 @@ Please select your block to find the nearest CSC operator:"""
         state["available_blocks"] = blocks
         self._set_user_state(user_id, state)
         
-        keyboard.append([InlineKeyboardButton("🔙 Back to Schemes", callback_data="schemes")])
+        keyboard.append([InlineKeyboardButton(" Back to Schemes", callback_data="schemes")])
         
         reply_markup = InlineKeyboardMarkup(keyboard)
         await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
@@ -3970,7 +4007,7 @@ Please select your block to find the nearest CSC operator:"""
         
         block_gpus = sorted(cleaned_gpus)
         
-        text = f"""🏘️ **Block: {block_name}**
+        text = f""" **Block: {block_name}**
 
 Please select your GPU (Gram Panchayat Unit):"""
         
@@ -3984,7 +4021,7 @@ Please select your GPU (Gram Panchayat Unit):"""
         state["available_gpus"] = block_gpus
         self._set_user_state(user_id, state)
         
-        keyboard.append([InlineKeyboardButton("🔙 Back to Schemes", callback_data="schemes")])
+        keyboard.append([InlineKeyboardButton(" Back to Schemes", callback_data="schemes")])
         
         reply_markup = InlineKeyboardMarkup(keyboard)
         await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
@@ -4054,20 +4091,20 @@ Please select your GPU (Gram Panchayat Unit):"""
         block_gpus = sorted(cleaned_gpus)
         
         if not block_gpus:
-            text = f"""❌ **No GPUs Found**
+            text = f""" **No GPUs Found**
 
 No GPUs found for block: **{block_name}**
 
 Please try a different block or contact support."""
             keyboard = [
-                [InlineKeyboardButton("🔙 Back to Blocks", callback_data="contacts_csc")],
-                [InlineKeyboardButton("🔙 Back to Contacts", callback_data="contacts")]
+                [InlineKeyboardButton(" Back to Blocks", callback_data="contacts_csc")],
+                [InlineKeyboardButton(" Back to Contacts", callback_data="contacts")]
             ]
             reply_markup = InlineKeyboardMarkup(keyboard)
             await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
             return
         
-        text = f"""✅ **Know Your CSC Operator**
+        text = f""" **Know Your CSC Operator**
 
 **Selected Block:** {block_name}
 
@@ -4084,8 +4121,8 @@ Please select your GPU (Gram Panchayat Unit):"""
         state["available_gpus"] = block_gpus
         self._set_user_state(user_id, state)
         
-        keyboard.append([InlineKeyboardButton("🔙 Back to Blocks", callback_data="contacts_csc")])
-        keyboard.append([InlineKeyboardButton("🔙 Back to Contacts", callback_data="contacts")])
+        keyboard.append([InlineKeyboardButton(" Back to Blocks", callback_data="contacts_csc")])
+        keyboard.append([InlineKeyboardButton(" Back to Contacts", callback_data="contacts")])
         
         reply_markup = InlineKeyboardMarkup(keyboard)
         await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
@@ -4140,20 +4177,20 @@ Please select your GPU (Gram Panchayat Unit):"""
         
         # Display CSC operator details
         if csc_operator is not None:
-            operator_name = csc_operator.get('CSC Operator Name', 'Not Available')
-            operator_phone = csc_operator.get('CSC Operator Phone', 'Not Available')
-            single_window = csc_operator.get('Single Window', 'Not Available')
-            subdivision = csc_operator.get('Subdivision', 'Not Available')
+            operator_name = csc_operator.get('Name', 'Not Available')
+            operator_phone = csc_operator.get('Contact No.', 'Not Available')
+            single_window = csc_operator.get('Block Single Window', 'Not Available')
+            subdivision = csc_operator.get('SubDivision Single Window', 'Not Available')
             
-            text = f"""✅ **CSC Operator Details**
+            text = f""" **CSC Operator Details**
 
 **Block:** {block_name}
 **GPU:** {gpu_name}
 
-👤 **Name:** {operator_name}
-📞 **Phone:** {operator_phone}
-🏢 **Single Window:** {single_window}
-🏛️ **Subdivision:** {subdivision}
+ **Name:** {operator_name}
+ **Phone:** {operator_phone}
+ **Single Window:** {single_window}
+ **Subdivision:** {subdivision}
 
 **He/She will assist you with online services and certificates.**
 
@@ -4165,12 +4202,12 @@ Please select your GPU (Gram Panchayat Unit):"""
 • Payment processing"""
             
             keyboard = [
-                [InlineKeyboardButton("📞 Call CSC Operator", callback_data=f"call_csc_{operator_phone}")],
-                [InlineKeyboardButton("🔙 Back to GPUs", callback_data="contacts_csc")],
-                [InlineKeyboardButton("🔙 Back to Contacts", callback_data="contacts")]
+                [InlineKeyboardButton(" Call CSC Operator", callback_data=f"call_csc_{operator_phone}")],
+                [InlineKeyboardButton(" Back to GPUs", callback_data="contacts_csc")],
+                [InlineKeyboardButton(" Back to Contacts", callback_data="contacts")]
             ]
         else:
-            text = f"""❌ **CSC Operator Not Found**
+            text = f""" **CSC Operator Not Found**
 
 **Block:** {block_name}
 **GPU:** {gpu_name}
@@ -4178,15 +4215,15 @@ Please select your GPU (Gram Panchayat Unit):"""
 Sorry, we couldn't find CSC operator details for this GPU. Please try selecting a different GPU or contact the block office directly."""
             
             keyboard = [
-                [InlineKeyboardButton("🔙 Back to GPUs", callback_data="contacts_csc")],
-                [InlineKeyboardButton("🔙 Back to Contacts", callback_data="contacts")]
+                [InlineKeyboardButton(" Back to GPUs", callback_data="contacts_csc")],
+                [InlineKeyboardButton(" Back to Contacts", callback_data="contacts")]
             ]
         
         reply_markup = InlineKeyboardMarkup(keyboard)
         await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
         
-        keyboard.append([InlineKeyboardButton("🔙 Back to Blocks", callback_data="scheme_csc_back_to_blocks")])
-        keyboard.append([InlineKeyboardButton("🔙 Back to Schemes", callback_data="schemes")])
+        keyboard.append([InlineKeyboardButton(" Back to Blocks", callback_data="scheme_csc_back_to_blocks")])
+        keyboard.append([InlineKeyboardButton(" Back to Schemes", callback_data="schemes")])
         
         reply_markup = InlineKeyboardMarkup(keyboard)
         await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
@@ -4272,7 +4309,7 @@ Sorry, we couldn't find CSC operator details for this GPU. Please try selecting 
             if len(subdivision_contacts) > 50:
                 subdivision_contacts = subdivision_contacts[:50] + "..."
             
-            text = f"""📞 **CSC Operator Information**
+            text = f""" **CSC Operator Information**
 
 **Subdivision:** {subdivision_name}
 **Block:** {info.get('BLOCK', 'N/A')}
@@ -4291,12 +4328,12 @@ Sorry, we couldn't find CSC operator details for this GPU. Please try selecting 
 Would you like to submit your application details to this CSC operator?"""
             
             keyboard = [
-                [InlineKeyboardButton("✅ Yes, Submit Application", callback_data="csc_submit_application")],
-                [InlineKeyboardButton("🔙 Back to GPUs", callback_data="scheme_csc_back_to_blocks")],
-                [InlineKeyboardButton("🔙 Back to Schemes", callback_data="schemes")]
+                [InlineKeyboardButton(" Yes, Submit Application", callback_data="csc_submit_application")],
+                [InlineKeyboardButton(" Back to GPUs", callback_data="scheme_csc_back_to_blocks")],
+                [InlineKeyboardButton(" Back to Schemes", callback_data="schemes")]
             ]
         else:
-            text = f"""❌ **CSC Operator Not Found**
+            text = f""" **CSC Operator Not Found**
 
 **Subdivision:** {subdivision_name}
 **Block:** {block_name}
@@ -4305,8 +4342,8 @@ Would you like to submit your application details to this CSC operator?"""
 No CSC operator found for this GPU. Please try another GPU or contact support."""
             
             keyboard = [
-                [InlineKeyboardButton("🔙 Back to GPUs", callback_data="scheme_csc_back_to_blocks")],
-                [InlineKeyboardButton("🔙 Back to Schemes", callback_data="schemes")]
+                [InlineKeyboardButton(" Back to GPUs", callback_data="scheme_csc_back_to_blocks")],
+                [InlineKeyboardButton(" Back to Schemes", callback_data="schemes")]
             ]
         
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -4333,13 +4370,13 @@ No CSC operator found for this GPU. Please try another GPU or contact support.""
         
         print(f"DEBUG: State updated to step: name")
         
-        text = f"""📝 **Application Details**
+        text = f""" **Application Details**
 
 Please provide your details for **{state.get('scheme', 'Unknown Scheme')}**.
 
 **Step 1: Please enter your full name**"""
         
-        keyboard = [[InlineKeyboardButton("🔙 Cancel", callback_data="schemes")]]
+        keyboard = [[InlineKeyboardButton(" Cancel", callback_data="schemes")]]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
         print(f"DEBUG: About to send message asking for name")
@@ -4425,7 +4462,7 @@ Please provide your details for **{state.get('scheme', 'Unknown Scheme')}**.
         )
         
         if success:
-            text = f"""✅ **Application Submitted Successfully!**
+            text = f""" **Application Submitted Successfully!**
 
 **Scheme:** {scheme_name}
 **Name:** {applicant_name}
@@ -4436,7 +4473,7 @@ Please provide your details for **{state.get('scheme', 'Unknown Scheme')}**.
 **GPU:** {gpu}
 **Block:** {block}
 
-🆔 **Reference Number:** `{reference_number}`
+ **Reference Number:** `{reference_number}`
 
 Your application has been submitted to the CSC operator. You will be contacted soon for further processing.
 
@@ -4446,16 +4483,16 @@ Your application has been submitted to the CSC operator. You will be contacted s
 • Visit the CSC center with required documents
 • Track your application status using your reference number
 
-**📋 How to track your application:**
+** How to track your application:**
 • Use the 'Check Status of My Application' option
 • Enter your reference number: `{reference_number}`
 • CSC operator will update the status in our system
 
 **CSC Contact:** Use the 'Important Contacts' section to find your CSC operator.
 
-Thank you for using Sajilo Sewak Bot! 🎉"""
+Thank you for using Sajilo Sewak Bot! """
         else:
-            text = f"""❌ **Application Submission Failed**
+            text = f""" **Application Submission Failed**
 
 Sorry, there was an error submitting your application. Please try again or contact support.
 
@@ -4464,7 +4501,7 @@ Sorry, there was an error submitting your application. Please try again or conta
 **Phone:** {phone}
 **Reference Number:** {reference_number}"""
         
-        keyboard = [[InlineKeyboardButton("🔙 Back to Main Menu", callback_data="main_menu")]]
+        keyboard = [[InlineKeyboardButton(" Back to Main Menu", callback_data="main_menu")]]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
         await update.message.reply_text(text, reply_markup=reply_markup, parse_mode='Markdown')
@@ -4475,18 +4512,18 @@ Sorry, there was an error submitting your application. Please try again or conta
         user_id = update.effective_user.id
         user_lang = self._get_user_language(user_id)
         
-        contacts_text = """📞 **Know Key Contact**
+        contacts_text = """ **Know Key Contact**
 
 Select one of the options below to get contact details:
 
-✅ **1. Know Your CSC Operator**
+ **1. Know Your CSC Operator**
 Details for Smart Govt Assistant
 → Show BLOCK MENU
 → Show GPU MENU
 Output: Name – [CSC Operator Name], Phone – [Contact Number]
 He/She will assist you with online services and certificates.
 
-🗳️ **2. Know Your BLO (Booth Level Officer)**
+ **2. Know Your BLO (Booth Level Officer)**
 Details for Smart Govt Assistant
 Find the BLO responsible for your polling booth to help with voter ID, electoral roll queries, etc.
 Show: Select your Assembly Constituency
@@ -4495,27 +4532,27 @@ Output: YOUR BOOTH LEVEL OFFICER DETAILS ARE
 Name – [BLO Name], Phone – [Contact Number]
 Contact for voter-related services, corrections, additions.
 
-🆔 **3. Know Aadhar Operator**
+ **3. Know Aadhar Operator**
 Get your Aadhaar-related services such as:
-✅ New Aadhaar Enrollment (Age 5+ & Adults)
-✏️ Update Name, Address, DOB, Mobile
-🔄 Biometric Updates (Photo, Fingerprint, Iris)
-🧾 Reprint / Download Aadhaar PDF
-📱 Link Aadhaar with Mobile Number / Bank Account
+ New Aadhaar Enrollment (Age 5+ & Adults)
+ Update Name, Address, DOB, Mobile
+ Biometric Updates (Photo, Fingerprint, Iris)
+ Reprint / Download Aadhaar PDF
+ Link Aadhaar with Mobile Number / Bank Account
 
-📍 Aadhaar Kendras and Contacts:
-🏢 Yuksam SDM Office
-👩‍💼 Contact Person: Pema
-📞 Phone: 9564442624
-🏢 Dentam SDM Office
-👨‍💼 Contact Person: Rajen Sharma
-📞 Phone: 9733140036"""
+ Aadhaar Kendras and Contacts:
+ Yuksam SDM Office
+‍ Contact Person: Pema
+ Phone: 9564442624
+ Dentam SDM Office
+‍ Contact Person: Rajen Sharma
+ Phone: 9733140036"""
         
         keyboard = [
-            [InlineKeyboardButton("✅ Know Your CSC", callback_data="contacts_csc")],
-            [InlineKeyboardButton("🗳️ Know Your BLO", callback_data="contacts_blo")],
-            [InlineKeyboardButton("🆔 Know Aadhar Operator", callback_data="contacts_aadhar")],
-            [InlineKeyboardButton("🔙 Main Menu", callback_data="main_menu")]
+            [InlineKeyboardButton(" Know Your CSC", callback_data="contacts_csc")],
+            [InlineKeyboardButton(" Know Your BLO", callback_data="contacts_blo")],
+            [InlineKeyboardButton(" Know Aadhar Operator", callback_data="contacts_aadhar")],
+            [InlineKeyboardButton(" Main Menu", callback_data="main_menu")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
@@ -4545,7 +4582,7 @@ Get your Aadhaar-related services such as:
             "Gyalshing Municipal Council"
         ]
         
-        text = """✅ **Know Your CSC Operator**
+        text = """ **Know Your CSC Operator**
 
 **Step 1: Block Selection**
                 
@@ -4556,7 +4593,7 @@ Please choose your block:"""
         for i, block in enumerate(available_blocks):
             keyboard.append([InlineKeyboardButton(block, callback_data=f"csc_block_{i}")])
         
-        keyboard.append([InlineKeyboardButton("🔙 Back to Contacts", callback_data="contacts")])
+        keyboard.append([InlineKeyboardButton(" Back to Contacts", callback_data="contacts")])
         reply_markup = InlineKeyboardMarkup(keyboard)
         
         if update.callback_query:
@@ -4583,7 +4620,7 @@ Please choose your block:"""
             "04-Gyalshing Bernyak"
         ]
         
-        text = """🗳️ **Know Your BLO (Booth Level Officer)**
+        text = """ **Know Your BLO (Booth Level Officer)**
 
 **Step 1: Assembly Constituency Selection**
                 
@@ -4594,7 +4631,7 @@ Please select your Assembly Constituency:"""
         for i, constituency in enumerate(constituencies):
             keyboard.append([InlineKeyboardButton(constituency, callback_data=f"blo_constituency_{i}")])
         
-        keyboard.append([InlineKeyboardButton("🔙 Back to Contacts", callback_data="contacts")])
+        keyboard.append([InlineKeyboardButton(" Back to Contacts", callback_data="contacts")])
         reply_markup = InlineKeyboardMarkup(keyboard)
         
         if update.callback_query:
@@ -4658,7 +4695,7 @@ Please select your Assembly Constituency:"""
         
         booths = polling_booths.get(selected_constituency, ["No polling booths found"])
         
-        text = f"""🗳️ **Know Your BLO (Booth Level Officer)**
+        text = f""" **Know Your BLO (Booth Level Officer)**
 
 **Selected Constituency:** {selected_constituency}
 
@@ -4671,8 +4708,8 @@ Please select your polling booth:"""
         for i, booth in enumerate(booths):
             keyboard.append([InlineKeyboardButton(booth, callback_data=f"blo_booth_{i}")])
         
-        keyboard.append([InlineKeyboardButton("🔙 Back to Constituencies", callback_data="contacts_blo")])
-        keyboard.append([InlineKeyboardButton("🔙 Back to Contacts", callback_data="contacts")])
+        keyboard.append([InlineKeyboardButton(" Back to Constituencies", callback_data="contacts_blo")])
+        keyboard.append([InlineKeyboardButton(" Back to Contacts", callback_data="contacts")])
         reply_markup = InlineKeyboardMarkup(keyboard)
         
         if update.callback_query:
@@ -4759,13 +4796,13 @@ Please select your polling booth:"""
             return
         
         # Display BLO details
-        text = f"""📲 **YOUR BOOTH LEVEL OFFICER DETAILS ARE**
+        text = f""" **YOUR BOOTH LEVEL OFFICER DETAILS ARE**
 
 **Constituency:** {selected_constituency}
 **Polling Booth:** {selected_booth}
 
-👤 **Name:** {blo_details['name']}
-📞 **Phone:** {blo_details['phone']}
+ **Name:** {blo_details['name']}
+ **Phone:** {blo_details['phone']}
 
 **Contact for voter-related services, corrections, additions.**
 
@@ -4777,9 +4814,9 @@ Please select your polling booth:"""
 • Polling booth information"""
         
         keyboard = [
-            [InlineKeyboardButton("📞 Call BLO", callback_data=f"call_blo_{blo_details['phone']}")],
-            [InlineKeyboardButton("🔙 Back to Booths", callback_data="blo_constituency_0")],
-            [InlineKeyboardButton("🔙 Back to Contacts", callback_data="contacts")]
+            [InlineKeyboardButton(" Call BLO", callback_data=f"call_blo_{blo_details['phone']}")],
+            [InlineKeyboardButton(" Back to Booths", callback_data="blo_constituency_0")],
+            [InlineKeyboardButton(" Back to Contacts", callback_data="contacts")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
@@ -4793,23 +4830,23 @@ Please select your polling booth:"""
         user_id = update.effective_user.id
         user_lang = self._get_user_language(user_id)
         
-        aadhar_info = """🆔 **Know Aadhar Operator**
+        aadhar_info = """ **Know Aadhar Operator**
 
 Get your Aadhaar-related services such as:
-✅ New Aadhaar Enrollment (Age 5+ & Adults)
-✏️ Update Name, Address, DOB, Mobile
-🔄 Biometric Updates (Photo, Fingerprint, Iris)
-🧾 Reprint / Download Aadhaar PDF
-📱 Link Aadhaar with Mobile Number / Bank Account
+ New Aadhaar Enrollment (Age 5+ & Adults)
+ Update Name, Address, DOB, Mobile
+ Biometric Updates (Photo, Fingerprint, Iris)
+ Reprint / Download Aadhaar PDF
+ Link Aadhaar with Mobile Number / Bank Account
 
-📍 **Aadhaar Kendras and Contacts:**
-🏢 Yuksam SDM Office
-👩‍💼 Contact Person: Pema
-📞 Phone: 9564442624
+ **Aadhaar Kendras and Contacts:**
+ Yuksam SDM Office
+‍ Contact Person: Pema
+ Phone: 9564442624
 
-🏢 Dentam SDM Office
-👨‍💼 Contact Person: Rajen Sharma
-📞 Phone: 9733140036
+ Dentam SDM Office
+‍ Contact Person: Rajen Sharma
+ Phone: 9733140036
 
 **How to Apply:**
 1. Visit your nearest Aadhaar Kendra
@@ -4824,8 +4861,8 @@ Get your Aadhaar-related services such as:
 • Mobile Number (for OTP)"""
         
         keyboard = [
-            [InlineKeyboardButton("📞 Find CSC Operator", callback_data="contacts_csc")],
-            [InlineKeyboardButton("🔙 Back to Contacts", callback_data="contacts")],
+            [InlineKeyboardButton(" Find CSC Operator", callback_data="contacts_csc")],
+            [InlineKeyboardButton(" Back to Contacts", callback_data="contacts")],
             [InlineKeyboardButton(self.responses[user_lang]['back_main_menu'], callback_data="main_menu")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -4972,7 +5009,7 @@ Get your Aadhaar-related services such as:
                 )
                 
             except Exception as e:
-                logger.error(f"❌ Error saving feedback: {str(e)}")
+                logger.error(f" Error saving feedback: {str(e)}")
                 await update.message.reply_text(
                     self.responses[user_lang]['error'],
                     parse_mode='Markdown'
@@ -4997,7 +5034,7 @@ Get your Aadhaar-related services such as:
             if not direct_gpu_match.empty:
                 # Direct GPU match found
                 csc_info = direct_gpu_match.iloc[0]
-                response = f"""🏛️ **CSC Operator Found**
+                response = f""" **CSC Operator Found**
 
 **GPU:** {csc_info['GPU Name']}
 **Block:** {csc_info['BLOCK']}
@@ -5008,7 +5045,7 @@ Get your Aadhaar-related services such as:
 **Sub Division Single Window:** {csc_info['SubDivision Single Window']}"""
                 
                 keyboard = [
-                    [InlineKeyboardButton("🔙 Back to Contacts", callback_data="contacts")],
+                    [InlineKeyboardButton(" Back to Contacts", callback_data="contacts")],
                     [InlineKeyboardButton(self.responses[user_lang]['back_main_menu'], callback_data="main_menu")]
                 ]
                 reply_markup = InlineKeyboardMarkup(keyboard)
@@ -5032,7 +5069,7 @@ Get your Aadhaar-related services such as:
                 if not csc_match.empty:
                     csc_info = csc_match.iloc[0]
                     ward_name = ward_matches.iloc[0]['Name of Ward']
-                    response = f"""🏛️ **CSC Operator Found (via Ward Search)**
+                    response = f""" **CSC Operator Found (via Ward Search)**
 
 **Ward:** {ward_name}
 **GPU:** {csc_info['GPU Name']}
@@ -5044,7 +5081,7 @@ Get your Aadhaar-related services such as:
 **Sub Division Single Window:** {csc_info['SubDivision Single Window']}"""
                     
                     keyboard = [
-                        [InlineKeyboardButton("🔙 Back to Contacts", callback_data="contacts")],
+                        [InlineKeyboardButton(" Back to Contacts", callback_data="contacts")],
                         [InlineKeyboardButton(self.responses[user_lang]['back_main_menu'], callback_data="main_menu")]
                     ]
                     reply_markup = InlineKeyboardMarkup(keyboard)
@@ -5063,7 +5100,7 @@ Get your Aadhaar-related services such as:
                 constituency_name = constituency_matches.iloc[0]['Terrotorial Constituency Name']
                 unique_gpus = constituency_matches['Name of GPU'].dropna().unique()
                 
-                response = f"""🏛️ **Constituency Found: {constituency_name}**
+                response = f""" **Constituency Found: {constituency_name}**
 
 **Available GPUs in this constituency:**
 """
@@ -5075,7 +5112,7 @@ Get your Aadhaar-related services such as:
                 response += f"\nPlease enter the specific GPU name from the list above to find the CSC operator."
                 
                 keyboard = [
-                    [InlineKeyboardButton("�� Back to Contacts", callback_data="contacts")],
+                    [InlineKeyboardButton(" Back to Contacts", callback_data="contacts")],
                     [InlineKeyboardButton(self.responses[user_lang]['back_main_menu'], callback_data="main_menu")]
                 ]
                 reply_markup = InlineKeyboardMarkup(keyboard)
@@ -5102,7 +5139,7 @@ Get your Aadhaar-related services such as:
             # Remove duplicates and limit suggestions
             suggestions = list(set(suggestions))[:5]
             
-            response = f"❌ **No exact match found for: {search_term}**\n\n"
+            response = f" **No exact match found for: {search_term}**\n\n"
             
             if suggestions:
                 response += "**Did you mean one of these?**\n"
@@ -5120,8 +5157,8 @@ Get your Aadhaar-related services such as:
             
             # Add retry button and keep user in search state
             keyboard = [
-                [InlineKeyboardButton("🔄 Try Again", callback_data="csc_search_retry")],
-                [InlineKeyboardButton("🔙 Back to Contacts", callback_data="contacts")],
+                [InlineKeyboardButton(" Try Again", callback_data="csc_search_retry")],
+                [InlineKeyboardButton(" Back to Contacts", callback_data="contacts")],
                 [InlineKeyboardButton(self.responses[user_lang]['back_main_menu'], callback_data="main_menu")]
             ]
             reply_markup = InlineKeyboardMarkup(keyboard)
@@ -5151,7 +5188,7 @@ Get your Aadhaar-related services such as:
             
             if not matching_blo.empty:
                 blo_info = matching_blo.iloc[0]
-                response = f"""👤 **BLO (Booth Level Officer) Found**
+                response = f""" **BLO (Booth Level Officer) Found**
 
 **AC:** {blo_info['AC']}
 **Polling Station:** {blo_info['Polling Station']}
@@ -5159,7 +5196,7 @@ Get your Aadhaar-related services such as:
 **Mobile Number:** {blo_info['Mobile Number']}"""
                 
                 keyboard = [
-                    [InlineKeyboardButton("🔙 Back to Contacts", callback_data="contacts")],
+                    [InlineKeyboardButton(" Back to Contacts", callback_data="contacts")],
                     [InlineKeyboardButton(self.responses[user_lang]['back_main_menu'], callback_data="main_menu")]
                 ]
                 reply_markup = InlineKeyboardMarkup(keyboard)
@@ -5177,7 +5214,7 @@ Get your Aadhaar-related services such as:
                 # Remove duplicates and limit suggestions
                 suggestions = list(set(suggestions))[:5]
                 
-                response = f"❌ **No BLO found for polling station: {polling_station}**\n\n"
+                response = f" **No BLO found for polling station: {polling_station}**\n\n"
                 
                 if suggestions:
                     response += "**Did you mean one of these polling stations?**\n"
@@ -5194,7 +5231,7 @@ Get your Aadhaar-related services such as:
                     response += "\nPlease enter the exact polling station name."
                 
                 keyboard = [
-                    [InlineKeyboardButton("🔙 Back to Contacts", callback_data="contacts")],
+                    [InlineKeyboardButton(" Back to Contacts", callback_data="contacts")],
                     [InlineKeyboardButton(self.responses[user_lang]['back_main_menu'], callback_data="main_menu")]
                 ]
                 reply_markup = InlineKeyboardMarkup(keyboard)
@@ -5218,7 +5255,7 @@ Get your Aadhaar-related services such as:
         
         self.application.add_handler(CallbackQueryHandler(self.callback_handler))
         self.application.add_error_handler(self.error_handler)  # Add error handler
-        logger.info("✅ All handlers registered successfully")
+        logger.info(" All handlers registered successfully")
 
     def run(self):
         """Run the bot"""
@@ -5243,15 +5280,21 @@ Get your Aadhaar-related services such as:
             self.application.add_error_handler(self.error_handler)
             
             # Start the bot
-            logger.info("🚀 Starting Sajilo Sewak Bot...")
-            print("🚀 Starting Sajilo Sewak Bot...")
-            print("✅ Ready to serve citizens!")
+            logger.info("Starting Sajilo Sewak Bot...")
+            print("Starting Sajilo Sewak Bot...")
+            print("Ready to serve citizens!")
             
             # Run the bot until the user presses Ctrl-C
             self.application.run_polling(allowed_updates=Update.ALL_TYPES)
             
+        except KeyboardInterrupt:
+            logger.info("Shutting down bot...")
+            if hasattr(self, 'conversation_system'):
+                self.conversation_system.cleanup_session()
+            print("Bot stopped gracefully.")
+            
         except Exception as e:
-            logger.error(f"❌ Failed to start bot: {str(e)}")
+            logger.error(f" Failed to start bot: {str(e)}")
             raise
 
     async def check_nc_exgratia_status(self, update: Update, context: ContextTypes.DEFAULT_TYPE, reference_number: str):
@@ -5259,16 +5302,25 @@ Get your Aadhaar-related services such as:
         user_id = update.effective_user.id
         user_lang = self._get_user_language(user_id)
         
+        # Determine if this is a callback query or regular message
+        is_callback = hasattr(update, 'callback_query') and update.callback_query is not None
+        
         try:
             # Check if API client is available
             if not self.api_client:
-                error_msg = "❌ NC Exgratia API is not configured. Please contact support."
-                await update.message.reply_text(error_msg, parse_mode='Markdown')
+                error_msg = " NC Exgratia API is not configured. Please contact support."
+                if is_callback:
+                    await update.callback_query.edit_message_text(error_msg, parse_mode='Markdown')
+                else:
+                    await update.message.reply_text(error_msg, parse_mode='Markdown')
                 return
             
             # Show processing message
-            processing_msg = f"🔍 Checking status for application: {reference_number}\n\nPlease wait..."
-            await update.message.reply_text(processing_msg, parse_mode='Markdown')
+            processing_msg = f" Checking status for application: {reference_number}\n\nPlease wait..."
+            if is_callback:
+                await update.callback_query.edit_message_text(processing_msg, parse_mode='Markdown')
+            else:
+                await update.message.reply_text(processing_msg, parse_mode='Markdown')
             
             # Check status via API
             status_result = await self.api_client.check_application_status(reference_number)
@@ -5289,12 +5341,12 @@ Get your Aadhaar-related services such as:
                 except:
                     formatted_date = created_at
                 
-                status_msg = f"""📋 *NC Exgratia Application Status*
+                status_msg = f""" *NC Exgratia Application Status*
 
-🆔 **Reference Number**: `{reference_number}`
-👤 **Applicant**: {applicant_name}
-📅 **Submitted**: {formatted_date}
-📊 **Status**: {status}
+ **Reference Number**: `{reference_number}`
+ **Applicant**: {applicant_name}
+ **Submitted**: {formatted_date}
+ **Status**: {status}
 
 *Status Information:*
 • Your application is being processed
@@ -5302,19 +5354,22 @@ Get your Aadhaar-related services such as:
 • Contact support for any queries: {Config.SUPPORT_PHONE}"""
                 
                 keyboard = [
-                    [InlineKeyboardButton("🔙 Back to Disaster Management", callback_data="disaster")],
-                    [InlineKeyboardButton("🏠 Main Menu", callback_data="main_menu")]
+                    [InlineKeyboardButton(" Back to Disaster Management", callback_data="disaster")],
+                    [InlineKeyboardButton(" Main Menu", callback_data="main_menu")]
                 ]
                 reply_markup = InlineKeyboardMarkup(keyboard)
                 
-                await update.message.reply_text(status_msg, reply_markup=reply_markup, parse_mode='Markdown')
+                if is_callback:
+                    await update.callback_query.edit_message_text(status_msg, reply_markup=reply_markup, parse_mode='Markdown')
+                else:
+                    await update.message.reply_text(status_msg, reply_markup=reply_markup, parse_mode='Markdown')
                 
             else:
                 # Status check failed
                 error_details = status_result.get("details", "Unknown error")
-                logger.error(f"❌ NC Exgratia status check failed: {error_details}")
+                logger.error(f" NC Exgratia status check failed: {error_details}")
                 
-                error_msg = f"""❌ *Status Check Failed*
+                error_msg = f""" *Status Check Failed*
 
 Unable to retrieve status for application: {reference_number}
 
@@ -5327,16 +5382,19 @@ Unable to retrieve status for application: {reference_number}
 3. Contact support: {Config.SUPPORT_PHONE}"""
                 
                 keyboard = [
-                    [InlineKeyboardButton("🔄 Try Again", callback_data="check_status")],
-                    [InlineKeyboardButton("🔙 Back to Disaster Management", callback_data="disaster")]
+                    [InlineKeyboardButton(" Try Again", callback_data="check_status")],
+                    [InlineKeyboardButton(" Back to Disaster Management", callback_data="disaster")]
                 ]
                 reply_markup = InlineKeyboardMarkup(keyboard)
                 
-                await update.message.reply_text(error_msg, reply_markup=reply_markup, parse_mode='Markdown')
+                if is_callback:
+                    await update.callback_query.edit_message_text(error_msg, reply_markup=reply_markup, parse_mode='Markdown')
+                else:
+                    await update.message.reply_text(error_msg, reply_markup=reply_markup, parse_mode='Markdown')
                 
         except Exception as e:
-            logger.error(f"❌ Error checking application status: {str(e)}")
-            error_msg = f"""❌ *Status Check Error*
+            logger.error(f" Error checking application status: {str(e)}")
+            error_msg = f""" *Status Check Error*
 
 An unexpected error occurred while checking status.
 
@@ -5346,12 +5404,15 @@ An unexpected error occurred while checking status.
 Contact support: {Config.SUPPORT_PHONE}"""
             
             keyboard = [
-                [InlineKeyboardButton("🔄 Try Again", callback_data="check_status")],
-                [InlineKeyboardButton("🔙 Back to Disaster Management", callback_data="disaster")]
+                [InlineKeyboardButton(" Try Again", callback_data="check_status")],
+                [InlineKeyboardButton(" Back to Disaster Management", callback_data="disaster")]
             ]
             reply_markup = InlineKeyboardMarkup(keyboard)
             
-            await update.message.reply_text(error_msg, reply_markup=reply_markup, parse_mode='Markdown')
+            if is_callback:
+                await update.callback_query.edit_message_text(error_msg, reply_markup=reply_markup, parse_mode='Markdown')
+            else:
+                await update.message.reply_text(error_msg, reply_markup=reply_markup, parse_mode='Markdown')
 
     async def cancel_ex_gratia_application(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_id = update.effective_user.id
@@ -5366,7 +5427,7 @@ Contact support: {Config.SUPPORT_PHONE}"""
         
         # Check if reference number is provided
         if not context.args:
-            help_msg = f"""📋 *NC Exgratia Status Check*
+            help_msg = f""" *NC Exgratia Status Check*
 
 To check your application status, use:
 `/status <reference_number>`
@@ -5377,7 +5438,7 @@ To check your application status, use:
 *Or use the menu:*
 Disaster Management → Check Status"""
             
-            keyboard = [[InlineKeyboardButton("🔙 Back to Main Menu", callback_data="main_menu")]]
+            keyboard = [[InlineKeyboardButton(" Back to Main Menu", callback_data="main_menu")]]
             reply_markup = InlineKeyboardMarkup(keyboard)
             
             await update.message.reply_text(help_msg, reply_markup=reply_markup, parse_mode='Markdown')
@@ -5408,7 +5469,7 @@ Disaster Management → Check Status"""
             telegram_username=telegram_username
         )
         
-        keyboard = [[InlineKeyboardButton("🔙 Back to Main Menu", callback_data="main_menu")]]
+        keyboard = [[InlineKeyboardButton(" Back to Main Menu", callback_data="main_menu")]]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
         if hasattr(update, 'callback_query') and update.callback_query:
@@ -5468,9 +5529,9 @@ Disaster Management → Check Status"""
         )
         
         # Add location info
-        confirmation += f"\n📍 **Location**: {manual_location}"
+        confirmation += f"\n **Location**: {manual_location}"
         
-        keyboard = [[InlineKeyboardButton("🔙 Back to Main Menu", callback_data="main_menu")]]
+        keyboard = [[InlineKeyboardButton(" Back to Main Menu", callback_data="main_menu")]]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
         await update.message.reply_text(confirmation, reply_markup=reply_markup, parse_mode='Markdown')
@@ -5520,7 +5581,7 @@ Disaster Management → Check Status"""
                 "Gyalshing Municipal Council"
             ]
             
-            text = f"""🏛️ **CSC Application Flow**
+            text = f""" **CSC Application Flow**
 
 **Certificate:** {cert_type}
 
@@ -5538,8 +5599,8 @@ Please choose your block:"""
             state["available_blocks"] = available_blocks
             self._set_user_state(user_id, state)
             
-            keyboard.append([InlineKeyboardButton("🔙 Back", callback_data="certificate_csc")])
-            keyboard.append([InlineKeyboardButton("🔙 Main Menu", callback_data="main_menu")])
+            keyboard.append([InlineKeyboardButton(" Back", callback_data="certificate_csc")])
+            keyboard.append([InlineKeyboardButton(" Main Menu", callback_data="main_menu")])
             
             reply_markup = InlineKeyboardMarkup(keyboard)
             print(f"DEBUG: About to edit message with text length: {len(text)}")
@@ -5554,7 +5615,7 @@ Please choose your block:"""
             # Fallback: send a new message
             try:
                 await update.callback_query.answer("Error occurred, please try again")
-                await update.callback_query.message.reply_text("❌ Error occurred. Please try again from the main menu.", parse_mode='Markdown')
+                await update.callback_query.message.reply_text(" Error occurred. Please try again from the main menu.", parse_mode='Markdown')
             except:
                 pass
 
@@ -5602,15 +5663,15 @@ Please choose your block:"""
         
         # If still no GPUs found, show error message
         if not block_gpus:
-            text = f"""❌ **No GPUs Found**
+            text = f""" **No GPUs Found**
 
 Sorry, no GPUs were found for the block: **{block_name}**
 
 Please try selecting a different block or contact support."""
             
             keyboard = [
-                [InlineKeyboardButton("🔙 Back to Blocks", callback_data="certificate_csc")],
-                [InlineKeyboardButton("🔙 Main Menu", callback_data="main_menu")]
+                [InlineKeyboardButton(" Back to Blocks", callback_data="certificate_csc")],
+                [InlineKeyboardButton(" Main Menu", callback_data="main_menu")]
             ]
             reply_markup = InlineKeyboardMarkup(keyboard)
             await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
@@ -5624,7 +5685,7 @@ Please try selecting a different block or contact support."""
         
         block_gpus = sorted(cleaned_gpus)
         
-        text = f"""🏛️ **CSC Application Flow**
+        text = f""" **CSC Application Flow**
 
 **Certificate:** {state.get('certificate_type', 'Unknown')}
 **Block:** {block_name}
@@ -5645,8 +5706,8 @@ Please choose your GPU:"""
         state["available_gpus"] = block_gpus
         self._set_user_state(user_id, state)
         
-        keyboard.append([InlineKeyboardButton("🔙 Back to Blocks", callback_data="certificate_csc")])
-        keyboard.append([InlineKeyboardButton("🔙 Main Menu", callback_data="main_menu")])
+        keyboard.append([InlineKeyboardButton(" Back to Blocks", callback_data="certificate_csc")])
+        keyboard.append([InlineKeyboardButton(" Main Menu", callback_data="main_menu")])
         
         reply_markup = InlineKeyboardMarkup(keyboard)
         await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
@@ -5709,7 +5770,7 @@ Please choose your GPU:"""
             if len(subdivision_contacts) > 50:
                 subdivision_contacts = subdivision_contacts[:50] + "..."
             
-            text = f"""📞 **Step 3: CSC Operator Details**
+            text = f""" **Step 3: CSC Operator Details**
 
 **Certificate:** {state.get('certificate_type', 'Unknown')}
 **Block:** {info.get('BLOCK', 'N/A')}
@@ -5729,12 +5790,12 @@ If CSC Operator not responding, contact:
 Would you like to apply from here?"""
             
             keyboard = [
-                [InlineKeyboardButton("✅ Yes, Apply Now", callback_data="cert_apply_now")],
-                [InlineKeyboardButton("🔙 Back to GPUs", callback_data="certificate_csc")],
-                [InlineKeyboardButton("🔙 Main Menu", callback_data="main_menu")]
+                [InlineKeyboardButton(" Yes, Apply Now", callback_data="cert_apply_now")],
+                [InlineKeyboardButton(" Back to GPUs", callback_data="certificate_csc")],
+                [InlineKeyboardButton(" Main Menu", callback_data="main_menu")]
             ]
         else:
-            text = f"""❌ **CSC Operator Not Found**
+            text = f""" **CSC Operator Not Found**
 
 **Certificate:** {state.get('certificate_type', 'Unknown')}
 **Block:** {state.get('block', 'N/A')}
@@ -5743,8 +5804,8 @@ Would you like to apply from here?"""
 No CSC operator found for this GPU. Please try another GPU or contact support."""
             
             keyboard = [
-                [InlineKeyboardButton("🔙 Back to GPUs", callback_data="certificate_csc")],
-                [InlineKeyboardButton("🔙 Main Menu", callback_data="main_menu")]
+                [InlineKeyboardButton(" Back to GPUs", callback_data="certificate_csc")],
+                [InlineKeyboardButton(" Main Menu", callback_data="main_menu")]
             ]
         
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -5768,7 +5829,7 @@ No CSC operator found for this GPU. Please try another GPU or contact support.""
         state["step"] = "name"
         self._set_user_state(user_id, state)
         
-        text = f"""📝 **Step 5: Basic Details Collection**
+        text = f""" **Step 5: Basic Details Collection**
 
 **Certificate:** {state.get('certificate_type', 'Unknown')}
 **Block:** {state.get('block', 'N/A')}
@@ -5778,7 +5839,7 @@ No CSC operator found for this GPU. Please try another GPU or contact support.""
 
 **Name:**"""
         
-        keyboard = [[InlineKeyboardButton("🔙 Cancel", callback_data="certificate_csc")]]
+        keyboard = [[InlineKeyboardButton(" Cancel", callback_data="certificate_csc")]]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
         await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
@@ -5868,7 +5929,7 @@ No CSC operator found for this GPU. Please try another GPU or contact support.""
         )
         
         if success:
-            text = f"""✅ **Application Submitted Successfully!**
+            text = f""" **Application Submitted Successfully!**
 
 **Certificate:** {cert_type}
 **Name:** {applicant_name}
@@ -5878,9 +5939,9 @@ No CSC operator found for this GPU. Please try another GPU or contact support.""
 **Block:** {block}
 **GPU:** {gpu}
 
-🆔 **Reference Number:** `{reference_number}`
+ **Reference Number:** `{reference_number}`
 
-**📋 How to track your application:**
+** How to track your application:**
 • Use the 'Check Status of My Application' option
 • Enter your reference number: `{reference_number}`
 • CSC operator will update the status in our system
@@ -5888,30 +5949,30 @@ No CSC operator found for this GPU. Please try another GPU or contact support.""
 **Status:** Application Received
 **Next Step:** CSC Operator will contact you within 24-48 hours"""
             
-            keyboard = [[InlineKeyboardButton("🔙 Main Menu", callback_data="main_menu")]]
+            keyboard = [[InlineKeyboardButton(" Main Menu", callback_data="main_menu")]]
             reply_markup = InlineKeyboardMarkup(keyboard)
             
             await update.message.reply_text(text, reply_markup=reply_markup, parse_mode='Markdown')
         else:
-            text = f"""❌ **Application Submission Failed**
+            text = f""" **Application Submission Failed**
 
 **Reference Number:** {reference_number}
 
 Please try again or contact support. Your reference number has been saved for tracking."""
             
-            keyboard = [[InlineKeyboardButton("🔙 Main Menu", callback_data="main_menu")]]
+            keyboard = [[InlineKeyboardButton(" Main Menu", callback_data="main_menu")]]
             reply_markup = InlineKeyboardMarkup(keyboard)
             
             await update.message.reply_text(text, reply_markup=reply_markup, parse_mode='Markdown')
 
     async def handle_certificate_online_application(self, update: Update, context: ContextTypes.DEFAULT_TYPE, cert_type: str):
         """Handle certificate online application - redirect to sso.sikkim.gov.in"""
-        text = f"""🌐 **Apply for the Certificates**
+        text = f""" **Apply for the Certificates**
 
 **Certificate:** {cert_type}
 
 **To apply for any certificate online:**
-✅ **Visit: sso.sikkim.gov.in**
+ **Visit: sso.sikkim.gov.in**
 
 **Steps to Apply Online:**
 1. Create your account (one-time)
@@ -5925,8 +5986,8 @@ Please try again or contact support. Your reference number has been saved for tr
         keyboard = [
             [InlineKeyboardButton("Apply Now", url="https://sso.sikkim.gov.in")],
             [InlineKeyboardButton("Need Help? Apply via CSC", callback_data=f"cert_csc_{cert_type}")],
-            [InlineKeyboardButton("🔙 Back", callback_data="certificate_csc")],
-            [InlineKeyboardButton("🔙 Main Menu", callback_data="main_menu")]
+            [InlineKeyboardButton(" Back", callback_data="certificate_csc")],
+            [InlineKeyboardButton(" Main Menu", callback_data="main_menu")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
@@ -5953,7 +6014,7 @@ Please try again or contact support. Your reference number has been saved for tr
             "Gyalshing Municipal Council"
         ]
         
-        text = f"""🏛️ **CSC Application Flow**
+        text = f""" **CSC Application Flow**
 
 **Certificate:** {cert_type}
 
@@ -5971,8 +6032,8 @@ Please choose your block:"""
         state["available_blocks"] = available_blocks
         self._set_user_state(user_id, state)
         
-        keyboard.append([InlineKeyboardButton("🔙 Back", callback_data="certificate_csc")])
-        keyboard.append([InlineKeyboardButton("🔙 Main Menu", callback_data="main_menu")])
+        keyboard.append([InlineKeyboardButton(" Back", callback_data="certificate_csc")])
+        keyboard.append([InlineKeyboardButton(" Main Menu", callback_data="main_menu")])
         
         reply_markup = InlineKeyboardMarkup(keyboard)
         await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
@@ -5999,7 +6060,7 @@ Please choose your block:"""
             "available_blocks": available_blocks
         })
         
-        text = """✅ **Know Your CSC Operator**
+        text = """ **Know Your CSC Operator**
 
 **Step 1: Block Selection**
 
@@ -6010,15 +6071,15 @@ Please choose your block:"""
         for i, block in enumerate(available_blocks):
             keyboard.append([InlineKeyboardButton(block, callback_data=f"csc_block_{i}")])
         
-        keyboard.append([InlineKeyboardButton("🔙 Back to Contacts", callback_data="contacts")])
-        keyboard.append([InlineKeyboardButton("🔙 Main Menu", callback_data="main_menu")])
+        keyboard.append([InlineKeyboardButton(" Back to Contacts", callback_data="contacts")])
+        keyboard.append([InlineKeyboardButton(" Main Menu", callback_data="main_menu")])
         
         reply_markup = InlineKeyboardMarkup(keyboard)
         await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
 
     async def handle_contacts_csc_block_selection_simple(self, update: Update, context: ContextTypes.DEFAULT_TYPE, block_index: str):
         """Simple block selection for CSC contacts"""
-        print(f"🔍 [DEBUG] handle_contacts_csc_block_selection_simple called with block_index: {block_index}")
+        print(f" [DEBUG] handle_contacts_csc_block_selection_simple called with block_index: {block_index}")
         
         user_id = update.effective_user.id
         state = self._get_user_state(user_id)
@@ -6036,9 +6097,9 @@ Please choose your block:"""
         try:
             block_index = int(block_index)
             block_name = available_blocks[block_index]
-            print(f"🔍 [DEBUG] Selected block: {block_name}")
+            print(f" [DEBUG] Selected block: {block_name}")
         except (ValueError, IndexError):
-            print(f"🔍 [DEBUG] Invalid block_index: {block_index}")
+            print(f" [DEBUG] Invalid block_index: {block_index}")
             await update.callback_query.answer("Invalid block selection")
             return
         
@@ -6058,21 +6119,21 @@ Please choose your block:"""
         }
         
         csc_block_name = block_mapping.get(block_name, block_name)
-        print(f"🔍 [DEBUG] Mapped block name: {csc_block_name}")
+        print(f" [DEBUG] Mapped block name: {csc_block_name}")
         
         # Get GPUs from CSV
         block_gpus = self.csc_details_df[
             self.csc_details_df['BLOCK'].str.lower() == csc_block_name.lower()
         ]['GPU Name'].dropna().unique().tolist()
         
-        print(f"🔍 [DEBUG] Found {len(block_gpus)} GPUs with exact match")
+        print(f" [DEBUG] Found {len(block_gpus)} GPUs with exact match")
         
         # If no exact match, try partial matching
         if not block_gpus:
             block_gpus = self.csc_details_df[
                 self.csc_details_df['BLOCK'].str.contains(csc_block_name, case=False, na=False, regex=False)
             ]['GPU Name'].dropna().unique().tolist()
-            print(f"🔍 [DEBUG] Found {len(block_gpus)} GPUs with partial match")
+            print(f" [DEBUG] Found {len(block_gpus)} GPUs with partial match")
         
         # Clean GPU names
         cleaned_gpus = []
@@ -6081,24 +6142,24 @@ Please choose your block:"""
             cleaned_gpus.append(cleaned_gpu)
         
         block_gpus = sorted(cleaned_gpus)
-        print(f"🔍 [DEBUG] Final GPUs: {block_gpus}")
+        print(f" [DEBUG] Final GPUs: {block_gpus}")
         
         if not block_gpus:
-            print(f"🔍 [DEBUG] No GPUs found for block: {block_name}")
-            text = f"""❌ **No GPUs Found**
+            print(f" [DEBUG] No GPUs found for block: {block_name}")
+            text = f""" **No GPUs Found**
 
 No GPUs found for block: **{block_name}**
 
 Please try a different block."""
             keyboard = [
-                [InlineKeyboardButton("🔙 Back to Blocks", callback_data="contacts_csc")],
-                [InlineKeyboardButton("🔙 Back to Contacts", callback_data="contacts")]
+                [InlineKeyboardButton(" Back to Blocks", callback_data="contacts_csc")],
+                [InlineKeyboardButton(" Back to Contacts", callback_data="contacts")]
             ]
             reply_markup = InlineKeyboardMarkup(keyboard)
             await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
             return
         
-        text = f"""✅ **Know Your CSC Operator**
+        text = f""" **Know Your CSC Operator**
 
 **Selected Block:** {block_name}
 
@@ -6115,11 +6176,11 @@ Please select your GPU (Gram Panchayat Unit):"""
         state["available_gpus"] = block_gpus
         self._set_user_state(user_id, state)
         
-        keyboard.append([InlineKeyboardButton("🔙 Back to Blocks", callback_data="contacts_csc")])
-        keyboard.append([InlineKeyboardButton("🔙 Back to Contacts", callback_data="contacts")])
+        keyboard.append([InlineKeyboardButton(" Back to Blocks", callback_data="contacts_csc")])
+        keyboard.append([InlineKeyboardButton(" Back to Contacts", callback_data="contacts")])
         
         reply_markup = InlineKeyboardMarkup(keyboard)
-        print(f"🔍 [DEBUG] Sending GPU selection menu with {len(block_gpus)} GPUs")
+        print(f" [DEBUG] Sending GPU selection menu with {len(block_gpus)} GPUs")
         await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
 
     async def handle_csc_contacts_block_selection(self, update: Update, context: ContextTypes.DEFAULT_TYPE, block_index: str):
@@ -6181,20 +6242,20 @@ Please select your GPU (Gram Panchayat Unit):"""
         block_gpus = sorted(cleaned_gpus)
         
         if not block_gpus:
-            text = f"""❌ **No GPUs Found**
+            text = f""" **No GPUs Found**
 
 No GPUs found for block: **{block_name}**
 
 Please try a different block."""
             keyboard = [
-                [InlineKeyboardButton("🔙 Back to Blocks", callback_data="contacts_csc")],
-                [InlineKeyboardButton("🔙 Back to Contacts", callback_data="contacts")]
+                [InlineKeyboardButton(" Back to Blocks", callback_data="contacts_csc")],
+                [InlineKeyboardButton(" Back to Contacts", callback_data="contacts")]
             ]
             reply_markup = InlineKeyboardMarkup(keyboard)
             await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
             return
         
-        text = f"""✅ **Know Your CSC Operator**
+        text = f""" **Know Your CSC Operator**
 
 **Selected Block:** {block_name}
 
@@ -6211,8 +6272,8 @@ Please select your GPU (Gram Panchayat Unit):"""
         state["available_gpus"] = block_gpus
         self._set_user_state(user_id, state)
         
-        keyboard.append([InlineKeyboardButton("🔙 Back to Blocks", callback_data="contacts_csc")])
-        keyboard.append([InlineKeyboardButton("🔙 Back to Contacts", callback_data="contacts")])
+        keyboard.append([InlineKeyboardButton(" Back to Blocks", callback_data="contacts_csc")])
+        keyboard.append([InlineKeyboardButton(" Back to Contacts", callback_data="contacts")])
         
         reply_markup = InlineKeyboardMarkup(keyboard)
         await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
@@ -6242,7 +6303,7 @@ Please select your GPU (Gram Panchayat Unit):"""
         ]
         
         if csc_info.empty:
-            text = f"""❌ **No CSC Information Found**
+            text = f""" **No CSC Information Found**
 
 No CSC operator information found for:
 - **Block:** {state["block"]}
@@ -6250,8 +6311,8 @@ No CSC operator information found for:
 
 Please try a different GPU or block."""
             keyboard = [
-                [InlineKeyboardButton("🔙 Back to GPUs", callback_data="contacts_csc")],
-                [InlineKeyboardButton("🔙 Back to Contacts", callback_data="contacts")]
+                [InlineKeyboardButton(" Back to GPUs", callback_data="contacts_csc")],
+                [InlineKeyboardButton(" Back to Contacts", callback_data="contacts")]
             ]
             reply_markup = InlineKeyboardMarkup(keyboard)
             await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
@@ -6260,24 +6321,23 @@ Please try a different GPU or block."""
         # Get the first CSC operator info
         csc_row = csc_info.iloc[0]
         
-        text = f"""✅ **CSC Operator Information**
+        text = f""" **CSC Operator Information**
 
 **Selected Block:** {state["block"]}
 **Selected GPU:** {gpu_name}
 
 **CSC Operator Details:**
-• **Name:** {csc_row.get('CSC OPERATOR NAME', 'N/A')}
-• **Phone:** {csc_row.get('CSC OPERATOR PHONE', 'N/A')}
-• **GPU:** {csc_row.get('GPU Name', 'N/A')}
-• **Block Single Window:** {csc_row.get('BLOCK SINGLE WINDOW', 'N/A')}
-• **Subdivision Single Window:** {csc_row.get('SUBDIVISION SINGLE WINDOW', 'N/A')}
+• **Name:** {csc_row.get('Name', 'N/A')}
+• **Contact:** {csc_row.get('Contact No.', 'N/A')}
+• **Block Single Window:** {csc_row.get('Block Single Window', 'N/A')}
+• **SubDivision Single Window:** {csc_row.get('SubDivision Single Window', 'N/A')}
 
 You can contact this CSC operator for any government services."""
         
         keyboard = [
-            [InlineKeyboardButton("🔙 Back to GPUs", callback_data="contacts_csc")],
-            [InlineKeyboardButton("🔙 Back to Contacts", callback_data="contacts")],
-            [InlineKeyboardButton("🔙 Main Menu", callback_data="main_menu")]
+            [InlineKeyboardButton(" Back to GPUs", callback_data="contacts_csc")],
+            [InlineKeyboardButton(" Back to Contacts", callback_data="contacts")],
+            [InlineKeyboardButton(" Main Menu", callback_data="main_menu")]
         ]
         
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -6285,7 +6345,7 @@ You can contact this CSC operator for any government services."""
 
     async def simple_csc_block_to_gpu(self, update: Update, context: ContextTypes.DEFAULT_TYPE, block_index: str):
         """Simple function to map block names to GPUs"""
-        print(f"🔍 [DEBUG] simple_csc_block_to_gpu called with block_index: {block_index}")
+        print(f" [DEBUG] simple_csc_block_to_gpu called with block_index: {block_index}")
         
         # Available blocks
         available_blocks = [
@@ -6336,20 +6396,20 @@ You can contact this CSC operator for any government services."""
         block_gpus = sorted(cleaned_gpus)
         
         if not block_gpus:
-            text = f"""❌ **No GPUs Found**
+            text = f""" **No GPUs Found**
 
 No GPUs found for block: **{block_name}**
 
 Please try a different block."""
             keyboard = [
-                [InlineKeyboardButton("🔙 Back to Blocks", callback_data="contacts_csc")],
-                [InlineKeyboardButton("🔙 Back to Contacts", callback_data="contacts")]
+                [InlineKeyboardButton(" Back to Blocks", callback_data="contacts_csc")],
+                [InlineKeyboardButton(" Back to Contacts", callback_data="contacts")]
             ]
             reply_markup = InlineKeyboardMarkup(keyboard)
             await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
             return
         
-        text = f"""✅ **Know Your CSC Operator**
+        text = f""" **Know Your CSC Operator**
 
 **Selected Block:** {block_name}
 
@@ -6364,8 +6424,8 @@ Please choose your GPU:"""
         for i, gpu in enumerate(block_gpus):
             keyboard.append([InlineKeyboardButton(gpu, callback_data=f"csc_gpu_{i}")])
         
-        keyboard.append([InlineKeyboardButton("🔙 Back to Blocks", callback_data="contacts_csc")])
-        keyboard.append([InlineKeyboardButton("🔙 Back to Contacts", callback_data="contacts")])
+        keyboard.append([InlineKeyboardButton(" Back to Blocks", callback_data="contacts_csc")])
+        keyboard.append([InlineKeyboardButton(" Back to Contacts", callback_data="contacts")])
         
         # Store GPUs in user state for GPU selection
         user_id = update.effective_user.id
@@ -6412,15 +6472,15 @@ Please choose your GPU:"""
         print(f"DEBUG: Found {len(csc_details)} matching records in CSV")
         
         if csc_details.empty:
-            text = f"""❌ **No CSC Details Found**
+            text = f""" **No CSC Details Found**
 
 Sorry, no CSC operator details were found for GPU: **{gpu_name}**
 
 Please try selecting a different GPU or contact support."""
             
             keyboard = [
-                [InlineKeyboardButton("🔙 Back to GPUs", callback_data="contacts_csc")],
-                [InlineKeyboardButton("🔙 Back to Contacts", callback_data="contacts")]
+                [InlineKeyboardButton(" Back to GPUs", callback_data="contacts_csc")],
+                [InlineKeyboardButton(" Back to Contacts", callback_data="contacts")]
             ]
             reply_markup = InlineKeyboardMarkup(keyboard)
             await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
@@ -6429,24 +6489,23 @@ Please try selecting a different GPU or contact support."""
         # Get the first matching CSC operator
         csc_operator = csc_details.iloc[0]
         
-        text = f"""✅ **CSC Operator Details**
+        text = f""" **CSC Operator Details**
 
 **Block:** {block_name}
 **GPU:** {gpu_name}
 
 **CSC Operator Information:**
-• **Name:** {csc_operator.get('CSC Operator Name', 'Not Available')}
-• **Phone:** {csc_operator.get('CSC Operator Phone', 'Not Available')}
-• **GPU:** {csc_operator.get('GPU Name', 'Not Available')}
+• **Name:** {csc_operator.get('Name', 'Not Available')}
+• **Contact:** {csc_operator.get('Contact No.', 'Not Available')}
 • **Block Single Window:** {csc_operator.get('Block Single Window', 'Not Available')}
-• **Subdivision Single Window:** {csc_operator.get('Subdivision Single Window', 'Not Available')}
+• **SubDivision Single Window:** {csc_operator.get('SubDivision Single Window', 'Not Available')}
 
 You can contact this CSC operator for assistance with government services."""
         
         keyboard = [
-            [InlineKeyboardButton("🔙 Back to GPUs", callback_data="contacts_csc")],
-            [InlineKeyboardButton("🔙 Back to Contacts", callback_data="contacts")],
-            [InlineKeyboardButton("🔙 Main Menu", callback_data="main_menu")]
+            [InlineKeyboardButton(" Back to GPUs", callback_data="contacts_csc")],
+            [InlineKeyboardButton(" Back to Contacts", callback_data="contacts")],
+            [InlineKeyboardButton(" Main Menu", callback_data="main_menu")]
         ]
         
         reply_markup = InlineKeyboardMarkup(keyboard)

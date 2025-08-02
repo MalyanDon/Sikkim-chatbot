@@ -27,3 +27,4 @@ timestamp,user_id,user_name,latitude,longitude,interaction_type,message_text
 2025-07-31T12:04:29.689624,5462740970,Abhishek,19.223824,72.987535,ex_gratia,
 2025-07-31T18:42:23.008062,5462740970,Abhishek,19.223824,72.987535,emergency,Emergency services
 2025-07-31T18:42:43.511675,5462740970,Abhishek,19.223824,72.987535,emergency,Emergency services
+2025-08-02T09:54:40.466982,5462740970,Abhishek,19.223724,72.987387,ex_gratia,

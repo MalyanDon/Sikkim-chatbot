@@ -60,16 +60,16 @@ class NCExgratiaAPI:
                 "password": self.password
             }
             
-            logger.info("🔐 [API] Authenticating with NC Exgratia API...")
-            logger.info(f"📋 [API] Login URL: {login_url}")
-            logger.info(f"📋 [API] Login Payload: {json.dumps(payload, indent=2)}")
+            logger.info(" [API] Authenticating with NC Exgratia API...")
+            logger.info(f" [API] Login URL: {login_url}")
+            logger.info(f" [API] Login Payload: {json.dumps(payload, indent=2)}")
             
             async with self.session.post(login_url, json=payload) as response:
                 response_text = await response.text()
                 
-                logger.info(f"📋 [API] Auth Response Status: {response.status}")
-                logger.info(f"📋 [API] Auth Response Headers: {dict(response.headers)}")
-                logger.info(f"📋 [API] Auth Response Text: {response_text}")
+                logger.info(f" [API] Auth Response Status: {response.status}")
+                logger.info(f" [API] Auth Response Headers: {dict(response.headers)}")
+                logger.info(f" [API] Auth Response Text: {response_text}")
                 
                 if response.status == 200:
                     try:
@@ -79,22 +79,22 @@ class NCExgratiaAPI:
                         
                         # Set token expiry (10 minutes from now)
                         self.token_expiry = datetime.now(timezone.utc) + timedelta(minutes=10)
-                        logger.info(f"📋 [API] Token expires at (UTC): {self.token_expiry}")
-                        logger.info(f"📋 [API] Current UTC time: {datetime.now(timezone.utc)}")
-                        logger.info(f"📋 [API] Token expired: {datetime.now(timezone.utc) > self.token_expiry}")
+                        logger.info(f" [API] Token expires at (UTC): {self.token_expiry}")
+                        logger.info(f" [API] Current UTC time: {datetime.now(timezone.utc)}")
+                        logger.info(f" [API] Token expired: {datetime.now(timezone.utc) > self.token_expiry}")
                         
-                        logger.info("✅ [API] Authentication successful")
-                        logger.info(f"📋 [API] Access Token: {self.access_token[:20]}...")
+                        logger.info(" [API] Authentication successful")
+                        logger.info(f" [API] Access Token: {self.access_token[:20]}...")
                         return True
                     except json.JSONDecodeError as e:
-                        logger.error(f"❌ [API] Failed to parse auth JSON response: {e}")
+                        logger.error(f" [API] Failed to parse auth JSON response: {e}")
                         return False
                 else:
-                    logger.error(f"❌ [API] Authentication failed: {response.status} - {response_text}")
+                    logger.error(f" [API] Authentication failed: {response.status} - {response_text}")
                     return False
                     
         except Exception as e:
-            logger.error(f"❌ Authentication error: {str(e)}")
+            logger.error(f" Authentication error: {str(e)}")
             return False
     
     async def refresh_token_if_needed(self) -> bool:
@@ -111,7 +111,7 @@ class NCExgratiaAPI:
                 refresh_url = f"{self.base_url}/api/auth/refresh"
                 headers = {"Authorization": f"Bearer {self.refresh_token}"}
                 
-                logger.info("🔄 Refreshing access token...")
+                logger.info(" Refreshing access token...")
                 
                 async with self.session.post(refresh_url, headers=headers) as response:
                     if response.status == 200:
@@ -120,14 +120,14 @@ class NCExgratiaAPI:
                         self.refresh_token = data.get('refresh_token')
                         self.token_expiry = datetime.now(timezone.utc) + timedelta(minutes=10)
                         
-                        logger.info("✅ Token refreshed successfully")
+                        logger.info(" Token refreshed successfully")
                         return True
                     else:
-                        logger.warning("⚠️ Token refresh failed, re-authenticating...")
+                        logger.warning(" Token refresh failed, re-authenticating...")
                         return await self.authenticate()
                         
             except Exception as e:
-                logger.error(f"❌ Token refresh error: {str(e)}")
+                logger.error(f" Token refresh error: {str(e)}")
                 return await self.authenticate()
         
         return True
@@ -154,14 +154,14 @@ class NCExgratiaAPI:
             max_retries = 3 if is_pk_district else 1
             retry_delay = 2  # seconds
             
-            logger.info(f"📤 [API] Submitting application for {application_data.get('name', 'Unknown')}...")
+            logger.info(f" [API] Submitting application for {application_data.get('name', 'Unknown')}...")
             if is_pk_district:
-                logger.info(f"⚠️ [API] PK District detected - Using retry logic (max {max_retries} attempts)")
+                logger.info(f" [API] PK District detected - Using retry logic (max {max_retries} attempts)")
             
             for attempt in range(max_retries):
                 try:
                     if attempt > 0:
-                        logger.info(f"🔄 [API] Retry attempt {attempt + 1}/{max_retries}")
+                        logger.info(f" [API] Retry attempt {attempt + 1}/{max_retries}")
                         await asyncio.sleep(retry_delay)
                     
                     submit_url = f"{self.base_url}/api/exgratia/apply"
@@ -170,26 +170,26 @@ class NCExgratiaAPI:
                         "Content-Type": "application/json"
                     }
                     
-                    logger.info(f"📋 [API] URL: {submit_url}")
-                    logger.info(f"📋 [API] Access Token: {self.access_token[:20]}...")
-                    logger.info(f"📋 [API] Headers: {headers}")
-                    logger.info(f"📋 [API] Payload: {json.dumps(api_payload, indent=2)}")
-                    logger.info(f"📋 [API] Payload Type: {type(api_payload)}")
-                    logger.info(f"📋 [API] Payload Keys: {list(api_payload.keys())}")
+                    logger.info(f" [API] URL: {submit_url}")
+                    logger.info(f" [API] Access Token: {self.access_token[:20]}...")
+                    logger.info(f" [API] Headers: {headers}")
+                    logger.info(f" [API] Payload: {json.dumps(api_payload, indent=2)}")
+                    logger.info(f" [API] Payload Type: {type(api_payload)}")
+                    logger.info(f" [API] Payload Keys: {list(api_payload.keys())}")
                     
                     async with self.session.post(submit_url, json=api_payload, headers=headers) as response:
                         response_text = await response.text()
                         
-                        logger.info(f"📋 [API] Response Status: {response.status}")
-                        logger.info(f"📋 [API] Response Headers: {dict(response.headers)}")
-                        logger.info(f"📋 [API] Response Text: {response_text}")
+                        logger.info(f" [API] Response Status: {response.status}")
+                        logger.info(f" [API] Response Headers: {dict(response.headers)}")
+                        logger.info(f" [API] Response Text: {response_text}")
                         
                         if response.status in [200, 201]:  # Accept both 200 and 201 as success
                             try:
                                 data = json.loads(response_text)
-                                logger.info(f"✅ [API] Application submitted successfully: {data.get('application', {}).get('application_refno', 'Unknown')}")
+                                logger.info(f" [API] Application submitted successfully: {data.get('application', {}).get('application_refno', 'Unknown')}")
                                 if attempt > 0:
-                                    logger.info(f"✅ [API] Success on retry attempt {attempt + 1}")
+                                    logger.info(f" [API] Success on retry attempt {attempt + 1}")
                                 return {
                                     "success": True,
                                     "data": data,
@@ -197,7 +197,7 @@ class NCExgratiaAPI:
                                     "status": data.get('application', {}).get('status')
                                 }
                             except json.JSONDecodeError as e:
-                                logger.error(f"❌ [API] Failed to parse JSON response: {e}")
+                                logger.error(f" [API] Failed to parse JSON response: {e}")
                                 if attempt == max_retries - 1:  # Last attempt
                                     return {
                                         "success": False,
@@ -206,7 +206,7 @@ class NCExgratiaAPI:
                                     }
                                 continue  # Try again
                         else:
-                            logger.error(f"❌ [API] Application submission failed: {response.status} - {response_text}")
+                            logger.error(f" [API] Application submission failed: {response.status} - {response_text}")
                             if attempt == max_retries - 1:  # Last attempt
                                 return {
                                     "success": False,
@@ -216,19 +216,19 @@ class NCExgratiaAPI:
                             continue  # Try again
                             
                 except Exception as e:
-                    logger.error(f"❌ [API] Attempt {attempt + 1} failed with exception: {str(e)}")
+                    logger.error(f" [API] Attempt {attempt + 1} failed with exception: {str(e)}")
                     if attempt == max_retries - 1:  # Last attempt
                         return {"success": False, "error": str(e)}
                     continue  # Try again
             
             # All retry attempts failed - this indicates a persistent server-side issue
-            logger.error(f"❌ [API] All {max_retries} retry attempts failed")
-            logger.error(f"❌ [API] This indicates a persistent server-side issue at NIC API")
+            logger.error(f" [API] All {max_retries} retry attempts failed")
+            logger.error(f" [API] This indicates a persistent server-side issue at NIC API")
             
             # Check if this is a server-wide outage (all districts failing)
             if response.status_code == 500:
-                logger.error(f"🚨 [API] CRITICAL: NIC API server appears to be down")
-                logger.error(f"🚨 [API] All districts are returning 500 errors")
+                logger.error(f" [API] CRITICAL: NIC API server appears to be down")
+                logger.error(f" [API] All districts are returning 500 errors")
                 
                 return {
                     "success": False, 
@@ -248,27 +248,27 @@ class NCExgratiaAPI:
                 return {"success": False, "error": "All retry attempts failed"}
                     
         except Exception as e:
-            logger.error(f"❌ Application submission error: {str(e)}")
+            logger.error(f" Application submission error: {str(e)}")
             return {"success": False, "error": str(e)}
     
     def _format_application_data(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """Format application data according to API requirements - ONLY SEND REQUIRED FIELDS"""
         
-        logger.info(f"📋 [API] Formatting application data: {list(data.keys()) if data else 'No data'}")
+        logger.info(f" [API] Formatting application data: {list(data.keys()) if data else 'No data'}")
         
         # Check if we have required data
         required_fields = ['name', 'father_name', 'village', 'ward', 'gpu', 'contact', 'voter_id']
         missing_fields = [field for field in required_fields if not data.get(field)]
         
         if missing_fields:
-            logger.error(f"❌ [API] Missing required fields: {missing_fields}")
-            logger.error(f"❌ [API] Available data: {data}")
+            logger.error(f" [API] Missing required fields: {missing_fields}")
+            logger.error(f" [API] Available data: {data}")
         
         # Map damage types to API format - ONLY the types the API accepts
         damage_type_mapping = {
-            "🏠 House Damage": "house",
-            "🌾 Crop Loss": "crop", 
-            "🐄 Livestock Loss": "livestock",
+            " House Damage": "house",
+            " Crop Loss": "crop", 
+            " Livestock Loss": "livestock",
             "House Damage": "house",
             "Crop Loss": "crop",
             "Livestock Loss": "livestock",
@@ -314,7 +314,7 @@ class NCExgratiaAPI:
             if not api_damage_type or api_damage_type == ['']:
                 api_damage_type = ['crop', 'land']  # Default to working combination
         
-        logger.info(f"📋 [API] Damage type: '{damage_type}' -> API format: {api_damage_type}")
+        logger.info(f" [API] Damage type: '{damage_type}' -> API format: {api_damage_type}")
         
         # Parse land plot numbers - API expects integers with size limits
         plot_numbers = []
@@ -366,7 +366,7 @@ class NCExgratiaAPI:
         
         # Use CURRENT timestamp instead of old dates - API rejects old dates
         nc_datetime = datetime.now().isoformat()
-        logger.info(f"📋 [API] Using current timestamp: {nc_datetime}")
+        logger.info(f" [API] Using current timestamp: {nc_datetime}")
         
         # Validate and limit large numbers to avoid API errors
         def limit_number(value, max_digits=4):
@@ -376,7 +376,7 @@ class NCExgratiaAPI:
                     num = int(value)
                     max_value = (10 ** max_digits) - 1  # e.g., 9999 for 4 digits
                     if num > max_value:
-                        logger.info(f"📋 [API] Limiting {value} to {max_value} (max {max_digits} digits)")
+                        logger.info(f" [API] Limiting {value} to {max_value} (max {max_digits} digits)")
                         return str(max_value)
                     return value
                 except (ValueError, TypeError):
@@ -394,8 +394,8 @@ class NCExgratiaAPI:
         limited_khatiyan = limit_number(original_khatiyan, 4)
         limited_voter_id = limit_number(original_voter_id, 4)
         
-        logger.info(f"📋 [API] Number limiting: ward {original_ward}→{limited_ward}, gpu {original_gpu}→{limited_gpu}")
-        logger.info(f"📋 [API] Number limiting: khatiyan {original_khatiyan}→{limited_khatiyan}, voter_id {original_voter_id}→{limited_voter_id}")
+        logger.info(f" [API] Number limiting: ward {original_ward}→{limited_ward}, gpu {original_gpu}→{limited_gpu}")
+        logger.info(f" [API] Number limiting: khatiyan {original_khatiyan}→{limited_khatiyan}, voter_id {original_voter_id}→{limited_voter_id}")
         
         # Build API payload - ONLY the fields that the API expects (based on working format)
         api_payload = {
@@ -418,8 +418,8 @@ class NCExgratiaAPI:
         # - damage_description (not in working format)
         # - Any other extra fields
         
-        logger.info(f"📋 [API] Sending ONLY required fields: {list(api_payload.keys())}")
-        logger.info(f"📋 Formatted API payload: {json.dumps(api_payload, indent=2)}")
+        logger.info(f" [API] Sending ONLY required fields: {list(api_payload.keys())}")
+        logger.info(f" Formatted API payload: {json.dumps(api_payload, indent=2)}")
         return api_payload
     
     async def check_application_status(self, reference_number: str) -> Dict[str, Any]:
@@ -434,21 +434,21 @@ class NCExgratiaAPI:
             status_url = f"{self.base_url}/api/exgratia/applications/{reference_number}"
             headers = {"Authorization": f"Bearer {self.access_token}"}
             
-            logger.info(f"🔍 Checking status for application: {reference_number}")
+            logger.info(f" Checking status for application: {reference_number}")
             
             async with self.session.get(status_url, headers=headers) as response:
                 response_text = await response.text()
                 
                 if response.status == 200:
                     data = json.loads(response_text)
-                    logger.info(f"✅ Status retrieved successfully for {reference_number}")
+                    logger.info(f" Status retrieved successfully for {reference_number}")
                     return {
                         "success": True,
                         "data": data,
                         "status": data.get('status', 'Unknown')
                     }
                 else:
-                    logger.error(f"❌ Status check failed: {response.status} - {response_text}")
+                    logger.error(f" Status check failed: {response.status} - {response_text}")
                     return {
                         "success": False,
                         "error": f"API Error {response.status}",
@@ -456,14 +456,14 @@ class NCExgratiaAPI:
                     }
                     
         except Exception as e:
-            logger.error(f"❌ Status check error: {str(e)}")
+            logger.error(f" Status check error: {str(e)}")
             return {"success": False, "error": str(e)}
     
     async def close(self):
         """Close the API client session"""
         if self.session and not self.session.closed:
             await self.session.close()
-            logger.info("🔒 API client session closed")
+            logger.info(" API client session closed")
 
 # Global API client instance
 api_client = NCExgratiaAPI()

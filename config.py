@@ -48,15 +48,15 @@ class Config:
     
     # Bot Messages
     WELCOME_MESSAGE = """
-        🏛️ **Welcome to Sajilo Sewak Assistance!**
+         **Welcome to Sajilo Sewak Assistance!**
 
 I'm here to help you with disaster relief services. You can:
 
-1️⃣ **Ex-Gratia Norms** - Learn about assistance amounts & eligibility
-2️⃣ **Apply for Ex-Gratia** - Get help with application process
-3️⃣ **Check Status** - Track your application status
+1⃣ **Ex-Gratia Norms** - Learn about assistance amounts & eligibility
+2⃣ **Apply for Ex-Gratia** - Get help with application process
+3⃣ **Check Status** - Track your application status
 
-💬 You can also just tell me what you need in your own words!
+ You can also just tell me what you need in your own words!
 
 How can I assist you today?
 """
@@ -71,6 +71,6 @@ How can I assist you today?
             os.makedirs(cls.DATA_DIR)
             print(f"Created data directory: {cls.DATA_DIR}")
         
-        print("✅ Configuration validated successfully")
-        print(f"🤖 Using Qwen ({cls.LLM_MODEL}) for language detection")
-        print(f"🔗 NC Exgratia API: {'✅ Enabled' if cls.NC_EXGRATIA_ENABLED else '❌ Disabled'}") 
+        print(" Configuration validated successfully")
+        print(f" Using Qwen ({cls.LLM_MODEL}) for language detection")
+        print(f" NC Exgratia API: {' Enabled' if cls.NC_EXGRATIA_ENABLED else ' Disabled'}") 
