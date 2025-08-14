@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+  sikkim-chatbot:
+    build: .
+    container_name: sikkim-chatbot
+    restart: unless-stopped
+    environment:
+      # Bot configuration
+      - BOT_TOKEN=${BOT_TOKEN}
+      - OLLAMA_API_URL=${OLLAMA_API_URL:-http://localhost:11434}
+      - LLM_MODEL=${LLM_MODEL:-qwen2.5:7b}
+      
+      # Google Sheets configuration (optional)
+      - GOOGLE_SHEETS_ENABLED=${GOOGLE_SHEETS_ENABLED:-false}
+      - GOOGLE_SHEETS_CREDENTIALS_FILE=${GOOGLE_SHEETS_CREDENTIALS_FILE:-}
+      - GOOGLE_SHEETS_SPREADSHEET_ID=${GOOGLE_SHEETS_SPREADSHEET_ID:-}
+      
+      # NC Exgratia API configuration (optional)
+      - NC_EXGRATIA_ENABLED=${NC_EXGRATIA_ENABLED:-false}
+      - NC_EXGRATIA_BASE_URL=${NC_EXGRATIA_BASE_URL:-}
+      - NC_EXGRATIA_USERNAME=${NC_EXGRATIA_USERNAME:-}
+      - NC_EXGRATIA_PASSWORD=${NC_EXGRATIA_PASSWORD:-}
+      
+      # Support phone
+      - SUPPORT_PHONE=${SUPPORT_PHONE:-1800-XXX-XXXX}
+      
+      # Logging
+      - LOG_LEVEL=INFO
+      
+    volumes:
+      # Persist data across container restarts
+      - ./data:/app/data
+      - ./logs:/app/logs
+      
+    ports:
+      # Expose port for webhooks if needed
+      - "8080:8080"
+      
+    healthcheck:
+      test: ["CMD", "python", "-c", "import sys; sys.exit(0)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+      
+    networks:
+      - sikkim-network
+      
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+        reservations:
+          memory: 512M
+          cpus: '0.25'
+
+networks:
+  sikkim-network:
+    driver: bridge
+
+volumes:
+  sikkim-data:
+    driver: local
+

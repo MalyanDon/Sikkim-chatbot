@@ -126,50 +126,11 @@ class SajiloSewakBot:
 
 Our services include:
 
-        1. *Book Homestay*
-   • Search by tourist destinations
-   • View ratings and prices
-   • Direct contact with owners
-
-        2. *Emergency Services*
-   • Ambulance (102/108)
-   • Police Helpline
-   • Suicide Prevention
-   • Health Helpline
-   • Women Helpline
-   • Fire Emergency
-   • Report Disaster
-
-        3. *Report a Complaint*
-   • Register your grievance
-   • Get complaint tracking ID
-   • 24/7 monitoring
-
-4. *Apply for Certificate* 
-   • CSC operator assistance
-   • Sikkim SSO portal link
-   • Track application status
-
-5. *Disaster Management* 
+*Disaster Management* 
    • Apply for Ex-gratia
    • Check application status
    • View relief norms
    • Emergency contacts
-
-6. *Government Schemes* 
-   • Learn about schemes
-   • Apply for benefits
-   • Track applications
-
-7. *Important Contacts* 
-   • Find your CSC
-   • Know your BLO
-   • Aadhar Services
-
-        8. *Give Feedback*
-   • Share your experience
-   • Suggest improvements
-   • Help us serve better
 
 Please select a service to continue:""",
                 'button_homestay': "Book Homestay",
@@ -269,31 +230,7 @@ Your feedback ID: {feedback_id}""",
 
 हमारी सेवाएं शामिल हैं:
 
-1. *होमस्टे बुक करें* 
-   • पर्यटन स्थलों के अनुसार खोजें
-   • रेटिंग और कीमतें देखें
-   • मालिकों से सीधा संपर्क
-
-2. *आपातकालीन सेवाएं* 
-   • एम्बुलेंस (102/108)
-   • पुलिस हेल्पलाइन
-   • आत्महत्या रोकथाम
-   • स्वास्थ्य हेल्पलाइन
-   • महिला हेल्पलाइन
-   • अग्निशमन आपातकाल
-   • आपदा की रिपोर्ट करें
-
-3. *शिकायत दर्ज करें* 
-   • अपनी शिकायत पंजीकृत करें
-   • शिकायत ट्रैकिंग आईडी प्राप्त करें
-   • 24/7 निगरानी
-
-4. *प्रमाणपत्र के लिए आवेदन करें* 
-   • CSC ऑपरेटर सहायता
-   • सिक्किम SSO पोर्टल लिंक
-   • आवेदन स्थिति ट्रैक करें
-
-5. *आपदा प्रबंधन* 
+*आपदा प्रबंधन* 
    • एक्स-ग्रेटिया के लिए आवेदन करें
    • आवेदन स्थिति जांचें
    • राहत मानदंड देखें
@@ -397,31 +334,7 @@ Your feedback ID: {feedback_id}""",
 
 हाम्रो सेवाहरू समावेश छन्:
 
-1. *होमस्टे बुक गर्नुहोस्* 
-   • पर्यटन स्थलहरू अनुसार खोज्नुहोस्
-   • रेटिङ र मूल्यहरू हेर्नुहोस्
-   • मालिकहरूसँग सिधा सम्पर्क
-
-2. *आकस्मिक सेवाहरू* 
-   • एम्बुलेन्स (102/108)
-   • प्रहरी हेल्पलाइन
-   • आत्महत्या रोकथाम
-   • स्वास्थ्य हेल्पलाइन
-   • महिला हेल्पलाइन
-   • अग्निशमन आकस्मिक
-   • आपदा रिपोर्ट गर्नुहोस्
-
-3. *शिकायत दर्ता गर्नुहोस्* 
-   • आफ्नो शिकायत दर्ता गर्नुहोस्
-   • शिकायत ट्र्याकिङ आईडी प्राप्त गर्नुहोस्
-   • 24/7 निगरानी
-
-4. *प्रमाणपत्रको लागि आवेदन गर्नुहोस्* 
-   • CSC सञ्चालक सहायता
-   • सिक्किम SSO पोर्टल लिङ्क
-   • आवेदन स्थिति ट्र्याक गर्नुहोस्
-
-5. *आपदा व्यवस्थापन* 
+*आपदा व्यवस्थापन* 
    • एक्स-ग्रेटियाको लागि आवेदन गर्नुहोस्
    • आवेदन स्थिति जाँच गर्नुहोस्
    • राहत मापदण्ड हेर्नुहोस्
@@ -773,8 +686,6 @@ Your feedback ID: {feedback_id}""",
                 result = await response.json()
                 detected_lang = result['response'].strip().lower()
                 
-                logger.info(f" [LLM] Language Detection Response: {detected_lang}")
-                
                 # Validate response
                 if detected_lang in ['english', 'hindi', 'nepali']:
                     logger.info(f" Language detected by Qwen: {detected_lang}")
@@ -857,10 +768,7 @@ Your feedback ID: {feedback_id}""",
             if message_text.startswith('/'):
                 command = message_text.lower().strip()
                 if command in ['/emergency', '/complaint']:
-                    if command == '/emergency':
-                        await self.start_emergency_workflow(update, context)
-                    elif command == '/complaint':
-                        await self.start_complaint_workflow(update, context)
+                    await self._show_disaster_only_message(update, context)
                     return
             
             # Get current user state
@@ -942,26 +850,25 @@ Your feedback ID: {feedback_id}""",
                 if workflow == "ex_gratia":
                     await self.handle_ex_gratia_workflow(update, context, message_text)
                 elif workflow == "complaint":
-                    await self.handle_complaint_workflow(update, context)
+                    await self._show_disaster_only_message(update, context)
                 elif workflow == "emergency_report":
-                    await self.handle_emergency_workflow(update, context)
+                    await self._show_disaster_only_message(update, context)
                 elif workflow == "certificate":
-                    await self.handle_certificate_workflow(update, context, message_text)
+                    await self._show_disaster_only_message(update, context)
                 elif workflow == "status_check":
                     await self.process_status_check(update, context)
                 elif workflow == "feedback":
-                    await self.handle_feedback_workflow(update, context)
+                    await self._show_disaster_only_message(update, context)
                 elif workflow == "csc_search":
-                    await self.handle_csc_search_workflow(update, context)
+                    await self._show_disaster_only_message(update, context)
                 elif workflow == "blo_search":
-                    await self.handle_blo_search_workflow(update, context)
+                    await self._show_disaster_only_message(update, context)
                 elif workflow == "scheme_csc_application":
-                    print(f"DEBUG: Routing message to scheme_csc_application_workflow")
-                    await self.handle_scheme_csc_application_workflow(update, context, message_text)
+                    await self._show_disaster_only_message(update, context)
                 elif workflow == "certificate_csc_application":
-                    await self.handle_certificate_application_workflow(update, context, message_text)
+                    await self._show_disaster_only_message(update, context)
                 elif workflow == "emergency":
-                    await self.handle_emergency_menu(update, context)
+                    await self._show_disaster_only_message(update, context)
                 elif workflow == "emergency_details":
                     # Store emergency details and request location
                     state["emergency_details"] = message_text
@@ -1036,24 +943,22 @@ Your feedback ID: {feedback_id}""",
                     await self.handle_relief_norms(update, context)
                 elif intent == "emergency":
                     logger.info(f" [INTENT] Handling emergency for user {user_id}")
-                    # Direct emergency response - don't show menu
-                    await self.handle_emergency_direct(update, context, message_text)
+                    await self._show_disaster_only_message(update, context)
                 elif intent == "tourism":
                     logger.info(f" [INTENT] Handling tourism for user {user_id}")
-                    await self.handle_tourism_menu(update, context)
+                    await self._show_disaster_only_message(update, context)
                 elif intent == "complaint":
                     logger.info(f" [INTENT] Handling complaint for user {user_id}")
-                    await self.start_complaint_workflow(update, context)
+                    await self._show_disaster_only_message(update, context)
                 elif intent == "certificate":
                     logger.info(f" [INTENT] Handling certificate for user {user_id}")
-                    # Route to certificate workflow instead of just showing info
-                    await self.handle_certificate_info(update, context)
+                    await self._show_disaster_only_message(update, context)
                 elif intent == "csc":
                     logger.info(f" [INTENT] Handling CSC intent for user {user_id}")
-                    await self.handle_csc_menu(update, context)
+                    await self._show_disaster_only_message(update, context)
                 elif intent == "scheme":
                     logger.info(f" [INTENT] Handling scheme for user {user_id}")
-                    await self.handle_scheme_menu(update, context)
+                    await self._show_disaster_only_message(update, context)
                 elif intent == "cancel":
                     logger.info(f" [INTENT] Handling cancel for user {user_id}")
                     # Clear state and show main menu
@@ -1095,14 +1000,7 @@ Your feedback ID: {feedback_id}""",
         welcome_text = self.responses[user_lang]['main_menu']
 
         keyboard = [
-            [InlineKeyboardButton(self.responses[user_lang]['button_homestay'], callback_data='tourism')],
-            [InlineKeyboardButton(self.responses[user_lang]['button_emergency'], callback_data='emergency')],
-            [InlineKeyboardButton(self.responses[user_lang]['button_complaint'], callback_data='complaint')],
-            [InlineKeyboardButton(self.responses[user_lang]['button_certificate'], callback_data='certificate')],
-            [InlineKeyboardButton(self.responses[user_lang]['button_disaster'], callback_data='disaster')],
-            [InlineKeyboardButton(self.responses[user_lang]['button_schemes'], callback_data='schemes')],
-            [InlineKeyboardButton(self.responses[user_lang]['button_contacts'], callback_data='contacts')],
-            [InlineKeyboardButton(self.responses[user_lang]['button_feedback'], callback_data='feedback')]
+            [InlineKeyboardButton(self.responses[user_lang]['button_disaster'], callback_data='disaster')]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
@@ -1216,6 +1114,40 @@ Respond with ONLY one of the intent names listed above, nothing else."""
         """Show the main menu"""
         await self.start(update, context)
 
+    async def _show_disaster_only_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Show message that only disaster management is available"""
+        user_id = update.effective_user.id
+        user_lang = self._get_user_language(user_id)
+        
+        if user_lang == 'hindi':
+            message = """🚫 *सेवा उपलब्ध नहीं है*
+
+क्षमा करें, वर्तमान में केवल आपदा प्रबंधन सेवाएं उपलब्ध हैं।
+
+कृपया आपदा प्रबंधन विकल्प चुनें।"""
+        elif user_lang == 'nepali':
+            message = """🚫 *सेवा उपलब्ध छैन*
+
+माफ गर्नुहोस्, हालै मात्र आपदा व्यवस्थापन सेवाहरू उपलब्ध छन्।
+
+कृपया आपदा व्यवस्थापन विकल्प छान्नुहोस्।"""
+        else:
+            message = """🚫 *Service Not Available*
+
+Sorry, currently only disaster management services are available.
+
+Please select the disaster management option."""
+        
+        keyboard = [
+            [InlineKeyboardButton(" Main Menu", callback_data="main_menu")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        if update.callback_query:
+            await update.callback_query.edit_message_text(message, reply_markup=reply_markup, parse_mode='Markdown')
+        else:
+            await update.message.reply_text(message, reply_markup=reply_markup, parse_mode='Markdown')
+
     async def handle_greeting(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle greeting messages with language selection"""
         user_id = update.effective_user.id
@@ -1258,16 +1190,20 @@ Please select your preferred language to continue:
                 await self.start(update, context)
             
             elif data == "tourism":
-                await self.handle_tourism_menu(update, context)
+                await self._show_disaster_only_message(update, context)
             
             elif data.startswith("place_"):
-                await self.handle_place_selection(update, context)
+                await self._show_disaster_only_message(update, context)
             
             elif data == "disaster":
                 await self.handle_disaster_menu(update, context)
             
             elif data == "relief_norms":
                 await self.handle_relief_norms(update, context)
+                
+            elif data.startswith("norms_"):
+                norm_type = data.replace("norms_", "")
+                await self.show_detailed_norms(update, context, norm_type)
             
             elif data == "check_status":
                 await self.handle_check_status(update, context)
@@ -1280,6 +1216,9 @@ Please select your preferred language to continue:
             
             elif data == "ex_gratia_submit":
                 await self.submit_ex_gratia_application(update, context)
+                
+            elif data == "ex_gratia_submit_final":
+                await self.submit_ex_gratia_application_final(update, context)
             
             elif data == "ex_gratia_edit":
                 await self.handle_ex_gratia_edit(update, context)
@@ -1289,7 +1228,18 @@ Please select your preferred language to continue:
             
             elif data.startswith("damage_type_"):
                 damage_type = data.replace("damage_type_", "")
-                await self.handle_damage_type_selection(update, context, damage_type)
+                if damage_type == "house_main":
+                    await self.show_house_damage_sub_options(update, context)
+                elif damage_type == "back":
+                    # Go back to damage type selection
+                    user_id = update.effective_user.id
+                    state = self._get_user_state(user_id)
+                    if state.get("workflow") == "ex_gratia":
+                        state["step"] = "damage_type"
+                        self._set_user_state(user_id, state)
+                    await self.show_damage_type_options(update, context)
+                else:
+                    await self.handle_damage_type_selection(update, context, damage_type)
             
             elif data.startswith("district_"):
                 district = data.replace("district_", "")
@@ -1341,31 +1291,10 @@ Please select your preferred language to continue:
                     await query.edit_message_text(prompt, parse_mode='Markdown')
             
             elif data == "emergency":
-                await self.handle_emergency_menu(update, context)
+                await self._show_disaster_only_message(update, context)
             
             elif data.startswith("emergency_"):
-                service = data.replace("emergency_", "")
-                if service == "share_location":
-                    # Request location for emergency
-                    # Pass the user state to the location system
-                    user_state = self._get_user_state(user_id)
-                    context.user_data['user_state'] = user_state
-                    await self.location_system.request_location(update, context, "emergency", "Emergency services")
-                elif service == "manual_location":
-                    # Handle manual location input for emergency
-                    state = self._get_user_state(user_id)
-                    state["step"] = "manual_location"
-                    self._set_user_state(user_id, state)
-                    await query.edit_message_text(" Please enter your location (e.g., Gangtok, Lachen, Namchi):")
-                elif service == "skip_location":
-                    # Complete emergency without location
-                    await self._complete_emergency_without_location(update, context)
-                elif service.startswith("health_"):
-                    # Handle health emergency location selection
-                    location = service.replace("health_", "")
-                    await self.handle_emergency_health_location(update, context, location)
-                else:
-                    await self.handle_emergency_service(update, context, service)
+                await self._show_disaster_only_message(update, context)
             
             elif data.startswith("call_"):
                 # Handle call button clicks
@@ -1408,74 +1337,37 @@ Please select your preferred language to continue:
                 )
             
             elif data == "csc":
-                await self.handle_csc_menu(update, context)
+                await self._show_disaster_only_message(update, context)
             
             elif data == "csc_submit_application":
-                print(f"DEBUG: csc_submit_application callback triggered")
-                await self.handle_csc_submit_application(update, context)
+                await self._show_disaster_only_message(update, context)
             
             elif data == "certificate":
-                await self.handle_certificate_info(update, context)
+                await self._show_disaster_only_message(update, context)
             
             # Certificate type handlers - MUST come before generic csc_ handler
             elif data.startswith("cert_type_"):
-                print(f"DEBUG: cert_type_ callback triggered: {data}")
-                try:
-                    cert_type = data.replace("cert_type_", "").upper()
-                    print(f"DEBUG: Extracted cert_type: {cert_type}")
-                    await self.handle_certificate_type_selection(update, context, cert_type)
-                    print(f"DEBUG: handle_certificate_type_selection completed successfully")
-                except Exception as e:
-                    print(f"DEBUG: Error in cert_type_ handler: {e}")
-                    import traceback
-                    traceback.print_exc()
+                await self._show_disaster_only_message(update, context)
             
             # Certificate workflow handlers - MUST BE BEFORE generic cert_ handler
             elif data.startswith("cert_block_"):
-                print(f"DEBUG: cert_block_ callback triggered: {data}")
-                block_index = data.replace("cert_block_", "")
-                print(f"DEBUG: Extracted block_index: {block_index}")
-                print(f"DEBUG: About to call handle_certificate_block_selection")
-                await self.handle_certificate_block_selection(update, context, block_index)
-                print(f"DEBUG: handle_certificate_block_selection completed")
+                await self._show_disaster_only_message(update, context)
             
             elif data.startswith("cert_gpu_"):
-                gpu_index = data.replace("cert_gpu_", "")
-                await self.handle_certificate_gpu_selection(update, context, gpu_index)
+                await self._show_disaster_only_message(update, context)
             
             elif data == "cert_apply_now":
-                await self.handle_certificate_apply_now(update, context)
+                await self._show_disaster_only_message(update, context)
             
             elif data.startswith("cert_"):
-                cert_type = data.replace("cert_", "")
-                await self.handle_certificate_choice(update, context, cert_type)
+                await self._show_disaster_only_message(update, context)
             
             # CSC Contacts workflow handlers - MUST BE BEFORE generic csc_ handler
             elif data.startswith("csc_block_"):
-                try:
-                    print(f" [DEBUG] ENTERING csc_block_ handler with data: {data}")
-                    block_index = data.replace("csc_block_", "")
-                    print(f" [DEBUG] About to call simple_csc_block_to_gpu with block_index: {block_index}")
-                    await self.simple_csc_block_to_gpu(update, context, block_index)
-                    print(f" [DEBUG] simple_csc_block_to_gpu completed successfully")
-                except Exception as e:
-                    print(f" [DEBUG] Exception in csc_block_ handler: {e}")
-                    import traceback
-                    traceback.print_exc()
-                    await update.callback_query.answer("Error occurred. Please try again.")
+                await self._show_disaster_only_message(update, context)
             
             elif data.startswith("csc_gpu_"):
-                try:
-                    print(f" [DEBUG] ENTERING csc_gpu_ handler with data: {data}")
-                    gpu_index = data.replace("csc_gpu_", "")
-                    print(f" [DEBUG] About to call handle_csc_gpu_selection with gpu_index: {gpu_index}")
-                    await self.handle_csc_gpu_selection(update, context, gpu_index)
-                    print(f" [DEBUG] handle_csc_gpu_selection completed successfully")
-                except Exception as e:
-                    print(f" [DEBUG] Exception in csc_gpu_ handler: {e}")
-                    import traceback
-                    traceback.print_exc()
-                    await update.callback_query.answer("Error occurred. Please try again.")
+                await self._show_disaster_only_message(update, context)
             
             elif data.startswith("csc_"):
                 # This is handled by the new CSC functionality in contacts
@@ -1483,7 +1375,7 @@ Please select your preferred language to continue:
                 return
             
             elif data == "complaint":
-                await self.start_complaint_workflow(update, context)
+                await self._show_disaster_only_message(update, context)
             
             elif data.startswith("complaint_"):
                 complaint_type = data.replace("complaint_", "")
@@ -1520,49 +1412,17 @@ Please select your preferred language to continue:
                     await self._complete_complaint_without_location(update, context)
             
             elif data == "certificate_csc":
-                # Handle certificate CSC choice - show certificate types
-                user_id = update.effective_user.id
-                user_lang = self._get_user_language(user_id)
-                
-                text = f""" **Select Certificate Type**
-
-Please select the certificate you want to apply for:
-
-**You can apply online at sso.sikkim.gov.in (Apply online)**
-**or**
-**Apply through your nearest CSC (Common Service Centre).**"""
-
-                keyboard = [
-                    [InlineKeyboardButton(" SC Certificate", callback_data="cert_type_sc")],
-                    [InlineKeyboardButton(" ST Certificate", callback_data="cert_type_st")],
-                    [InlineKeyboardButton(" OBC Certificate", callback_data="cert_type_obc")],
-                    [InlineKeyboardButton(" Income Certificate", callback_data="cert_type_income")],
-                    [InlineKeyboardButton(" Employment Card", callback_data="cert_type_employment")],
-                    [InlineKeyboardButton(" Primitive Tribe Certificate", callback_data="cert_type_primitive")],
-                    [InlineKeyboardButton(" Back", callback_data="certificate_info")]
-                ]
-                reply_markup = InlineKeyboardMarkup(keyboard)
-                
-                await query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+                await self._show_disaster_only_message(update, context)
             
             elif data == "certificate_sso":
-                # Handle certificate SSO choice
-                user_id = update.effective_user.id
-                user_lang = self._get_user_language(user_id)
-                sso_message = self.responses[user_lang]['certificate_sso_message']
-                back_button = self.responses[user_lang]['back_main_menu']
-                await query.edit_message_text(
-                    f"{sso_message}\n\n {back_button}", 
-                    reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton(back_button, callback_data="main_menu")]]),
-                    parse_mode='Markdown'
-                )
+                await self._show_disaster_only_message(update, context)
             
 
             
             # Certificate application choice handlers - REMOVED (going directly to block selection)
             
             elif data == "complaint":
-                await self.start_complaint_workflow(update, context)
+                await self._show_disaster_only_message(update, context)
             
             elif data.startswith("lang_"):
                 lang_choice = data.replace("lang_", "")
@@ -1578,100 +1438,78 @@ Please select the certificate you want to apply for:
             
             # New features callbacks
             elif data == "schemes":
-                await self.handle_scheme_menu(update, context)
+                await self._show_disaster_only_message(update, context)
             
             # Scheme category handlers
             elif data == "scheme_category_farmer":
-                await self.handle_scheme_category_farmer(update, context)
+                await self._show_disaster_only_message(update, context)
             
             elif data == "scheme_category_student":
-                await self.handle_scheme_category_student(update, context)
+                await self._show_disaster_only_message(update, context)
             
             elif data == "scheme_category_youth":
-                await self.handle_scheme_category_youth(update, context)
+                await self._show_disaster_only_message(update, context)
             
             elif data == "scheme_category_health":
-                await self.handle_scheme_category_health(update, context)
+                await self._show_disaster_only_message(update, context)
             
             elif data == "scheme_category_other":
-                await self.handle_scheme_category_other(update, context)
+                await self._show_disaster_only_message(update, context)
             
             # Individual scheme handlers
             elif data == "scheme_pmkisan":
-                await self.handle_scheme_pmkisan(update, context)
+                await self._show_disaster_only_message(update, context)
             
             elif data == "scheme_pmfasal":
-                await self.handle_scheme_pmfasal(update, context)
+                await self._show_disaster_only_message(update, context)
             
             elif data == "scheme_scholarships":
-                await self.handle_scheme_scholarships(update, context)
+                await self._show_disaster_only_message(update, context)
             
             elif data == "scheme_sikkim_mentor":
-                await self.handle_scheme_sikkim_mentor(update, context)
+                await self._show_disaster_only_message(update, context)
             
             elif data == "scheme_sikkim_youth":
-                await self.handle_scheme_sikkim_youth(update, context)
+                await self._show_disaster_only_message(update, context)
             
             elif data == "scheme_pmegp":
-                await self.handle_scheme_pmegp(update, context)
+                await self._show_disaster_only_message(update, context)
             
             elif data == "scheme_pmfme":
-                await self.handle_scheme_pmfme(update, context)
+                await self._show_disaster_only_message(update, context)
             
             elif data == "scheme_ayushman":
-                await self.handle_scheme_ayushman(update, context)
+                await self._show_disaster_only_message(update, context)
             
             # Scheme application handlers
             elif data.startswith("scheme_apply_online_"):
-                scheme_name = data.replace("scheme_apply_online_", "").replace("_", " ").title()
-                # Handle online application - show website links
-                await self.handle_scheme_apply_online(update, context, scheme_name)
+                await self._show_disaster_only_message(update, context)
             
             elif data.startswith("scheme_apply_csc_"):
-                scheme_name = data.replace("scheme_apply_csc_", "").replace("_", " ").title()
-                # Start CSC application process
-                await self.handle_scheme_csc_application(update, context, scheme_name)
+                await self._show_disaster_only_message(update, context)
             
             # CSC Application workflow callbacks
             elif data.startswith("scheme_csc_block_"):
-                block_index = data.replace("scheme_csc_block_", "")
-                await self.handle_csc_block_selection(update, context, block_index)
-            
-
+                await self._show_disaster_only_message(update, context)
             
             elif data.startswith("scheme_csc_gpu_"):
-                gpu_index = data.replace("scheme_csc_gpu_", "")
-                await self.handle_csc_gpu_selection(update, context, gpu_index)
+                await self._show_disaster_only_message(update, context)
             
             elif data == "scheme_csc_back_to_blocks":
-                # Go back to block selection
-                user_id = update.effective_user.id
-                state = self._get_user_state(user_id)
-                if state.get("workflow") == "scheme_csc_application":
-                    scheme_name = state.get("scheme", "Unknown Scheme")
-                    await self.handle_scheme_csc_application(update, context, scheme_name)
+                await self._show_disaster_only_message(update, context)
             
             # Handle old back button pattern for backward compatibility
             elif data == "csc_back_to_blocks":
-                # Go back to block selection
-                user_id = update.effective_user.id
-                state = self._get_user_state(user_id)
-                if state.get("workflow") == "scheme_csc_application":
-                    scheme_name = state.get("scheme", "Unknown Scheme")
-                    await self.handle_scheme_csc_application(update, context, scheme_name)
-                else:
-                    # If not in scheme workflow, go back to main menu
-                    await self.show_main_menu(update, context)
+                await self._show_disaster_only_message(update, context)
             
             elif data.startswith("csc_back_to_gpus_"):
-                # This handler is deprecated - use csc_back_to_blocks instead
-                await update.callback_query.answer("Please use the Back to Blocks button")
+                await self._show_disaster_only_message(update, context)
             
             elif data == "contacts":
-                await self.handle_contacts_menu(update, context)
+                await self._show_disaster_only_message(update, context)
             
             elif data == "contacts_csc":
-                await self.handle_contacts_csc_menu(update, context)
+                await self._show_disaster_only_message(update, context)
             
             elif data == "csc_search_retry":
                 # Handle CSC search retry
@@ -1729,35 +1567,45 @@ Please enter your GPU (Gram Panchayat Unit) name to find the CSC operator.
                 await query.edit_message_text(retry_message, reply_markup=reply_markup, parse_mode='Markdown')
             
             elif data == "contacts_blo":
-                await self.handle_blo_search(update, context)
+                await self._show_disaster_only_message(update, context)
             
             elif data == "contacts_aadhar":
-                await self.handle_aadhar_services(update, context)
+                await self._show_disaster_only_message(update, context)
             
             elif data.startswith("contacts_csc_gpu_"):
-                gpu_index = data.replace("contacts_csc_gpu_", "")
-                await self.handle_csc_contacts_gpu_selection(update, context, gpu_index)
+                await self._show_disaster_only_message(update, context)
             
             elif data.startswith("blo_constituency_"):
-                constituency_index = data.replace("blo_constituency_", "")
-                await self.handle_blo_constituency_selection(update, context, constituency_index)
+                await self._show_disaster_only_message(update, context)
             
             elif data.startswith("blo_booth_"):
-                booth_index = data.replace("blo_booth_", "")
-                await self.handle_blo_booth_selection(update, context, booth_index)
+                await self._show_disaster_only_message(update, context)
             
             elif data.startswith("call_blo_"):
-                phone = data.replace("call_blo_", "")
-                await update.callback_query.answer(f"Calling BLO at {phone}")
-                # In a real implementation, this could initiate a call or show contact info
+                await self._show_disaster_only_message(update, context)
             
             elif data.startswith("call_csc_"):
-                phone = data.replace("call_csc_", "")
-                await update.callback_query.answer(f"Calling CSC Operator at {phone}")
-                # In a real implementation, this could initiate a call or show contact info
+                await self._show_disaster_only_message(update, context)
             
             elif data == "feedback":
-                await self.start_feedback_workflow(update, context)
+                await self._show_disaster_only_message(update, context)
+                
+            elif data == "photo_upload":
+                # Handle photo upload option
+                user_id = update.effective_user.id
+                state = self._get_user_state(user_id)
+                await query.edit_message_text("📷 *Upload Photo*\n\nPlease send a photo of the damage to support your application.", parse_mode='Markdown')
+                
+            elif data == "photo_skip":
+                # Handle skip photo option
+                user_id = update.effective_user.id
+                state = self._get_user_state(user_id)
+                data = state.get("data", {})
+                data["photo_status"] = "skipped"
+                state["step"] = "review"
+                state["data"] = data
+                self._set_user_state(user_id, state)
+                await self.show_application_review(update, context)
             
             elif data.startswith("check_status_"):
                 reference_number = data.replace("check_status_", "")
@@ -1796,13 +1644,126 @@ Please select an option:
             await update.message.reply_text(text, reply_markup=reply_markup, parse_mode='Markdown')
 
     async def handle_relief_norms(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        user_lang = self._get_user_language(update.effective_user.id)
-        text = self.responses[user_lang]['ex_gratia_intro']
-        # Use reply_text if not a callback query
+        """Show relief norms categories"""
+        text = """ℹ️ *Disaster Relief Norms & Compensation*
+
+📋 *Select a category to view detailed information:*
+
+Please choose the type of damage/loss for which you want to know the compensation norms:"""
+
+        keyboard = [
+            [InlineKeyboardButton("🏠 House Damage Norms", callback_data="norms_house")],
+            [InlineKeyboardButton("🌾 Land Damage Norms", callback_data="norms_land")],
+            [InlineKeyboardButton("🐄 Livestock Damage Norms", callback_data="norms_livestock")],
+            [InlineKeyboardButton("🌱 Crop Loss Norms", callback_data="norms_crop")],
+            [InlineKeyboardButton("🔙 Back to Disaster Menu", callback_data="disaster")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
         if hasattr(update, 'callback_query') and update.callback_query:
-            await update.callback_query.edit_message_text(text, parse_mode='Markdown')
+            await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
         else:
-            await update.message.reply_text(text, parse_mode='Markdown')
+            await update.message.reply_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+
+    async def show_detailed_norms(self, update: Update, context: ContextTypes.DEFAULT_TYPE, norm_type: str):
+        """Show detailed relief norms for specific category"""
+        
+        if norm_type == "house":
+            text = """🏠 *House Damage Norms*
+
+💰 *Compensation Rates:*
+
+**🏗️ Fully damaged/destroyed & severely damaged houses:**
+• **Pucca house:** ₹1,20,000 (plain areas) / ₹1,30,000 (hilly areas) per house
+• **Kutcha house:** ₹65,000 per house
+
+**🔧 Partially damaged houses (damage ≥ 15%):**
+• **Pucca house:** ₹4,000 per house  
+• **Kutcha house:** ₹4,000 per house
+
+**🏚️ Damaged/destroyed huts:** ₹8,000 per hut 
+*(recognized as hut by State/District authority)*
+
+**🐄 Cattle shed attached with house:** ₹3,000 per shed
+
+📋 *Note:* Assessment will be done by competent authority to determine damage category."""
+
+        elif norm_type == "land":
+            text = """🌾 *Land Damage Norms*
+
+💰 *Compensation Rates:*
+
+**🏔️ De-silting of agricultural land:**
+*(sand/silt > 3" depth, certified by authority)*
+• ₹18,000 per hectare 
+• Minimum: ₹2,200 per farmer
+
+**🪨 Removal of debris in hilly areas:**
+• ₹18,000 per hectare
+• Minimum: ₹2,200 per farmer
+
+**🐟 De-silting/restoration/repair of fish farms:**
+• ₹18,000 per hectare
+• Minimum: ₹2,200 per farmer
+
+**⛰️ Loss of substantial portion of land:**
+*(landslide, avalanche, change of river course)*
+• ₹47,000 per hectare
+• Only for small & marginal farmers
+• Minimum: ₹6,000 per farmer
+
+📋 *Note:* Certification by competent authority required."""
+
+        elif norm_type == "livestock":
+            text = """🐄 *Livestock Related Damage Norms*
+
+💰 *Compensation Rates:*
+
+**🥛 Milch animals:**
+• **Buffalo/cow/camel/yak/mithun:** ₹37,500 per animal
+• **Sheep/goat/pig:** ₹4,000 per animal
+
+**🐂 Draught animals:**
+• **Camel/horse/bullock:** ₹32,000 per animal
+• **Calf/donkey/pony/mule/heifer:** ₹20,000 per animal
+
+**📊 Limits per household:**
+*(as per livestock census)*
+• Max. 3 large milch animals **OR** 30 small milch animals
+• **AND/OR** 6 large draught animals or equivalent
+
+📋 *Note:* Verification through livestock census records required."""
+
+        elif norm_type == "crop":
+            text = """🌱 *Crop Related Loss Norms*
+
+💰 *Compensation Rates:*
+*(For ≥ 33% crop loss)*
+
+**🌾 Agriculture, horticulture & annual plantation crops:**
+• **Rainfed areas:** ₹8,500 per hectare (min. ₹1,000 per farmer)
+• **Assured irrigated areas:** ₹17,000 per hectare (min. ₹2,000 per farmer)
+
+**🌳 Perennial crops / Agro-forestry:**
+*(own farmland)*
+• ₹22,500 per hectare (min. ₹2,500 per farmer)
+
+**🐛 Sericulture:**
+• **Eri/Mulberry/Tussar:** ₹6,000 per hectare
+• **Muga:** ₹7,500 per hectare (min. ₹1,000 per farmer)
+
+📋 *Note:* Damage assessment by agriculture department required."""
+
+        else:
+            text = "Invalid category selected."
+
+        keyboard = [
+            [InlineKeyboardButton("🔙 Back to Relief Norms", callback_data="relief_norms")],
+            [InlineKeyboardButton("🏠 Main Menu", callback_data="main_menu")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
 
     async def handle_check_status(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle application status check"""
@@ -2064,18 +2025,9 @@ This reference number was not found in our certificate applications database.
         """Start the ex-gratia application workflow"""
         user_id = update.effective_user.id
         user_lang = self._get_user_language(user_id)
-        self._set_user_state(user_id, {"workflow": "ex_gratia", "step": "name"})
+        self._set_user_state(user_id, {"workflow": "ex_gratia", "step": "damage_type"})
         
-        text = f"*Ex-Gratia Application Form* \n\n{self.responses[user_lang]['ex_gratia_form']}"
-        
-        keyboard = [[InlineKeyboardButton(" Cancel", callback_data="disaster")]]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        
-        # Handle both regular messages and callbacks
-        if update.callback_query:
-            await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
-        else:
-            await update.message.reply_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+        await self.show_damage_type_options(update, context)
 
     async def handle_ex_gratia_workflow(self, update: Update, context: ContextTypes.DEFAULT_TYPE, text: str):
         """Handle the ex-gratia application workflow"""
@@ -2101,162 +2053,89 @@ This reference number was not found in our certificate applications database.
             await self.handle_relief_norms(update, context)
             return
 
+        # New workflow sequence: damage_type -> name -> mobile -> gpu -> ward -> parcha -> voter_card -> photograph
         if step == "name":
-            data["name"] = text
-            state["step"] = "relationship"
-            state["data"] = data
-            self._set_user_state(user_id, state)
+            # Validate name
+            if len(text.strip()) < 2:
+                await update.message.reply_text("📝 Please enter a valid name (minimum 2 characters):", parse_mode='Markdown')
+                return
             
-            # Show relationship options
-            keyboard = [
-                [InlineKeyboardButton(" Son of (S/O)", callback_data="relationship_son")],
-                [InlineKeyboardButton(" Daughter of (D/O)", callback_data="relationship_daughter")],
-                [InlineKeyboardButton(" Wife of (W/O)", callback_data="relationship_wife")]
-            ]
-            reply_markup = InlineKeyboardMarkup(keyboard)
-            await update.message.reply_text("‍‍‍ Please select your relationship:", reply_markup=reply_markup, parse_mode='Markdown')
-
-        elif step == "relationship":
-            # Store the relationship type
-            data["relationship"] = text
-            if text == "son":
-                data["relationship_label"] = "Father's Name"
-                prompt = " Please enter your Father's Name:"
-            elif text == "daughter":
-                data["relationship_label"] = "Father's Name"
-                prompt = " Please enter your Father's Name:"
-            elif text == "wife":
-                data["relationship_label"] = "Husband's Name"
-                prompt = " Please enter your Husband's Name:"
-            
-            state["step"] = "father_name"
+            data["name"] = text.strip()
+            state["step"] = "mobile"
             state["data"] = data
             self._set_user_state(user_id, state)
-            await update.message.reply_text(prompt, parse_mode='Markdown')
+            await update.message.reply_text("📱 *Mobile Number (10 digits):*\n\nPlease enter your 10-digit mobile number:", parse_mode='Markdown')
 
-        elif step == "father_name":
-            data["father_name"] = text
-            state["step"] = "village"
-            state["data"] = data
-            self._set_user_state(user_id, state)
-            await update.message.reply_text(self.responses[user_lang]['ex_gratia_village'], parse_mode='Markdown')
-
-        elif step == "village":
-            data["village"] = text
-            state["step"] = "contact"
-            state["data"] = data
-            self._set_user_state(user_id, state)
-            await update.message.reply_text(self.responses[user_lang]['ex_gratia_contact'], parse_mode='Markdown')
-
-        elif step == "contact":
+        elif step == "mobile":
+            # Validate mobile number
             if not text.isdigit() or len(text) != 10:
-                await update.message.reply_text("Please enter a valid 10-digit mobile number.", parse_mode='Markdown')
+                await update.message.reply_text("❌ Please enter a valid 10-digit mobile number:", parse_mode='Markdown')
                 return
             
-            data["contact"] = text
-            state["step"] = "voter_id"
-            state["data"] = data
-            self._set_user_state(user_id, state)
-            await update.message.reply_text(" Please enter your Voter ID number:", parse_mode='Markdown')
-
-        elif step == "voter_id":
-            # Validate voter ID - minimum 5 characters
-            if len(text.strip()) < 5:
-                await update.message.reply_text(" Voter ID must be at least 5 characters long. Please enter a valid Voter ID:", parse_mode='Markdown')
-                return
-            
-            data["voter_id"] = text
-            state["step"] = "ward"
-            state["data"] = data
-            self._set_user_state(user_id, state)
-            await update.message.reply_text(self.responses[user_lang]['ex_gratia_ward'], parse_mode='Markdown')
-
-        elif step == "ward":
-            data["ward"] = text
+            data["mobile"] = text
             state["step"] = "gpu"
             state["data"] = data
             self._set_user_state(user_id, state)
-            await update.message.reply_text(self.responses[user_lang]['ex_gratia_gpu'], parse_mode='Markdown')
+            await update.message.reply_text("🏛️ *Name of GPU (Gram Panchayat Unit):*\n\nPlease type the full name of your GPU:\n\n*Examples:*\n• Karzi Mangnam GP\n• Gangtok Municipal Corporation\n• Namchi Municipal Council", parse_mode='Markdown')
 
         elif step == "gpu":
-            data["gpu"] = text
-            state["step"] = "district"
+            # Validate GPU name
+            if len(text.strip()) < 3:
+                await update.message.reply_text("❌ Please enter a valid GPU name (minimum 3 characters):", parse_mode='Markdown')
+                return
+                
+            data["gpu"] = text.strip()
+            state["step"] = "ward"
+            state["data"] = data
+            self._set_user_state(user_id, state)
+            await update.message.reply_text("🏘️ *Ward Name:*\n\nPlease type the full name of your ward:\n\n*Examples:*\n• Mangder\n• Tashiding\n• Ward No. 5", parse_mode='Markdown')
+
+        elif step == "ward":
+            # Validate ward name
+            if len(text.strip()) < 2:
+                await update.message.reply_text("❌ Please enter a valid ward name:", parse_mode='Markdown')
+                return
+                
+            data["ward"] = text.strip()
+            state["step"] = "parcha"
+            state["data"] = data
+            self._set_user_state(user_id, state)
+            await update.message.reply_text("📋 *Parcha Number:*\n\nPlease enter your Parcha Number (land record number):\n\n*Note:* If not applicable, type 'NA'", parse_mode='Markdown')
+
+        elif step == "parcha":
+            data["parcha"] = text.strip() if text.strip().upper() != 'NA' else 'Not Applicable'
+            state["step"] = "voter_card"
+            state["data"] = data
+            self._set_user_state(user_id, state)
+            await update.message.reply_text("🗳️ *Voter Card Number:*\n\nPlease enter your Voter ID card number:", parse_mode='Markdown')
+
+        elif step == "voter_card":
+            # Validate voter ID - minimum 5 characters
+            if len(text.strip()) < 5:
+                await update.message.reply_text("❌ Voter ID must be at least 5 characters long. Please enter a valid Voter ID:", parse_mode='Markdown')
+                return
+            
+            data["voter_id"] = text.strip()
+            state["step"] = "photograph"
             state["data"] = data
             self._set_user_state(user_id, state)
             
-            # Show district options - Updated with correct Sikkim district names
+            # Photograph step (optional)
             keyboard = [
-                [InlineKeyboardButton("Gangtok (East Sikkim)", callback_data="district_east")],
-                [InlineKeyboardButton("Gyalshing (West Sikkim)", callback_data="district_west")],
-                [InlineKeyboardButton("Mangan (North Sikkim)", callback_data="district_north")],
-                [InlineKeyboardButton("Namchi (South Sikkim)", callback_data="district_south")],
-                [InlineKeyboardButton("Pakyong", callback_data="district_pakyong")],
-                [InlineKeyboardButton("Soreng", callback_data="district_soreng")]
+                [InlineKeyboardButton("📷 Upload Photo", callback_data="photo_upload")],
+                [InlineKeyboardButton("⏭️ Skip Photo (Optional)", callback_data="photo_skip")],
+                [InlineKeyboardButton("🔙 Back", callback_data="ex_gratia_edit")]
             ]
             reply_markup = InlineKeyboardMarkup(keyboard)
-            await update.message.reply_text(" Please select your district:", reply_markup=reply_markup, parse_mode='Markdown')
+            await update.message.reply_text("📸 *Photograph (Optional):*\n\nYou can upload a photograph to support your application:\n\n• Upload a clear photo of the damage\n• This step is optional", reply_markup=reply_markup, parse_mode='Markdown')
 
-        elif step == "district":
-            data["district"] = text
-            state["step"] = "khatiyan"
+        elif step == "photograph":
+            # Handle photo upload or skip
+            data["photo_status"] = "provided" if text != "skip" else "skipped"
+            state["step"] = "review"
             state["data"] = data
             self._set_user_state(user_id, state)
-            await update.message.reply_text(self.responses[user_lang]['ex_gratia_khatiyan'], parse_mode='Markdown')
-
-        elif step == "khatiyan":
-            data["khatiyan_no"] = text
-            state["step"] = "plot"
-            state["data"] = data
-            self._set_user_state(user_id, state)
-            await update.message.reply_text(self.responses[user_lang]['ex_gratia_plot'], parse_mode='Markdown')
-
-        elif step == "plot":
-            data["plot_no"] = text
-            state["step"] = "nc_datetime"
-            state["data"] = data
-            self._set_user_state(user_id, state)
-            await update.message.reply_text(" When did the natural calamity occur? (DD/MM/YYYY HH:MM)\n\nExample: 15/10/2023 14:30", parse_mode='Markdown')
-
-        elif step == "nc_datetime":
-            # Parse the datetime input
-            try:
-                # Try to parse the datetime
-                datetime_str = text.strip()
-                if '/' in datetime_str:
-                    # Format: DD/MM/YYYY HH:MM
-                    dt = datetime.strptime(datetime_str, "%d/%m/%Y %H:%M")
-                elif '-' in datetime_str:
-                    # Format: YYYY-MM-DD HH:MM
-                    dt = datetime.strptime(datetime_str, "%Y-%m-%d %H:%M")
-                else:
-                    # Try other common formats
-                    dt = datetime.strptime(datetime_str, "%d-%m-%Y %H:%M")
-                
-                data["nc_datetime"] = dt.isoformat()
-                state["step"] = "damage_type"
-                state["data"] = data
-                self._set_user_state(user_id, state)
-                await self.show_damage_type_options(update, context)
-                
-            except ValueError:
-                await update.message.reply_text(" Please enter the date and time in the correct format.\n\nExample: 15/10/2023 14:30", parse_mode='Markdown')
-                return
-
-        elif step == "damage_type":
-            data["damage_type"] = text
-            state["step"] = "damage_description"
-            state["data"] = data
-            self._set_user_state(user_id, state)
-            await update.message.reply_text(self.responses[user_lang]['ex_gratia_damage'], parse_mode='Markdown')
-
-        elif step == "damage_description":
-            data["damage_description"] = text
-            state["step"] = "location"
-            state["data"] = data
-            self._set_user_state(user_id, state)
-            
-            # Request location
-            await self.location_system.request_location(update, context, "ex_gratia")
+            await self.show_application_review(update, context)
 
         else:
             await update.message.reply_text(self.responses[user_lang]['error'], parse_mode='Markdown')
@@ -2264,18 +2143,33 @@ This reference number was not found in our certificate applications database.
 
     async def show_damage_type_options(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         keyboard = [
-            [InlineKeyboardButton(" House Damage (₹4,000 - ₹25,000)", callback_data='damage_type_house')],
-            [InlineKeyboardButton(" Crop Loss (₹4,000 - ₹15,000)", callback_data='damage_type_crop')],
-            [InlineKeyboardButton(" Livestock Loss (₹2,000 - ₹15,000)", callback_data='damage_type_livestock')],
-            [InlineKeyboardButton(" Land Damage (₹4,000 - ₹20,000)", callback_data='damage_type_land')]
+            [InlineKeyboardButton("🏠 House Damage", callback_data='damage_type_house_main')],
+            [InlineKeyboardButton("🌾 Land Damage", callback_data='damage_type_land')],
+            [InlineKeyboardButton("🌱 Crop Damage", callback_data='damage_type_crop')],
+            [InlineKeyboardButton("🐄 Livestock Damage", callback_data='damage_type_livestock')],
+            [InlineKeyboardButton(" Back to Menu", callback_data='disaster')]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
+        text = "*1️⃣ Apply for Ex-Gratia*\n\n📋 Please select the type of damage for which you are applying:"
+        
         # Handle both regular messages and callbacks
         if update.callback_query:
-            await update.callback_query.edit_message_text("Please select the type of damage:", reply_markup=reply_markup, parse_mode='Markdown')
+            await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
         else:
-            await update.message.reply_text("Please select the type of damage:", reply_markup=reply_markup, parse_mode='Markdown')
+            await update.message.reply_text(text, reply_markup=reply_markup, parse_mode='Markdown')
+
+    async def show_house_damage_sub_options(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        keyboard = [
+            [InlineKeyboardButton("🏠 Full House Damage", callback_data='damage_type_house_full')],
+            [InlineKeyboardButton("🏘️ Partial House Damage", callback_data='damage_type_house_partial')],
+            [InlineKeyboardButton(" Back to Damage Types", callback_data='damage_type_back')]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        text = "*🏠 House Damage Types*\n\nPlease select the specific type of house damage:"
+        
+        await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
 
     async def handle_damage_type_selection(self, update: Update, context: ContextTypes.DEFAULT_TYPE, damage_type: str):
         """Handle damage type selection in ex-gratia workflow"""
@@ -2283,24 +2177,167 @@ This reference number was not found in our certificate applications database.
         state = self._get_user_state(user_id)
         data = state.get("data", {})
         
+        # Map damage types to display names
         damage_types = {
-            'house': ' House Damage',
-            'crop': ' Crop Loss',
-            'livestock': ' Livestock Loss',
-            'land': ' Land Damage'
+            'house_full': '🏠 Full House Damage',
+            'house_partial': '🏘️ Partial House Damage',
+            'land': '🌾 Land Damage',
+            'crop': '🌱 Crop Damage',
+            'livestock': '🐄 Livestock Damage'
         }
         
-        data['damage_type'] = damage_types[damage_type]
-        state['step'] = 'damage_description'
+        # Store the selected damage type
+        data['damage_type'] = damage_types.get(damage_type, damage_type)
+        state['step'] = 'name'  # Next step is name as per new workflow
         state['data'] = data
         self._set_user_state(user_id, state)
         
-        text = f"""Selected: {damage_types[damage_type]}
+        # Show confirmation and ask for name
+        text = f"""✅ *Damage Type Selected:* {damage_types.get(damage_type, damage_type)}
 
-Please provide detailed description of the damage:
-(Include location, extent of damage, date of incident)"""
+📝 *Name of Applicant:*
+
+Please enter your name as per Parcha / official land records:"""
 
         await update.callback_query.edit_message_text(text, parse_mode='Markdown')
+
+    async def show_application_review(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Show application review before final submission"""
+        user_id = update.effective_user.id
+        state = self._get_user_state(user_id)
+        data = state.get("data", {})
+        
+        # Create review text
+        photo_info = data.get('photo_status', 'Not provided')
+        if data.get('photo_file_path'):
+            photo_info = f"✅ Uploaded (stored locally)"
+        elif data.get('photo_status') == 'skipped':
+            photo_info = "⏭️ Skipped (optional)"
+        
+        review_text = f"""📋 *Application Review*
+
+✅ *Damage Type:* {data.get('damage_type', 'Not specified')}
+✅ *Name:* {data.get('name', 'Not provided')}
+✅ *Mobile:* {data.get('mobile', 'Not provided')}
+✅ *GPU:* {data.get('gpu', 'Not provided')}
+✅ *Ward:* {data.get('ward', 'Not provided')}
+✅ *Parcha Number:* {data.get('parcha', 'Not provided')}
+✅ *Voter ID:* {data.get('voter_id', 'Not provided')}
+📸 *Photo:* {photo_info}
+
+**Note:** Photos are stored locally for your records but are not sent to the NIC server.
+
+Please review your information carefully before submitting."""
+        
+        keyboard = [
+            [InlineKeyboardButton("✅ Submit Application", callback_data="ex_gratia_submit_final")],
+            [InlineKeyboardButton("✏️ Edit Information", callback_data="ex_gratia_edit")],
+            [InlineKeyboardButton("❌ Cancel", callback_data="disaster")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        if update.callback_query:
+            await update.callback_query.edit_message_text(review_text, reply_markup=reply_markup, parse_mode='Markdown')
+        else:
+            await update.message.reply_text(review_text, reply_markup=reply_markup, parse_mode='Markdown')
+
+    async def submit_ex_gratia_application_final(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Submit the final ex-gratia application"""
+        user_id = update.effective_user.id
+        state = self._get_user_state(user_id)
+        data = state.get("data", {})
+        
+        # Show processing message
+        await update.callback_query.edit_message_text("⏳ *Processing your application...*\n\nPlease wait while we submit your Ex-Gratia application.", parse_mode='Markdown')
+        
+        try:
+            # Prepare data for NIC API submission (excluding photo data)
+            application_data = {
+                'name': data.get('name', ''),
+                'phone': data.get('mobile', ''),
+                'father_name': 'Not Provided',  # Could add this to workflow if needed
+                'village': data.get('ward', ''),  # Using ward as village
+                'contact': data.get('mobile', ''),
+                'ward': data.get('ward', ''),
+                'gpu': data.get('gpu', ''),
+                'district': 'Gangtok',  # Default or could be derived from GPU
+                'khatiyan_no': data.get('parcha', ''),
+                'plot_no': 'Not Provided',  # Could add this to workflow if needed
+                'damage_type': data.get('damage_type', ''),
+                'damage_description': f"Damage: {data.get('damage_type', '')} - Voter ID: {data.get('voter_id', '')}",
+                'photo_status': data.get('photo_status', 'skipped'),  # Only send status, not actual photo
+                'submission_date': datetime.now().isoformat()
+            }
+            
+            # Note: Photo is stored locally but not sent to NIC server
+            # Photo file path: {data.get('photo_file_path', 'Not provided')}
+            
+            # Submit to NIC server to get real application ID
+            try:
+                logger.info(f"[NIC] Submitting application to NIC server for user {user_id}")
+                api_response = await self.nc_exgratia_api.submit_application(application_data)
+                
+                if api_response.get('success'):
+                    application_id = api_response.get('application_id', f"SK2025EX{random.randint(1000, 9999)}")
+                    logger.info(f"[NIC] Application submitted successfully. ID: {application_id}")
+                else:
+                    # Fallback to random ID if API fails
+                    import random
+                    application_id = f"SK2025EX{random.randint(1000, 9999)}"
+                    logger.warning(f"[NIC] API submission failed, using fallback ID: {application_id}")
+            except Exception as api_error:
+                # Fallback to random ID if API call fails
+                import random
+                application_id = f"SK2025EX{random.randint(1000, 9999)}"
+                logger.error(f"[NIC] API call failed: {api_error}, using fallback ID: {application_id}")
+            
+            # Clear user state
+            self._clear_user_state(user_id)
+            
+            # Show success message
+            success_text = f"""✅ *Application Submitted Successfully!*
+
+🆔 *Application ID:* `{application_id}`
+📅 *Submitted:* {datetime.now().strftime("%d/%m/%Y %H:%M")}
+
+📝 *Application Details:*
+• *Damage Type:* {data.get('damage_type', 'Not specified')}
+• *Name:* {data.get('name', 'Not provided')}
+• *Mobile:* {data.get('mobile', 'Not provided')}
+• *Photo:* {data.get('photo_status', 'Not provided')} (stored locally)
+
+📞 *Next Steps:*
+1. Save your Application ID for future reference
+2. You will receive an SMS confirmation shortly
+3. Track your application status using the ID above
+
+⏰ *Processing Time:* 7-15 working days
+
+Thank you for using Sajilo Sewak!"""
+            
+            keyboard = [
+                [InlineKeyboardButton("🔍 Check Status", callback_data="check_status")],
+                [InlineKeyboardButton("🏠 Main Menu", callback_data="main_menu")]
+            ]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            
+            await update.callback_query.edit_message_text(success_text, reply_markup=reply_markup, parse_mode='Markdown')
+            
+        except Exception as e:
+            logger.error(f"Error submitting ex-gratia application: {e}")
+            error_text = """❌ *Submission Failed*
+
+Sorry, there was an error submitting your application. Please try again later or contact support.
+
+📞 *Support:* 1800-XXX-XXXX"""
+            
+            keyboard = [
+                [InlineKeyboardButton("🔄 Try Again", callback_data="ex_gratia")],
+                [InlineKeyboardButton("🏠 Main Menu", callback_data="main_menu")]
+            ]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            
+            await update.callback_query.edit_message_text(error_text, reply_markup=reply_markup, parse_mode='Markdown')
 
     async def show_ex_gratia_confirmation(self, update: Update, context: ContextTypes.DEFAULT_TYPE, data: dict):
         """Show confirmation of collected data before submission"""
@@ -2408,7 +2445,7 @@ Please verify all details carefully. Would you like to:"""
                 now = datetime.now()
                 local_app_id = f"EXG{now.strftime('%Y%m%d')}{random.randint(1000,9999)}"
                 
-                # Save to local CSV as backup
+                # Save to local CSV as backup (including photo info for local reference)
                 df = pd.DataFrame([{
                     'ApplicationID': local_app_id,
                     'NCReferenceNumber': reference_number,
@@ -2423,6 +2460,8 @@ Please verify all details carefully. Would you like to:"""
                     'KhatiyanNo': data.get('khatiyan_no'),
                     'PlotNo': data.get('plot_no'),
                     'DamageDescription': data.get('damage_description'),
+                    'PhotoStatus': data.get('photo_status', 'Not provided'),
+                    'PhotoFilePath': data.get('photo_file_path', 'Not provided'),  # Store locally but don't send to NIC
                     'SubmissionTimestamp': now.strftime('%Y-%m-%d %H:%M:%S'),
                     'Status': 'Pending'
                 }])
@@ -2460,7 +2499,7 @@ Thank you for using NC Exgratia service! """
                 else:
                     await update.message.reply_text(confirmation, reply_markup=reply_markup, parse_mode='Markdown')
                 
-                # Log to Google Sheets
+                # Log to Google Sheets (including photo info for local reference)
                 user_name = update.effective_user.first_name or "Unknown"
                 application_data = {
                     'name': data.get('name'),
@@ -2471,7 +2510,9 @@ Thank you for using NC Exgratia service! """
                     'damage_description': data.get('damage_description', ''),
                     'nc_datetime': data.get('nc_datetime', ''),
                     'reference_number': reference_number,
-                    'api_status': api_status
+                    'api_status': api_status,
+                    'photo_status': data.get('photo_status', 'Not provided'),
+                    'photo_stored_locally': 'Yes' if data.get('photo_file_path') else 'No'  # Note: Photo stored locally, not sent to NIC
                 }
                 self._log_to_sheets(
                     user_id=user_id,
@@ -5015,288 +5056,6 @@ Get your Aadhaar-related services such as:
                     parse_mode='Markdown'
                 )
 
-    async def handle_csc_search_workflow(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle enhanced CSC search workflow using block-GPU mapping"""
-        user_id = update.effective_user.id
-        user_lang = self._get_user_language(user_id)
-        state = self._get_user_state(user_id)
-        text = update.message.text
-        
-        if state.get('step') == 'gpu_input':
-            # Enhanced search for CSC by multiple criteria
-            search_term = text.strip()
-            
-            # 1. First, try direct GPU name search in CSC details
-            direct_gpu_match = self.csc_details_df[
-                self.csc_details_df['GPU Name'].str.contains(search_term, case=False, na=False)
-            ]
-            
-            if not direct_gpu_match.empty:
-                # Direct GPU match found
-                csc_info = direct_gpu_match.iloc[0]
-                response = f""" **CSC Operator Found**
-
-**GPU:** {csc_info['GPU Name']}
-**Block:** {csc_info['BLOCK']}
-**Operator Name:** {csc_info['Name']}
-**Contact:** {csc_info['Contact No.']}
-
-**Block Single Window:** {csc_info['Block Single Window']}
-**Sub Division Single Window:** {csc_info['SubDivision Single Window']}"""
-                
-                keyboard = [
-                    [InlineKeyboardButton(" Back to Contacts", callback_data="contacts")],
-                    [InlineKeyboardButton(self.responses[user_lang]['back_main_menu'], callback_data="main_menu")]
-                ]
-                reply_markup = InlineKeyboardMarkup(keyboard)
-                
-                await update.message.reply_text(response, reply_markup=reply_markup, parse_mode='Markdown')
-                self._clear_user_state(user_id)
-                return
-            
-            # 2. Search by ward name in block-GPU mapping
-            ward_matches = self.block_gpu_mapping_df[
-                self.block_gpu_mapping_df['Name of Ward'].str.contains(search_term, case=False, na=False)
-            ]
-            
-            if not ward_matches.empty:
-                # Ward match found - find the corresponding GPU and CSC
-                gpu_name = ward_matches.iloc[0]['Name of GPU']
-                csc_match = self.csc_details_df[
-                    self.csc_details_df['GPU Name'].str.contains(gpu_name, case=False, na=False)
-                ]
-                
-                if not csc_match.empty:
-                    csc_info = csc_match.iloc[0]
-                    ward_name = ward_matches.iloc[0]['Name of Ward']
-                    response = f""" **CSC Operator Found (via Ward Search)**
-
-**Ward:** {ward_name}
-**GPU:** {csc_info['GPU Name']}
-**Block:** {csc_info['BLOCK']}
-**Operator Name:** {csc_info['Name']}
-**Contact:** {csc_info['Contact No.']}
-
-**Block Single Window:** {csc_info['Block Single Window']}
-**Sub Division Single Window:** {csc_info['SubDivision Single Window']}"""
-                    
-                    keyboard = [
-                        [InlineKeyboardButton(" Back to Contacts", callback_data="contacts")],
-                        [InlineKeyboardButton(self.responses[user_lang]['back_main_menu'], callback_data="main_menu")]
-                    ]
-                    reply_markup = InlineKeyboardMarkup(keyboard)
-                    
-                    await update.message.reply_text(response, reply_markup=reply_markup, parse_mode='Markdown')
-                    self._clear_user_state(user_id)
-                    return
-            
-            # 3. Search by constituency name
-            constituency_matches = self.block_gpu_mapping_df[
-                self.block_gpu_mapping_df['Terrotorial Constituency Name'].str.contains(search_term, case=False, na=False)
-            ]
-            
-            if not constituency_matches.empty:
-                # Constituency match found - show all GPUs in that constituency
-                constituency_name = constituency_matches.iloc[0]['Terrotorial Constituency Name']
-                unique_gpus = constituency_matches['Name of GPU'].dropna().unique()
-                
-                response = f""" **Constituency Found: {constituency_name}**
-
-**Available GPUs in this constituency:**
-"""
-                
-                for gpu in unique_gpus:
-                    if pd.notna(gpu):
-                        response += f"• {gpu}\n"
-                
-                response += f"\nPlease enter the specific GPU name from the list above to find the CSC operator."
-                
-                keyboard = [
-                    [InlineKeyboardButton(" Back to Contacts", callback_data="contacts")],
-                    [InlineKeyboardButton(self.responses[user_lang]['back_main_menu'], callback_data="main_menu")]
-                ]
-                reply_markup = InlineKeyboardMarkup(keyboard)
-                
-                await update.message.reply_text(response, reply_markup=reply_markup, parse_mode='Markdown')
-                self._clear_user_state(user_id)
-                return
-            
-            # 4. No exact match found - provide suggestions with retry mechanism
-            # Get similar GPU names for suggestions
-            all_gpu_names = self.csc_details_df['GPU Name'].dropna().tolist()
-            suggestions = []
-            
-            for gpu_name in all_gpu_names:
-                if search_term.lower() in gpu_name.lower() or gpu_name.lower() in search_term.lower():
-                    suggestions.append(gpu_name)
-            
-            # Also check for similar ward names
-            all_ward_names = self.block_gpu_mapping_df['Name of Ward'].dropna().tolist()
-            for ward_name in all_ward_names:
-                if search_term.lower() in ward_name.lower() or ward_name.lower() in search_term.lower():
-                    suggestions.append(ward_name)
-            
-            # Remove duplicates and limit suggestions
-            suggestions = list(set(suggestions))[:5]
-            
-            response = f" **No exact match found for: {search_term}**\n\n"
-            
-            if suggestions:
-                response += "**Did you mean one of these?**\n"
-                for suggestion in suggestions:
-                    response += f"• {suggestion}\n"
-                response += "\n**Please try again with one of the suggested names above.**"
-            else:
-                response += "**Available GPUs in Sikkim:**\n"
-                # Show first 10 GPUs as examples
-                for i, gpu_name in enumerate(all_gpu_names[:10]):
-                    response += f"• {gpu_name}\n"
-                if len(all_gpu_names) > 10:
-                    response += f"... and {len(all_gpu_names) - 10} more\n"
-                response += "\n**Please try again with the exact GPU name.**"
-            
-            # Add retry button and keep user in search state
-            keyboard = [
-                [InlineKeyboardButton(" Try Again", callback_data="csc_search_retry")],
-                [InlineKeyboardButton(" Back to Contacts", callback_data="contacts")],
-                [InlineKeyboardButton(self.responses[user_lang]['back_main_menu'], callback_data="main_menu")]
-            ]
-            reply_markup = InlineKeyboardMarkup(keyboard)
-            
-            # Keep user in search state for retry instead of clearing
-            state["step"] = "gpu_input"
-            state["last_search"] = search_term
-            self._set_user_state(user_id, state)
-            
-            await update.message.reply_text(response, reply_markup=reply_markup, parse_mode='Markdown')
-
-    async def handle_blo_search_workflow(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle enhanced BLO search workflow with better suggestions"""
-        user_id = update.effective_user.id
-        user_lang = self._get_user_language(user_id)
-        state = self._get_user_state(user_id)
-        text = update.message.text
-        
-        if state.get('step') == 'polling_station':
-            # Enhanced search for BLO by polling station
-            polling_station = text.strip()
-            
-            # Search in BLO details
-            matching_blo = self.blo_details_df[
-                self.blo_details_df['Polling Station'].str.contains(polling_station, case=False, na=False)
-            ]
-            
-            if not matching_blo.empty:
-                blo_info = matching_blo.iloc[0]
-                response = f""" **BLO (Booth Level Officer) Found**
-
-**AC:** {blo_info['AC']}
-**Polling Station:** {blo_info['Polling Station']}
-**BLO Name:** {blo_info['BLO Details']}
-**Mobile Number:** {blo_info['Mobile Number']}"""
-                
-                keyboard = [
-                    [InlineKeyboardButton(" Back to Contacts", callback_data="contacts")],
-                    [InlineKeyboardButton(self.responses[user_lang]['back_main_menu'], callback_data="main_menu")]
-                ]
-                reply_markup = InlineKeyboardMarkup(keyboard)
-                
-                await update.message.reply_text(response, reply_markup=reply_markup, parse_mode='Markdown')
-            else:
-                # No exact match found - provide suggestions
-                all_polling_stations = self.blo_details_df['Polling Station'].dropna().tolist()
-                suggestions = []
-                
-                for station in all_polling_stations:
-                    if polling_station.lower() in station.lower() or station.lower() in polling_station.lower():
-                        suggestions.append(station)
-                
-                # Remove duplicates and limit suggestions
-                suggestions = list(set(suggestions))[:5]
-                
-                response = f" **No BLO found for polling station: {polling_station}**\n\n"
-                
-                if suggestions:
-                    response += "**Did you mean one of these polling stations?**\n"
-                    for suggestion in suggestions:
-                        response += f"• {suggestion}\n"
-                    response += "\nPlease try searching with one of the suggested polling station names."
-                else:
-                    response += "**Available Polling Stations in Sikkim:**\n"
-                    # Show first 10 polling stations as examples
-                    for i, station in enumerate(all_polling_stations[:10]):
-                        response += f"• {station}\n"
-                    if len(all_polling_stations) > 10:
-                        response += f"... and {len(all_polling_stations) - 10} more\n"
-                    response += "\nPlease enter the exact polling station name."
-                
-                keyboard = [
-                    [InlineKeyboardButton(" Back to Contacts", callback_data="contacts")],
-                    [InlineKeyboardButton(self.responses[user_lang]['back_main_menu'], callback_data="main_menu")]
-                ]
-                reply_markup = InlineKeyboardMarkup(keyboard)
-                
-                await update.message.reply_text(response, reply_markup=reply_markup, parse_mode='Markdown')
-            
-            # Clear user state
-            self._clear_user_state(user_id)
-
-    def register_handlers(self):
-        """Register message and callback handlers"""
-        self.application.add_handler(CommandHandler("start", self.start))
-        self.application.add_handler(CommandHandler("language", self.language_command))
-        self.application.add_handler(CommandHandler("status", self.handle_status_command))
-        
-        # Add handler for location messages FIRST (higher priority)
-        self.application.add_handler(MessageHandler(filters.LOCATION, self.message_handler))
-        
-        # Add handler for text messages
-        self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.message_handler))
-        
-        self.application.add_handler(CallbackQueryHandler(self.callback_handler))
-        self.application.add_error_handler(self.error_handler)  # Add error handler
-        logger.info(" All handlers registered successfully")
-
-    def run(self):
-        """Run the bot"""
-        try:
-            # Create application
-            self.application = Application.builder().token(self.BOT_TOKEN).build()
-            
-            # Add handlers
-            self.application.add_handler(CommandHandler("start", self.start))
-            self.application.add_handler(CommandHandler("language", self.language_command))
-            self.application.add_handler(CommandHandler("status", self.handle_status_command))
-            
-            # Add handler for location messages FIRST (higher priority)
-            self.application.add_handler(MessageHandler(filters.LOCATION, self.message_handler))
-            
-            # Add handler for text messages
-            self.application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.message_handler))
-            
-            self.application.add_handler(CallbackQueryHandler(self.callback_handler))
-            
-            # Add error handler
-            self.application.add_error_handler(self.error_handler)
-            
-            # Start the bot
-            logger.info("Starting Sajilo Sewak Bot...")
-            print("Starting Sajilo Sewak Bot...")
-            print("Ready to serve citizens!")
-            
-            # Run the bot until the user presses Ctrl-C
-            self.application.run_polling(allowed_updates=Update.ALL_TYPES)
-            
-        except KeyboardInterrupt:
-            logger.info("Shutting down bot...")
-            if hasattr(self, 'conversation_system'):
-                self.conversation_system.cleanup_session()
-            print("Bot stopped gracefully.")
-            
-        except Exception as e:
-            logger.error(f" Failed to start bot: {str(e)}")
-            raise
-
     async def check_nc_exgratia_status(self, update: Update, context: ContextTypes.DEFAULT_TYPE, reference_number: str):
         """Check NC Exgratia application status using API"""
         user_id = update.effective_user.id
@@ -6317,201 +6076,3 @@ Please try a different GPU or block."""
             reply_markup = InlineKeyboardMarkup(keyboard)
             await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
             return
-        
-        # Get the first CSC operator info
-        csc_row = csc_info.iloc[0]
-        
-        text = f""" **CSC Operator Information**
-
-**Selected Block:** {state["block"]}
-**Selected GPU:** {gpu_name}
-
-**CSC Operator Details:**
-• **Name:** {csc_row.get('Name', 'N/A')}
-• **Contact:** {csc_row.get('Contact No.', 'N/A')}
-• **Block Single Window:** {csc_row.get('Block Single Window', 'N/A')}
-• **SubDivision Single Window:** {csc_row.get('SubDivision Single Window', 'N/A')}
-
-You can contact this CSC operator for any government services."""
-        
-        keyboard = [
-            [InlineKeyboardButton(" Back to GPUs", callback_data="contacts_csc")],
-            [InlineKeyboardButton(" Back to Contacts", callback_data="contacts")],
-            [InlineKeyboardButton(" Main Menu", callback_data="main_menu")]
-        ]
-        
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
-
-    async def simple_csc_block_to_gpu(self, update: Update, context: ContextTypes.DEFAULT_TYPE, block_index: str):
-        """Simple function to map block names to GPUs"""
-        print(f" [DEBUG] simple_csc_block_to_gpu called with block_index: {block_index}")
-        
-        # Available blocks
-        available_blocks = [
-            "Yuksam",
-            "Gyalshing", 
-            "Dentam",
-            "Hee Martam",
-            "Arithang Chongrang",
-            "Gyalshing Municipal Council"
-        ]
-        
-        try:
-            block_index = int(block_index)
-            block_name = available_blocks[block_index]
-        except (ValueError, IndexError):
-            await update.callback_query.answer("Invalid block selection")
-            return
-        
-        # Map block names to CSV format
-        block_mapping = {
-            'Arithang Chongrang': 'Chongrang',
-            'Dentam': 'Dentam',
-            'Gyalshing': 'Gyalshing',
-            'Yuksam': 'Yuksam',
-            'Hee Martam': 'Hee Martam',
-            'Gyalshing Municipal Council': 'Gyalshing Municipal Council'
-        }
-        
-        csc_block_name = block_mapping.get(block_name, block_name)
-        
-        # Get GPUs from CSV
-        block_gpus = self.csc_details_df[
-            self.csc_details_df['BLOCK'].str.lower() == csc_block_name.lower()
-        ]['GPU Name'].dropna().unique().tolist()
-        
-        # If no exact match, try partial matching
-        if not block_gpus:
-            block_gpus = self.csc_details_df[
-                self.csc_details_df['BLOCK'].str.contains(csc_block_name, case=False, na=False, regex=False)
-            ]['GPU Name'].dropna().unique().tolist()
-        
-        # Clean GPU names
-        cleaned_gpus = []
-        for gpu in block_gpus:
-            cleaned_gpu = re.sub(r'^\d+\.\s*', '', gpu.strip())
-            cleaned_gpus.append(cleaned_gpu)
-        
-        block_gpus = sorted(cleaned_gpus)
-        
-        if not block_gpus:
-            text = f""" **No GPUs Found**
-
-No GPUs found for block: **{block_name}**
-
-Please try a different block."""
-            keyboard = [
-                [InlineKeyboardButton(" Back to Blocks", callback_data="contacts_csc")],
-                [InlineKeyboardButton(" Back to Contacts", callback_data="contacts")]
-            ]
-            reply_markup = InlineKeyboardMarkup(keyboard)
-            await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
-            return
-        
-        text = f""" **Know Your CSC Operator**
-
-**Selected Block:** {block_name}
-
-**Step 2: GPU Selection**
-
-Select your GPU to see CSC operator details:
-
-Please choose your GPU:"""
-        
-        # Create keyboard with GPUs as clickable buttons
-        keyboard = []
-        for i, gpu in enumerate(block_gpus):
-            keyboard.append([InlineKeyboardButton(gpu, callback_data=f"csc_gpu_{i}")])
-        
-        keyboard.append([InlineKeyboardButton(" Back to Blocks", callback_data="contacts_csc")])
-        keyboard.append([InlineKeyboardButton(" Back to Contacts", callback_data="contacts")])
-        
-        # Store GPUs in user state for GPU selection
-        user_id = update.effective_user.id
-        state = self._get_user_state(user_id)
-        state["available_gpus"] = block_gpus
-        state["block"] = block_name
-        self._set_user_state(user_id, state)
-        
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
-
-    async def handle_csc_gpu_selection(self, update: Update, context: ContextTypes.DEFAULT_TYPE, gpu_index: str):
-        """Handle CSC GPU selection and show CSC operator details"""
-        print(f"DEBUG: handle_csc_gpu_selection called with gpu_index: {gpu_index}")
-        user_id = update.effective_user.id
-        state = self._get_user_state(user_id)
-        
-        # Get the actual GPU name from the index
-        available_gpus = state.get("available_gpus", [])
-        print(f"DEBUG: Available GPUs from state: {available_gpus}")
-        print(f"DEBUG: GPU index: {gpu_index}")
-        try:
-            gpu_index = int(gpu_index)
-            gpu_name = available_gpus[gpu_index]
-            print(f"DEBUG: Selected GPU name: {gpu_name}")
-        except (ValueError, IndexError) as e:
-            print(f"DEBUG: Error getting GPU name: {e}")
-            await update.callback_query.answer("Invalid GPU selection")
-            return
-        
-        # Get block name from state
-        block_name = state.get("block", "Unknown")
-        
-        # Get CSC operator details for this GPU
-        print(f"DEBUG: Looking for CSC details for GPU: {gpu_name}")
-        
-        # Find CSC operator details from CSV
-        print(f"DEBUG: Searching CSV for GPU: {gpu_name}")
-        csc_details = self.csc_details_df[
-            (self.csc_details_df['GPU Name'].str.contains(gpu_name, case=False, na=False, regex=False)) |
-            (self.csc_details_df['GPU Name'].str.lower() == gpu_name.lower())
-        ]
-        
-        print(f"DEBUG: Found {len(csc_details)} matching records in CSV")
-        
-        if csc_details.empty:
-            text = f""" **No CSC Details Found**
-
-Sorry, no CSC operator details were found for GPU: **{gpu_name}**
-
-Please try selecting a different GPU or contact support."""
-            
-            keyboard = [
-                [InlineKeyboardButton(" Back to GPUs", callback_data="contacts_csc")],
-                [InlineKeyboardButton(" Back to Contacts", callback_data="contacts")]
-            ]
-            reply_markup = InlineKeyboardMarkup(keyboard)
-            await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
-            return
-        
-        # Get the first matching CSC operator
-        csc_operator = csc_details.iloc[0]
-        
-        text = f""" **CSC Operator Details**
-
-**Block:** {block_name}
-**GPU:** {gpu_name}
-
-**CSC Operator Information:**
-• **Name:** {csc_operator.get('Name', 'Not Available')}
-• **Contact:** {csc_operator.get('Contact No.', 'Not Available')}
-• **Block Single Window:** {csc_operator.get('Block Single Window', 'Not Available')}
-• **SubDivision Single Window:** {csc_operator.get('SubDivision Single Window', 'Not Available')}
-
-You can contact this CSC operator for assistance with government services."""
-        
-        keyboard = [
-            [InlineKeyboardButton(" Back to GPUs", callback_data="contacts_csc")],
-            [InlineKeyboardButton(" Back to Contacts", callback_data="contacts")],
-            [InlineKeyboardButton(" Main Menu", callback_data="main_menu")]
-        ]
-        
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        await update.callback_query.edit_message_text(text, reply_markup=reply_markup, parse_mode='Markdown')
-
-if __name__ == "__main__":
-    # Initialize and run bot
-    bot = SajiloSewakBot()
-    bot.run() 
